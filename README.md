@@ -1,6 +1,5 @@
 # OctoLight
-
-**TODO:** Describe what your plugin does.
+A simple plugin that adds a button to the navigation bar for toggleing a GPIO pin on the Raspberry Pi. I use it for turning ON and OFF the light on my 3D printer.
 
 ## Setup
 
