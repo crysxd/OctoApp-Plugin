@@ -67,7 +67,7 @@ class OctoLightPlugin(
 	
 	def get_update_information(self):
 		return dict(
-			OctoLight=dict(
+			octolight=dict(
 				displayName="OctoLight",
 				displayVersion=self._plugin_version,
 
