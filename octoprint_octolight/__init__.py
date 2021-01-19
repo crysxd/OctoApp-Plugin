@@ -64,25 +64,25 @@ class OctoLightPlugin(
 		))
 
 		return flask.jsonify(status="ok")
+	
+	def get_update_information(self):
+		return dict(
+			OctoLight=dict(
+				displayName="OctoLight",
+				displayVersion=self._plugin_version,
 
-def get_update_information(*args, **kwargs):
-	return dict(
-		octolight=dict(
-			displayName=self.plugin_name,
-			displayVersion=self.plugin_version,
+				type="github_release",
+				current=self._plugin_version,
 
-			type="github_release",
-			current=self.plugin_version,
-			
-			user="gigibu5",
-			repo="OctoLight",
-			pip="https://github.com/gigibu5/OctoLight/archive/{target}.zip"
+				user="gigibu5",
+				repo="OctoLight",
+				pip="https://github.com/gigibu5/OctoLight/archive/{target}.zip"
+			)
 		)
-	)
 
 __plugin_pythoncompat__ = ">=2.7,<4"
 __plugin_implementation__ = OctoLightPlugin()
 
 __plugin_hooks__ = {
-	"octoprint.plugin.softwareupdate.check_config": get_update_information
+	"octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information
 }
