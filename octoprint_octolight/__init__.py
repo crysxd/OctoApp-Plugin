@@ -13,11 +13,11 @@ class OctoLightPlugin(
 		octoprint.plugin.StartupPlugin,
 		octoprint.plugin.TemplatePlugin,
 		octoprint.plugin.SimpleApiPlugin,
-		octoprint.plugin.SettingsPlugin
+		octoprint.plugin.SettingsPlugin,
+		octoprint.plugin.RestartNeedingPlugin
 	):
 
 	light_state = False
-
 
 	def get_settings_defaults(self):
 		return dict(
@@ -39,7 +39,6 @@ class OctoLightPlugin(
 			self._settings.get(["light_pin"]),
 			self._settings.get(["inverted_output"])
 		))
-		#self._logger.info(self._settings.get(["light_pin"]))
 		self._logger.info("--------------------------------------------")
 
 		# Setting the default state of pin
@@ -51,10 +50,14 @@ class OctoLightPlugin(
 
 	
 	def on_api_get(self, request):
+		# Sets the GPIO every time, if user changed it in the settings.
 		GPIO.setup(int(self._settings.get(["light_pin"])), GPIO.OUT)
+		
+		
 		self.light_state = not self.light_state
-		#self._logger.info(self._settings.get(["light_pin"]))
-		if bool(self.light_state)^bool(self._settings.get(["inverted_output"])):
+		
+		# Sets the light state depending on the inverted output setting (XOR)
+		if self.light_state ^ self._settings.get(["inverted_output"]):
 			GPIO.output(int(self._settings.get(["light_pin"])), GPIO.HIGH)
 		else:
 			GPIO.output(int(self._settings.get(["light_pin"])), GPIO.LOW)
@@ -84,5 +87,6 @@ __plugin_pythoncompat__ = ">=2.7,<4"
 __plugin_implementation__ = OctoLightPlugin()
 
 __plugin_hooks__ = {
-	"octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information
+	"octoprint.plugin.softwareupdate.check_config":
+	__plugin_implementation__.get_update_information
 }
