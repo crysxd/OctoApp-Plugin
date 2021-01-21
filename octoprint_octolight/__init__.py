@@ -13,11 +13,11 @@ class OctoLightPlugin(
 		octoprint.plugin.StartupPlugin,
 		octoprint.plugin.TemplatePlugin,
 		octoprint.plugin.SimpleApiPlugin,
-		octoprint.plugin.SettingsPlugin
+		octoprint.plugin.SettingsPlugin,
+		octoprint.plugin.RestartNeedingPlugin
 	):
 
 	light_state = False
-
 
 	def get_settings_defaults(self):
 		return dict(
