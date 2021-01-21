@@ -1,5 +1,5 @@
 # OctoLight
-A simple plugin that adds a button to the navigation bar for toggleing a GPIO pin on the Raspberry Pi. I use it for turning ON and OFF the light on my 3D printer.
+A simple plugin that adds a button to the navigation bar for toggleing a GPIO pin on the Raspberry Pi.
 
 ![WebUI interface](img/screenshoot.png)
 
@@ -10,6 +10,14 @@ or manually using this URL:
 	https://github.com/gigibu5/OctoLight/archive/master.zip
 
 ## Configuration
-There is an option in the settings menu for changing the GPIO the button trigeres. **IMPORTANT:** the pins are saved in the board layout, not by GPIO naming scheme. Below is a picture of the Raspberry Pies GPIO configuration. The correct numbers are those written in gray on the picture bellow.
+![Settings panel](img/settings.png)
 
-![Raspberry Pi GPIO](img/rpi_gpio.png)
+Curently, you can configure two settings:
+- `Light PIN`: The pin on the Raspberry Pi that the button controls. 
+	- Default value: 13
+	- The pin number is saved in the **board layout naming** scheme (gray labels on the pinout image below).
+	- **!! IMPORTANT !!** The Raspberry Pi can only controll the **GPIO** pins (orange labels on the pinout image below)
+	![Raspberry Pi GPIO](img/rpi_gpio.png)
+
+- `Inverted output`: If true, the output will be inverted
+	- Usage: if you have a light, that is turned off when voltage is applied to the pin (wired in negative logic), you should turn on this option, so the light isn't on when you reboot your Raspberry Pi.
