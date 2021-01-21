@@ -3,7 +3,7 @@
 	<div class="control-group">
 		<label class="control-label">{{ _('Light PIN') }}</label>
 		<div class="controls">
-			<input type="number" class="input-small" data-bind="value: settings.plugins.octolight.light_pin">
+			<input type="number" min="1" max="40" class="input-small" data-bind="value: settings.plugins.octolight.light_pin">
 		</div>
 
 		<div class="controls">
