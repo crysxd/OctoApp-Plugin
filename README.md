@@ -23,7 +23,7 @@ Curently, you can configure two settings:
 	- Usage: if you have a light, that is turned off when voltage is applied to the pin (wired in negative logic), you should turn on this option, so the light isn't on when you reboot your Raspberry Pi.
 	
 ## TO DO
-[ ] Update interface if Light is turned on or off
+- [ ] Update interface if Light is turned on or off
 
 Maybe in the distant future:
-[ ] Turn off on finish print
+- [ ] Turn off on finish print
