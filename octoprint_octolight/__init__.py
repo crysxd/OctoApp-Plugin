@@ -24,7 +24,7 @@ class OctoLightPlugin(
 			light_pin = 13,
 			inverted_output = False
 		)
-	
+
 	def get_template_configs(self):
 		return [
 			dict(type="navbar", custom_bindings=False),
@@ -48,14 +48,14 @@ class OctoLightPlugin(
 		else:
 			GPIO.output(int(self._settings.get(["light_pin"])), GPIO.LOW)
 
-	
+
 	def on_api_get(self, request):
 		# Sets the GPIO every time, if user changed it in the settings.
 		GPIO.setup(int(self._settings.get(["light_pin"])), GPIO.OUT)
-		
-		
+
+
 		self.light_state = not self.light_state
-		
+
 		# Sets the light state depending on the inverted output setting (XOR)
 		if self.light_state ^ self._settings.get(["inverted_output"]):
 			GPIO.output(int(self._settings.get(["light_pin"])), GPIO.HIGH)
@@ -70,7 +70,7 @@ class OctoLightPlugin(
 
 
 		return flask.jsonify(status="ok")
-	
+
 	def get_update_information(self):
 		return dict(
 			octolight=dict(
@@ -87,10 +87,14 @@ class OctoLightPlugin(
 		)
 
 	def get_assets(self):
-        return {
-            "js": ["js/octolight.js"],
-            "css": ["css/octolight.css"]
-        }
+		# Define your plugin's asset files to automatically include in the
+		# core UI here.
+		return dict(
+			js=["js/octolight.js"],
+			css=["css/octolight.css"],
+			#less=["less/octolight.less"]
+		)
+
 
 __plugin_pythoncompat__ = ">=2.7,<4"
 __plugin_implementation__ = OctoLightPlugin()
