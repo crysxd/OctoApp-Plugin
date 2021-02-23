@@ -10,11 +10,13 @@ GPIO.setmode(GPIO.BOARD)
 GPIO.setwarnings(False)
 
 class OctoLightPlugin(
+		octoprint.plugin.AssetPlugin,
 		octoprint.plugin.StartupPlugin,
 		octoprint.plugin.TemplatePlugin,
 		octoprint.plugin.SimpleApiPlugin,
 		octoprint.plugin.SettingsPlugin,
-		octoprint.plugin.RestartNeedingPlugin
+		octoprint.plugin.RestartNeedingPlugin,
+		octoprint.plugin.OctoPrintPlugin
 	):
 
 	light_state = False
