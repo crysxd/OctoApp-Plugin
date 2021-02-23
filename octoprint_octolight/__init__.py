@@ -66,6 +66,9 @@ class OctoLightPlugin(
 			self.light_state
 		))
 
+		self._plugin_manager.send_plugin_message(self._identifier, dict(isLightOn=self.light_state))
+
+
 		return flask.jsonify(status="ok")
 	
 	def get_update_information(self):
@@ -82,6 +85,12 @@ class OctoLightPlugin(
 				pip="https://github.com/gigibu5/OctoLight/archive/{target}.zip"
 			)
 		)
+
+	def get_assets(self):
+        return {
+            "js": ["js/octolight.js"],
+            "css": ["css/octolight.css"]
+        }
 
 __plugin_pythoncompat__ = ">=2.7,<4"
 __plugin_implementation__ = OctoLightPlugin()
