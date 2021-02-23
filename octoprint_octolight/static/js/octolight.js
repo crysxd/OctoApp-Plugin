@@ -1,5 +1,6 @@
 $(function() {
     function OctolightViewModel(parameters){
+    	var self = this;
     	self.psu_indicator = $("#light_indicator");
     	self.isLightOn = ko.observable(undefined);
 

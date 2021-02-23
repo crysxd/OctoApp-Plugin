@@ -31,6 +31,15 @@ class OctoLightPlugin(
 			dict(type="settings", custom_bindings=False)
 		]
 
+	def get_assets(self):
+		# Define your plugin's asset files to automatically include in the
+		# core UI here.
+		return dict(
+			js=["js/octolight.js"],
+			css=["css/octolight.css"],
+			#less=["less/octolight.less"]
+		)
+
 	def on_after_startup(self):
 		self.light_state = False
 		self._logger.info("--------------------------------------------")
@@ -85,16 +94,6 @@ class OctoLightPlugin(
 				pip="https://github.com/gigibu5/OctoLight/archive/{target}.zip"
 			)
 		)
-
-	def get_assets(self):
-		# Define your plugin's asset files to automatically include in the
-		# core UI here.
-		return dict(
-			js=["js/octolight.js"],
-			css=["css/octolight.css"],
-			#less=["less/octolight.less"]
-		)
-
 
 __plugin_pythoncompat__ = ">=2.7,<4"
 __plugin_implementation__ = OctoLightPlugin()
