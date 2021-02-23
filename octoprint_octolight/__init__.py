@@ -15,8 +15,7 @@ class OctoLightPlugin(
 		octoprint.plugin.TemplatePlugin,
 		octoprint.plugin.SimpleApiPlugin,
 		octoprint.plugin.SettingsPlugin,
-		octoprint.plugin.RestartNeedingPlugin,
-		octoprint.plugin.OctoPrintPlugin
+		octoprint.plugin.RestartNeedingPlugin
 	):
 
 	light_state = False
