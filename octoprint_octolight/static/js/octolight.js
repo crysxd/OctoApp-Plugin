@@ -29,6 +29,6 @@ $(function() {
      OCTOPRINT_VIEWMODELS.push({
         construct: OctolightViewModel,
         dependencies: ["settingsViewModel","loginStateViewModel"],
-        elements: ["#settings_plugin_octolight"]
+        elements: ["#navbar_plugin_octolight","#settings_plugin_octolight"]
     });
 });
