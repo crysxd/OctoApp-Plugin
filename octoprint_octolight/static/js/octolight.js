@@ -16,7 +16,6 @@ $(function() {
 
         self.onStartup = function () {
             self.isLightOn.subscribe(function() {
-            	console.log(self.isLightOn());
                 if (self.isLightOn()) {
                     self.light_indicator.removeClass("off").addClass("on");
                 } else {

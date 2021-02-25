@@ -2,6 +2,7 @@
 from __future__ import absolute_import, unicode_literals
 
 import octoprint.plugin
+from octoprint.events import Events
 import flask
 
 import RPi.GPIO as GPIO
@@ -15,6 +16,7 @@ class OctoLightPlugin(
 		octoprint.plugin.TemplatePlugin,
 		octoprint.plugin.SimpleApiPlugin,
 		octoprint.plugin.SettingsPlugin,
+		octoprint.plugin.EventHandlerPlugin,
 		octoprint.plugin.RestartNeedingPlugin
 	):
 
@@ -58,6 +60,18 @@ class OctoLightPlugin(
 		else:
 			GPIO.output(int(self._settings.get(["light_pin"])), GPIO.LOW)
 
+		#Because light is set to ff on startup we don't need to retrieve the current state
+		"""r = self.light_state = GPIO.input(int(self._settings.get(["light_pin"])))
+        if r==1:
+                self.light_state = False
+        else:
+                self.light_state = True
+
+        self._logger.info("After Startup. Light state: {}".format(
+                self.light_state
+        ))"""
+        self._plugin_manager.send_plugin_message(self._identifier, dict(isLightOn=self.light_state))
+
 
 	def on_api_get(self, request):
 		# Sets the GPIO every time, if user changed it in the settings.
@@ -80,6 +94,11 @@ class OctoLightPlugin(
 
 
 		return flask.jsonify(status="ok")
+
+	def on_event(self, event, payload):
+        if event == Events.CLIENT_OPENED:
+            self._plugin_manager.send_plugin_message(self._identifier, dict(isLightOn=self.light_state))
+            return
 
 	def get_update_information(self):
 		return dict(
