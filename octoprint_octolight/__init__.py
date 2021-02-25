@@ -61,7 +61,8 @@ class OctoLightPlugin(
 			GPIO.output(int(self._settings.get(["light_pin"])), GPIO.LOW)
 
 		#Because light is set to ff on startup we don't need to retrieve the current state
-		"""r = self.light_state = GPIO.input(int(self._settings.get(["light_pin"])))
+		"""
+		r = self.light_state = GPIO.input(int(self._settings.get(["light_pin"])))
         if r==1:
                 self.light_state = False
         else:
@@ -69,9 +70,10 @@ class OctoLightPlugin(
 
         self._logger.info("After Startup. Light state: {}".format(
                 self.light_state
-        ))"""
-        self._plugin_manager.send_plugin_message(self._identifier, dict(isLightOn=self.light_state))
+        ))
+        """
 
+		self._plugin_manager.send_plugin_message(self._identifier, dict(isLightOn=self.light_state))
 
 	def on_api_get(self, request):
 		# Sets the GPIO every time, if user changed it in the settings.
