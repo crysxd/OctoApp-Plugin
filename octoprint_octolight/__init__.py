@@ -98,9 +98,9 @@ class OctoLightPlugin(
 		return flask.jsonify(status="ok")
 
 	def on_event(self, event, payload):
-        if event == Events.CLIENT_OPENED:
-            self._plugin_manager.send_plugin_message(self._identifier, dict(isLightOn=self.light_state))
-            return
+		if event == Events.CLIENT_OPENED:
+			self._plugin_manager.send_plugin_message(self._identifier, dict(isLightOn=self.light_state))
+			return
 
 	def get_update_information(self):
 		return dict(
