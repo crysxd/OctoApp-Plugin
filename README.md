@@ -1,6 +1,9 @@
 # OctoCam plugin
 A simple plugin that let's you control the torch of the phone you are running OctoCam on!
 
+Get OctoCam on Google Play!
+
+[![Google Play](https://github.com/crysxd/OctoCam-Plugin/blob/master/images/google_play.png)](https://play.google.com/store/apps/details?id=de.crysxd.octocam&hl=en&gl=US)
 
 ## Setup
 Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
