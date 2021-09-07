@@ -2,6 +2,7 @@
 A simple plugin that let's you control the torch of the phone you are running OctoCam on!
 
 This plugin gives you a simple toggle control in the toolbar and also allows OctoApp to control the torch as well!
+
 ![](https://github.com/crysxd/OctoCam-Plugin/blob/master/images/toolbar.png)
 
 Get OctoCam on Google Play!

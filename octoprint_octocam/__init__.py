@@ -20,9 +20,19 @@ class OctoCamPlugin(
 
 	def __init__(self):
 		self._logger = logging.getLogger("octoprint.plugins.octocam")
+		self.poll_status = None
 
 	def get_settings_defaults(self):
-		return dict()
+		return dict(
+			pollingEnabled=True,
+			pollingInterval=15
+		)
+
+	def on_after_startup(self):
+		self._logger.info("OctoCam loaded!")
+		if self._settings.get(["pollingEnabled"]):
+			self.poll_status = RepeatedTimer(int(self._settings.get(["pollingInterval"])) * 60, self.check_status)
+			self.poll_status.start()
 
 	def get_template_configs(self):
 		return [
