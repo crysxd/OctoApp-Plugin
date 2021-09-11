@@ -1,19 +1,20 @@
-# OctoCam plugin
-A simple plugin that let's you control the torch of the phone you are running OctoCam on!
+# OctoApp plugin
+A plugin providing extra functionality to OctoApp:
 
-This plugin gives you a simple toggle control in the toolbar and also allows OctoApp to control the torch as well!
+- Remote push notification for events like print completion or filament change required
 
-![](https://github.com/crysxd/OctoCam-Plugin/blob/master/images/toolbar.png)
+Get OctoApp on Google Play!
 
-Get OctoCam on Google Play!
+[![Google Play](https://github.com/crysxd/OctoApp-Plugin/blob/master/images/google_play.png)](https://play.google.com/store/apps/details?id=de.crysxd.octoapp&hl=en&gl=US)
 
-[![Google Play](https://github.com/crysxd/OctoCam-Plugin/blob/master/images/google_play.png)](https://play.google.com/store/apps/details?id=de.crysxd.octocam&hl=en&gl=US)
+![](https://github.com/crysxd/OctoApp-Plugin/blob/master/images/carousel.gif)
+
 
 ## Setup
 Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
 or manually using this URL:
 
-	https://github.com/crysxd/OctoCam-Plugin/archive/master.zip
+	https://github.com/crysxd/OctoApp-Plugin/archive/master.zip
 
 ## Configuration
-Nothing to configure! If you've set OctoCam as your webcam, the plugin will work out of the box!
+Nothing to configure! OctoApp will connect automatically to the plugin

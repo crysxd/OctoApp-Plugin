@@ -4,21 +4,21 @@
 ### Do not forget to adjust the following variables to your own plugin.
 
 # The plugin's identifier, has to be unique
-plugin_identifier = "octocam"
+plugin_identifier = "octoapp"
 
 # The plugin's python package, should be "octoprint_<plugin identifier>", has to be unique
-plugin_package = "octoprint_octocam"
+plugin_package = "octoprint_octoapp"
 
 # The plugin's human readable name. Can be overwritten within OctoPrint's internal data via __plugin_name__ in the
 # plugin module
-plugin_name = "OctoCam"
+plugin_name = "OctoApp"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
-plugin_version = "1.0.1"
+plugin_version = "1.0.0"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
-plugin_description = """A simple plugin that let's you control the torch of the phone you are running OctoCam on!"""
+plugin_description = """A simple plugin that let's you control the torch of the phone you are running OctoApp on!"""
 
 # The plugin's author. Can be overwritten within OctoPrint's internal data via __plugin_author__ in the plugin module
 plugin_author = "Christian Würthner"
@@ -27,7 +27,7 @@ plugin_author = "Christian Würthner"
 plugin_author_email = "hello@octoapp.eu"
 
 # The plugin's homepage URL. Can be overwritten within OctoPrint's internal data via __plugin_url__ in the plugin module
-plugin_url = "https://github.com/crysxd/OctoCam-Plugin/"
+plugin_url = "https://github.com/crysxd/OctoApp-Plugin/"
 
 # The plugin's license. Can be overwritten within OctoPrint's internal data via __plugin_license__ in the plugin module
 plugin_license = "AGPLv3"
