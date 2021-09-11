@@ -7,7 +7,7 @@ Get OctoApp on Google Play!
 
 [![Google Play](https://github.com/crysxd/OctoApp-Plugin/blob/master/images/google_play.png)](https://play.google.com/store/apps/details?id=de.crysxd.octoapp&hl=en&gl=US)
 
-![](https://github.com/crysxd/OctoApp-Plugin/blob/master/images/carousel.gif)
+![](https://github.com/crysxd/OctoApp-Plugin/blob/master/images/carousel.png)
 
 
 ## Setup
