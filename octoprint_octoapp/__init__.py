@@ -52,7 +52,7 @@ class OctoAppPlugin(
 
 	def get_api_commands(self):
 		return dict(
-			registerForNoitifications=[],
+			registerForNotifications=[],
 		)
 
 	def on_print_progress(self, storage, path, progress):
@@ -149,10 +149,8 @@ class OctoAppPlugin(
 	def on_api_command(self, command, data):
 		self._logger.info("Recevied command %s" % command)
 
-		if command == 'registerForNoitifications':
-			instanceId = data['instanceId']
+		if command == 'registerForNotifications':
 			fcmToken = data['fcmToken']
-			displayName = data['displayName']
 
 			# load apps and filter the given FCM token out
 			apps = self._settings.get(['registeredApps'])
@@ -162,14 +160,18 @@ class OctoAppPlugin(
 			apps.append(
 				dict(
 					fcmToken=fcmToken,
-					instanceId=instanceId,
-					displayName=displayName,
-					registeredAt=time.time()
+					instanceId=data['instanceId'],
+					displayName=data['displayName'],
+					model=data['model'],
+					appVersion=data['appVersion'],
+					appBuild=data['appBuild'],
+					appLanguage=data['appLanguage'],
+					lastSeenAt=time.time()
 				)
 			)
 
 			# save
-			self._logger.info("Registered app %s" % displayName)
+			self._logger.info("Registered app %s" % fcmToken)
 			self._logger.debug("registeredApps %s" % apps)
 			self._settings.set(['registeredApps'], apps)
 			self._settings.save()
