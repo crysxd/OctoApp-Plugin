@@ -1,10 +1,21 @@
 <form class="form-horizontal">
-	<h3>OctoApp settings</h3>
+	<h4>{{ _("OctoApp Companion") }}</h4>
 	<div class="control-group">
-	  <p>OctoApp will automatically detect this plugin!</p>
-		<p>Get OctoApp on <a href="https://play.google.com/store/apps/details?id=de.crysxd.octoapp&hl=en&gl=US">Google Play!</a></p>
+	  <p>{{ _("OctoApp will automatically detect this plugin!") }}</p>
+		<p>{{ _("This plugin version required OctoApp 1.11 or newer") }}</p>
+	</div>
+	<div class="control-group">
+		<p>{{ _("Get OctoApp on ") }}<a href="https://play.google.com/store/apps/details?id=de.crysxd.octoapp&hl=en&gl=US">{{ _("Google Play!") }}</a></p>
 		<a href="https://play.google.com/store/apps/details?id=de.crysxd.octoapp&hl=en&gl=US">
 			<img src="https://github.com/crysxd/OctoApp-Plugin/raw/master/images/google_play.png"/>
 		</a>
+	</div>
+	<div class="control-group">
+		<h4>{{ _("Connected devices") }}</h4>
+		<ul data-bind="">
+				<!-- ko foreach: settings.settings.plugins.octoapp.registeredApps -->
+		        <li><span data-bind="text: $data.displayName"></span></li>
+		    <!-- /ko -->
+		</ul>
 	</div>
 </form>
