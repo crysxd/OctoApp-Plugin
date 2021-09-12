@@ -1,7 +1,7 @@
 # OctoApp plugin
 A plugin providing extra functionality to OctoApp:
 
-- Remote push notification for events like print completion or filament change required
+- Remote push notification for events like print completion or filament change required with end-to-end encryption
 
 Get OctoApp on Google Play!
 

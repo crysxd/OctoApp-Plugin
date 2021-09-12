@@ -9,6 +9,11 @@ import logging
 import time
 import json
 import threading
+import base64
+import hashlib
+from Crypto import Random
+from Crypto.Cipher import AES
+import uuid
 
 class OctoAppPlugin(
 		octoprint.plugin.AssetPlugin,
@@ -39,11 +44,13 @@ class OctoAppPlugin(
 	def get_settings_defaults(self):
 		return dict(
 			registeredApps=[],
+			encryptionKey=None
 		)
 
 	def on_after_startup(self):
 		self._logger.info("OctoApp started, updating config")
 		self.get_config()
+		self.get_or_create_encryption_key()
 
 	def get_template_configs(self):
 		return [
@@ -130,10 +137,13 @@ class OctoAppPlugin(
 	def do_send_notification(self, data):
 		self._logger.debug('do_send_notification')
 		config = self.get_config()
-		jsonData = json.dumps(data)
+
+		cipher = AESCipher(self.get_or_create_encryption_key())
+		data = cipher.encrypt(json.dumps(data))
+
 		body=dict(
 			targets=self._settings.get(['registeredApps']),
-			data=jsonData
+			data=data
 		)
 		self._logger.debug('Sending notification %s' % body)
 
@@ -218,6 +228,14 @@ class OctoAppPlugin(
 			)
 		)
 
+	def get_or_create_encryption_key(self):
+		key = self._settings.get(['encryptionKey'])
+		if key == None:
+			key = str(uuid.uuid4())
+			self._logger.info("Created new encryption key")
+			self._settings.set(['encryptionKey'], key)
+		return key
+
 __plugin_pythoncompat__ = ">=2.7,<4"
 __plugin_implementation__ = OctoAppPlugin()
 
@@ -225,3 +243,22 @@ __plugin_hooks__ = {
 	"octoprint.plugin.softwareupdate.check_config":
 	__plugin_implementation__.get_update_information
 }
+
+class AESCipher(object):
+
+	def __init__(self, key):
+	    self.bs = AES.block_size
+	    self.key = hashlib.sha256(key.encode()).digest()
+
+	def encrypt(self, raw):
+	    raw = self._pad(raw)
+	    iv = Random.new().read(AES.block_size)
+	    cipher = AES.new(self.key, AES.MODE_CBC, iv)
+	    return base64.b64encode(iv + cipher.encrypt(raw.encode())).decode('utf-8')
+
+	def _pad(self, s):
+	    return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
+
+	@staticmethod
+	def _unpad(s):
+	    return s[:-ord(s[len(s)-1:])]
