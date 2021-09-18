@@ -12,10 +12,22 @@
 	</div>
 	<div class="control-group">
 		<h4>{{ _("Connected devices") }}</h4>
-		<ul data-bind="">
-				<!-- ko foreach: settings.settings.plugins.octoapp.registeredApps -->
-		        <li><span data-bind="text: $data.displayName"></span></li>
+		<p>Devices are automatically disconnected when the app is uninstalled or the device hasn't been seen for 30 days. Using the app automatically connects a device (again).</p>
+		<table data-bind="">
+				<thead>
+				<tr>
+					<th style="text-align: left; padding-right: 10px">Device</th>
+					<th style="text-align: left; padding-right: 10px">Last seen</th>
+				</tr>
+				</thead>
+				<tbody>
+				<!-- ko foreach: settings.plugins.octoapp.registeredApps -->
+		        <tr>
+							<td style="text-align: left; padding-right: 10px"><span data-bind="text: $data.displayName"></span></td>
+							<td style="text-align: left; padding-right: 10px"><span data-bind="text: moment(parseFloat(ko.utils.unwrapObservable($data.lastSeenAt)) * 1000).format('LLL')"></span></td>
+						</tr>
 		    <!-- /ko -->
-		</ul>
+				</tbody>
+		</table>
 	</div>
 </form>

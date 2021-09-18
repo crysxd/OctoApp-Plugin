@@ -54,7 +54,7 @@ class OctoAppPlugin(
 
 	def get_template_configs(self):
 		return [
-			dict(type="settings", custom_bindings=True)
+			dict(type="settings", custom_bindings=False)
 		]
 
 	def get_api_commands(self):
@@ -73,15 +73,17 @@ class OctoAppPlugin(
 			self._logger.debug("Skipping update, next update at %s" % earliest_update_at)
 			return
 
-		# send update
-		self.send_notification(
-		   dict(
-			   type='printing',
-			   fileName=self.last_print_name,
-			   progress=self.last_progress,
-			   timeLeft=self.last_time_left
-		   )
-		)
+		# send update, but don't send for 100%
+		if (progress < 100):
+			self.send_notification(
+			   dict(
+				   type='printing',
+				   fileName=self.last_print_name,
+				   progress=self.last_progress,
+				   timeLeft=self.last_time_left
+			   ),
+			   False
+			)
 
 	def on_event(self, event, payload):
 		self._logger.debug("Recevied event %s" % event)
@@ -97,7 +99,8 @@ class OctoAppPlugin(
 				dict(
 					type='completed',
 					fileName=payload['name']
-				)
+				),
+				True
 			)
 
 		elif event == 'PrintFailed' or event == 'PrintCancelled':
@@ -107,7 +110,8 @@ class OctoAppPlugin(
 				dict(
 					type='idle',
 					fileName=payload['name']
-				)
+				),
+				False
 			)
 
 		elif event == 'FilamentChange' and self.last_progress != None:
@@ -117,7 +121,8 @@ class OctoAppPlugin(
 					fileName=self.last_print_name,
 					progress=self.last_progress,
 					timeLeft=self.last_time_left,
-				)
+				),
+				True
 			 )
 
 		elif event == 'PrintPaused':
@@ -127,26 +132,35 @@ class OctoAppPlugin(
 					fileName=payload['name'],
 					progress=self.last_progress,
 					timeLeft=self.last_time_left,
-				)
+				),
+				False
 			)
 
-	def send_notification(self, data):
+	def send_notification(self, data, highPriority):
 		self._logger.debug('send_notification')
-		threading.Thread(target=self.do_send_notification, args=[data]).start()
+		threading.Thread(target=self.do_send_notification, args=[data, highPriority]).start()
 
-	def do_send_notification(self, data):
+	def do_send_notification(self, data, highPriority):
 		self._logger.debug('do_send_notification')
 		config = self.get_config()
 
+		# encrypt message and build request body
+		data['serverTime'] = int(time.time())
 		cipher = AESCipher(self.get_or_create_encryption_key())
 		data = cipher.encrypt(json.dumps(data))
+		apps = self._settings.get(['registeredApps'])
+		if not apps:
+			self._logger.debug('No apps registered, skipping notification')
+			return
 
 		body=dict(
-			targets=self._settings.get(['registeredApps']),
+			targets=apps,
+			highPriority=highPriority,
 			data=data
 		)
 		self._logger.debug('Sending notification %s' % body)
 
+		# make request and check 200
 		r = requests.post(
 			config['sendNotificationUrl'],
 			timeout=float(15),
@@ -154,6 +168,15 @@ class OctoAppPlugin(
 		)
 		if r.status_code != requests.codes.ok:
 			raise Exception('Unexpected response code %d' % r.status_code)
+
+		# delete invalid tokens
+		apps = self._settings.get(['registeredApps'])
+		self._logger.debug("Before updating apps %s" % apps)
+		for fcmToken in r.json()['invalidTokens']:
+			apps = [app for app in apps if app['fcmToken'] != fcmToken]
+		self._settings.set(['registeredApps'], apps)
+		self._settings.save()
+		self._logger.debug("Updated apps %s" % apps)
 
 
 	def on_api_command(self, command, data):
@@ -164,7 +187,10 @@ class OctoAppPlugin(
 
 			# load apps and filter the given FCM token out
 			apps = self._settings.get(['registeredApps'])
-			apps = [app for app in apps if app['fcmToken'] != fcmToken]
+			if apps:
+				apps = [app for app in apps if app['fcmToken'] != fcmToken]
+			else:
+				apps = []
 
 			# add app for new registration
 			apps.append(
@@ -258,7 +284,3 @@ class AESCipher(object):
 
 	def _pad(self, s):
 	    return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
-
-	@staticmethod
-	def _unpad(s):
-	    return s[:-ord(s[len(s)-1:])]
