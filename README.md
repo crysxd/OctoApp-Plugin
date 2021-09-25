@@ -1,3 +1,5 @@
+**This plugin is not yet in the OctoPrint plugin repository!** See setup below!
+
 # OctoApp plugin
 A plugin providing extra functionality to OctoApp:
 
@@ -11,7 +13,6 @@ Get OctoApp on Google Play!
 
 
 ## Setup
-**This plugin is not yet in the OctoPrint plugin repository!**
 Install the plugin manually using this URL:
 
 	https://github.com/crysxd/OctoApp-Plugin/archive/master.zip
