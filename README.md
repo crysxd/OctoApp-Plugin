@@ -11,8 +11,8 @@ Get OctoApp on Google Play!
 
 
 ## Setup
-Install via the bundled [Plugin Manager](https://docs.octoprint.org/en/master/bundledplugins/pluginmanager.html)
-or manually using this URL:
+**This plugin is not yet in the OctoPrint plugin repository!**
+Install the plugin manually using this URL:
 
 	https://github.com/crysxd/OctoApp-Plugin/archive/master.zip
 
