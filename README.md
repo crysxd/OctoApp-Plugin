@@ -19,9 +19,9 @@ Get OctoApp on Google Play!
 
 1. Open your **OctoPrint web interface**
 2. Open the **settings** using the 🔧 (wrench) icon in the top right
-3. Select the **Plugin manager** in the right column 
-4. Click **+ Get more**
-5. In text field under the **...from URL** section paste 
+3. Select the **Plugin Manager** in the left column 
+4. Click **+ Get More**
+5. In text field under the **... from URL** section paste 
 ```
 https://github.com/crysxd/OctoApp-Plugin/archive/master.zip
 ```	
