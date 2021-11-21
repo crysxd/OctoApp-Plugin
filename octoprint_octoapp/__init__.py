@@ -141,43 +141,45 @@ class OctoAppPlugin(
 		threading.Thread(target=self.do_send_notification, args=[data, highPriority]).start()
 
 	def do_send_notification(self, data, highPriority):
-		self._logger.debug('do_send_notification')
-		config = self.get_config()
+		try:
+			self._logger.debug('do_send_notification')
+			config = self.get_config()
 
-		# encrypt message and build request body
-		data['serverTime'] = int(time.time())
-		cipher = AESCipher(self.get_or_create_encryption_key())
-		data = cipher.encrypt(json.dumps(data))
-		apps = self._settings.get(['registeredApps'])
-		if not apps:
-			self._logger.debug('No apps registered, skipping notification')
-			return
+			# encrypt message and build request body
+			data['serverTime'] = int(time.time())
+			cipher = AESCipher(self.get_or_create_encryption_key())
+			data = cipher.encrypt(json.dumps(data))
+			apps = self._settings.get(['registeredApps'])
+			if not apps:
+				self._logger.debug('No apps registered, skipping notification')
+				return
 
-		body=dict(
-			targets=apps,
-			highPriority=highPriority,
-			data=data
-		)
-		self._logger.debug('Sending notification %s' % body)
+			body=dict(
+				targets=apps,
+				highPriority=highPriority,
+				data=data
+			)
+			self._logger.debug('Sending notification %s' % body)
 
-		# make request and check 200
-		r = requests.post(
-			config['sendNotificationUrl'],
-			timeout=float(15),
-			json=body
-		)
-		if r.status_code != requests.codes.ok:
-			raise Exception('Unexpected response code %d' % r.status_code)
+			# make request and check 200
+			r = requests.post(
+				config['sendNotificationUrl'],
+				timeout=float(15),
+				json=body
+			)
+			if r.status_code != requests.codes.ok:
+				raise Exception('Unexpected response code %d' % r.status_code)
 
-		# delete invalid tokens
-		apps = self._settings.get(['registeredApps'])
-		self._logger.debug("Before updating apps %s" % apps)
-		for fcmToken in r.json()['invalidTokens']:
-			apps = [app for app in apps if app['fcmToken'] != fcmToken]
-		self._settings.set(['registeredApps'], apps)
-		self._settings.save()
-		self._logger.debug("Updated apps %s" % apps)
-
+			# delete invalid tokens
+			apps = self._settings.get(['registeredApps'])
+			self._logger.debug("Before updating apps %s" % apps)
+			for fcmToken in r.json()['invalidTokens']:
+				apps = [app for app in apps if app['fcmToken'] != fcmToken]
+			self._settings.set(['registeredApps'], apps)
+			self._settings.save()
+			self._logger.debug("Updated apps %s" % apps)
+		except Exception as e:
+			self._logger.debug("Failed to send notification %s" % e)
 
 	def on_api_command(self, command, data):
 		self._logger.info("Recevied command %s" % command)
