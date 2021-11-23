@@ -40,6 +40,7 @@ class OctoAppPlugin(
 		self.last_progress_notification_at = 0
 		self.last_progress = None
 		self.last_print_name = None
+		self.firmware_info = {} 
 
 	def get_settings_defaults(self):
 		return dict(
@@ -60,6 +61,7 @@ class OctoAppPlugin(
 	def get_api_commands(self):
 		return dict(
 			registerForNotifications=[],
+			getPrinterFirmware=[],
 		)
 
 	def on_print_progress(self, storage, path, progress):
@@ -183,10 +185,17 @@ class OctoAppPlugin(
 		except Exception as e:
 			self._logger.debug("Failed to send notification %s" % e)
 
-	def on_api_command(self, command, data):
-		self._logger.info("Recevied command %s" % command)
+	def on_firmware_info_received(self, comm_instance, firmware_name, firmware_data, *args, **kwargs):
+		self._logger.debug("Recevied firmware info")
+		self.firmware_info = firmware_data
 
-		if command == 'registerForNotifications':
+	def on_api_command(self, command, data):
+		self._logger.debug("Recevied command %s" % command)
+
+		if command == 'getPrinterFirmware':
+			return flask.jsonify(self.firmware_info)
+
+		elif command == 'registerForNotifications':
 			fcmToken = data['fcmToken']
 
 			# load apps and filter the given FCM token out
@@ -273,7 +282,9 @@ __plugin_implementation__ = OctoAppPlugin()
 
 __plugin_hooks__ = {
 	"octoprint.plugin.softwareupdate.check_config":
-	__plugin_implementation__.get_update_information
+	__plugin_implementation__.get_update_information,
+	"octoprint.comm.protocol.firmware.info":
+	__plugin_implementation__.on_firmware_info_received
 }
 
 class AESCipher(object):
