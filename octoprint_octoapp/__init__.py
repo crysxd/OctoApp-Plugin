@@ -138,7 +138,9 @@ class OctoAppPlugin(
 
 	def send_notification(self, data, highPriority):
 		self._logger.debug('send_notification')
-		threading.Thread(target=self.do_send_notification, args=[data, highPriority]).start()
+		t = threading.Thread(target=self.do_send_notification, args=[data, highPriority])
+		t.daemon = True
+		t.start()
 
 	def do_send_notification(self, data, highPriority):
 		try:
@@ -217,7 +219,9 @@ class OctoAppPlugin(
 		return flask.jsonify(dict())
 
 	def get_config(self):
-		threading.Thread(target=self.do_update_config).start()
+		t = threading.Thread(target=self.do_update_config)
+		t.daemon = True
+		t.start()
 		return self.cached_config
 
 	def do_update_config(self):
@@ -243,7 +247,7 @@ class OctoAppPlugin(
 
 	def get_update_information(self):
 		return dict(
-			octolight=dict(
+			octoapp=dict(
 				displayName="OctoApp",
 				displayVersion=self._plugin_version,
 
@@ -251,7 +255,7 @@ class OctoAppPlugin(
 				current=self._plugin_version,
 
 				user="crysxd",
-				repo="OctoApp",
+				repo="OctoApp-Plugin",
 				pip="https://github.com/crysxd/OctoApp-Plugin/archive/{target}.zip"
 			)
 		)
