@@ -1,6 +1,3 @@
-⚠️⚠️⚠️⚠️
-**This plugin is not yet in the OctoPrint plugin repository and is in _beta_!** See setup below!
-⚠️⚠️⚠️⚠️
 
 # OctoApp plugin
 A plugin providing extra functionality to OctoApp:
@@ -21,10 +18,7 @@ Get OctoApp on Google Play!
 2. Open the **settings** using the 🔧 (wrench) icon in the top right
 3. Select the **Plugin Manager** in the left column 
 4. Click **+ Get More**
-5. In text field under the **... from URL** section paste 
-```
-https://github.com/crysxd/OctoApp-Plugin/archive/master.zip
-```	
+5. Search for **OctoApp**
 6. Click **Install**
 7. Reboot OctoPrint when promted
 
