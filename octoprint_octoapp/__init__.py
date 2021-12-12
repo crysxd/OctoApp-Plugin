@@ -41,6 +41,7 @@ class OctoAppPlugin(
         self.last_progress = None
         self.last_print_name = None
         self.firmware_info = {}
+        self.last_m117_message = None
 
     def get_settings_defaults(self):
         return dict(registeredApps=[], encryptionKey=None)
@@ -88,18 +89,24 @@ class OctoAppPlugin(
         if event == "PrintStarted":
             self.last_print_name = payload["name"]
             self.last_progress_notification_at = 0
+            self.last_m117_message = None
+            self.send_m117_plugin_message()
 
         if event == "PrintDone":
             self.last_progress = None
             self.last_print_name = None
             self.last_time_left = None
             self.send_notification(dict(type="completed", fileName=payload["name"]), True)
+            self.last_m117_message = None
+            self.send_m117_plugin_message()
 
         elif event == "PrintFailed" or event == "PrintCancelled":
             self.last_progress = None
             self.last_print_name = None
             self.send_notification(dict(type="idle", fileName=payload["name"]), False)
-
+            self.last_m117_message = None
+            self.send_m117_plugin_message()
+            
         elif event == "FilamentChange" and self.last_progress is not None:
             self.send_notification(
                 dict(
@@ -110,6 +117,9 @@ class OctoAppPlugin(
                 ),
                 True,
             )
+
+        elif event == Events.CLIENT_OPENED:
+            self.send_m117_plugin_message()
 
         elif event == "PrintPaused":
             self.send_notification(
@@ -133,7 +143,6 @@ class OctoAppPlugin(
 
             # encrypt message and build request body
             data["serverTime"] = int(time.time())
-            self._logger.warn("Sending notification %s" % data)
             cipher = AESCipher(self.get_or_create_encryption_key())
             data = cipher.encrypt(json.dumps(data))
             apps = self._settings.get(["registeredApps"])
@@ -142,7 +151,7 @@ class OctoAppPlugin(
                 return
 
             body = dict(targets=apps, highPriority=highPriority, data=data)
-            self._logger.warn("Sending notification %s" % body)
+            self._logger.debug("Sending notification %s" % body)
 
             # make request and check 200
             r = requests.post(config["sendNotificationUrl"], timeout=float(15), json=body)
@@ -165,6 +174,15 @@ class OctoAppPlugin(
     ):
         self._logger.debug("Recevied firmware info")
         self.firmware_info = firmware_data
+
+    def processGcode(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+        if gcode == "M117":
+            self.last_m117_message=cmd.split(' ', 1)[1]
+            self._logger.warning("M117 message changed: %s" % self.last_m117_message)
+            self.send_m117_plugin_message()
+
+    def send_m117_plugin_message(self):
+        self._plugin_manager.send_plugin_message(self._identifier, { "m117": self.last_m117_message })
 
     def on_api_command(self, command, data):
         self._logger.debug("Recevied command %s" % command)
@@ -264,6 +282,7 @@ __plugin_implementation__ = OctoAppPlugin()
 __plugin_hooks__ = {
     "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information,
     "octoprint.comm.protocol.firmware.info": __plugin_implementation__.on_firmware_info_received,
+    "octoprint.comm.protocol.gcode.queuing": __plugin_implementation__.processGcode,
 }
 
 

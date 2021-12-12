@@ -1,0 +1,18 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "OctoPrint",
+            "type": "python",
+            "request": "launch",
+            "module": "octoprint",
+            "args": [
+                "serve",
+                "--debug",
+                "--port=8080",
+                "--basedir",
+                "/Users/christian/Projects/OctoPrint/src/"
+            ]
+        }
+    ]
+}
