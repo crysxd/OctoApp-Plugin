@@ -31,7 +31,9 @@ class OctoAppPlugin(
         self._logger = logging.getLogger("octoprint.plugins.octoapp")
 
         self.default_config = dict(
-            updatePercentModulus=5,
+            updatePercentModulus=10,
+            highPrecisionRangeStart=5,
+            highPrecisionRangeEnd=5,
             sendNotificationUrl="https://europe-west1-octoapp-4e438.cloudfunctions.net/sendNotification",
         )
         self.cached_config = self.default_config
@@ -68,11 +70,14 @@ class OctoAppPlugin(
 
         # send update, but don't send for 100%
         # we send updated in "modulus" interval as well as for the first and last "modulus" percent
-        modulus = self.get_config()["updatePercentModulus"]
+        config = self.get_config()
+        modulus = config["updatePercentModulus"]
+        highPrecisionStart = config["highPrecisionRangeStart"]
+        highPrecisionEnd = config["highPrecisionRangeEnd"]
         if progress < 100 and (
             (progress % modulus) == 0
-            or progress <= modulus
-            or progress >= (100 - modulus)
+            or progress <= highPrecisionStart
+            or progress >= (100 - highPrecisionEnd)
         ):
             self.send_notification(
                 dict(
@@ -178,7 +183,7 @@ class OctoAppPlugin(
     def processGcode(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         if gcode == "M117":
             self.last_m117_message=cmd.split(' ', 1)[1]
-            self._logger.warning("M117 message changed: %s" % self.last_m117_message)
+            self._logger.debug("M117 message changed: %s" % self.last_m117_message)
             self.send_m117_plugin_message()
 
     def send_m117_plugin_message(self):
