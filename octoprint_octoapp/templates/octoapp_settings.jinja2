@@ -7,10 +7,10 @@
 	<div class="control-group">
 		<p>{{ _("Get OctoApp on ") }}<a href="https://play.google.com/store/apps/details?id=de.crysxd.octoapp&hl=en&gl=US">{{ _("Google Play!") }}</a></p>
 		<a href="https://play.google.com/store/apps/details?id=de.crysxd.octoapp&hl=en&gl=US">
-			<img src="https://github.com/crysxd/OctoApp-Plugin/raw/master/images/google_play.png"/>
+			<img src="https://github.com/crysxd/OctoApp-Plugin/raw/master/images/google_play.png" loading="lazy"/>
 		</a>
 	</div>
-	<div class="control-group">
+	<div class="control-group" id="octoapp-list">
 		<h4>{{ _("Connected devices") }}</h4>
 		<p>{{ _("Devices are automatically disconnected when the app is uninstalled. Using the app automatically connects a device.") }}</p>
 		<table data-bind="" class="table table-striped">
@@ -21,12 +21,12 @@
 				</tr>
 				</thead>
 				<tbody>
-				<!-- ko foreach: settings.plugins.octoapp.registeredApps -->
+				<!-- ko foreach: apps -->
 		        <tr>
-							<td><span data-bind="text: $data.displayName"></span></td>
-							<td><span data-bind="text: moment(parseFloat(ko.utils.unwrapObservable($data.lastSeenAt)) * 1000).format('LLL')"></span></td>
-						</tr>
-		    <!-- /ko -->
+					<td><span data-bind="text: $data.displayName"></span></td>
+					<td><span data-bind="text: moment(parseFloat($data.lastSeenAt) * 1000).format('LLL')"></span></td>
+				</tr>
+		    	<!-- /ko -->
 				</tbody>
 		</table>
 	</div>

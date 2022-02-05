@@ -5,9 +5,11 @@ import base64
 import hashlib
 import json
 import logging
+from pkgutil import get_data
 import threading
 import time
 import uuid
+import os
 
 import flask
 from flask_babel import gettext
@@ -48,15 +50,18 @@ class OctoAppPlugin(
         self.last_m117_message = None
 
     def get_settings_defaults(self):
-        return dict(registeredApps=[], encryptionKey=None)
+        return dict(encryptionKey=None)
 
     def on_after_startup(self):
         self._logger.info("OctoApp started, updating config")
+        self.data_file = os.path.join(
+            self.get_plugin_data_folder(), "apps.json")
         self.get_config()
         self.get_or_create_encryption_key()
+        self.update_data_structure()
 
     def get_template_configs(self):
-        return [dict(type="settings", custom_bindings=False)]
+        return [dict(type="settings", custom_bindings=True)]
 
     def get_api_commands(self):
         return dict(
@@ -129,6 +134,7 @@ class OctoAppPlugin(
 
         elif event == Events.CLIENT_OPENED:
             self.send_m117_plugin_message()
+            self.send_settings_plugin_message(self.get_apps())
 
         elif event == "PrintPaused":
             self.send_notification(
@@ -155,7 +161,7 @@ class OctoAppPlugin(
             data["serverTime"] = int(time.time())
             cipher = AESCipher(self.get_or_create_encryption_key())
             data = cipher.encrypt(json.dumps(data))
-            apps = self._settings.get(["registeredApps"])
+            apps = self.get_apps()
             if not apps:
                 self._logger.debug("No apps registered, skipping notification")
                 return
@@ -170,11 +176,11 @@ class OctoAppPlugin(
                 raise Exception("Unexpected response code %d" % r.status_code)
 
             # delete invalid tokens
-            apps = self._settings.get(["registeredApps"])
+            apps = self.get_apps()
             self._logger.debug("Before updating apps %s" % apps)
             for fcmToken in r.json()["invalidTokens"]:
                 apps = [app for app in apps if app["fcmToken"] != fcmToken]
-            self._settings.set(["registeredApps"], apps)
+            self.set_apps(apps)
             self._settings.save()
             self._logger.debug("Updated apps %s" % apps)
         except Exception as e:
@@ -212,7 +218,7 @@ class OctoAppPlugin(
             fcmToken = data["fcmToken"]
 
             # load apps and filter the given FCM token out
-            apps = self._settings.get(["registeredApps"])
+            apps = self.get_apps()
             if apps:
                 apps = [app for app in apps if app["fcmToken"] != fcmToken]
             else:
@@ -234,8 +240,8 @@ class OctoAppPlugin(
 
             # save
             self._logger.info("Registered app %s" % fcmToken)
-            self._logger.debug("registeredApps %s" % apps)
-            self._settings.set(["registeredApps"], apps)
+            self._logger.debug("registered apps %s" % apps)
+            self.set_apps(apps)
             self._settings.save()
 
         return flask.jsonify(dict())
@@ -285,6 +291,30 @@ class OctoAppPlugin(
             )
         )
 
+    def update_data_structure(self):
+        if not os.path.isfile(self.data_file):
+            self._logger.info("Updating data structure to: %s" %
+                              self.data_file)
+            apps = self._settings.get(["registeredApps"])
+            self.set_apps(apps)
+            self._logger.info("Saved data to: %s" % self.data_file)
+            self._settings.remove(["registeredApps"])
+
+    def get_apps(self):
+        with open(self.data_file, 'r') as file:
+            return json.load(file)
+
+    def set_apps(self, apps):
+        with open(self.data_file, 'w') as outfile:
+            json.dump(apps, outfile)
+            self.send_settings_plugin_message(apps)
+
+    def send_settings_plugin_message(self, apps):
+        mapped_apps = list(map(lambda x: dict(
+            displayName=x["displayName"], lastSeenAt=x["lastSeenAt"]), apps))
+        self._plugin_manager.send_plugin_message(
+            "%s.settings" % self._identifier, {"apps": mapped_apps})
+
     def get_or_create_encryption_key(self):
         key = self._settings.get(["encryptionKey"])
         if key is None:
@@ -303,7 +333,7 @@ class OctoAppPlugin(
                  roles=["admin"],
                  dangerous=False,
                  default_groups=[ADMIN_GROUP, USER_GROUP, READONLY_GROUP]),
-             dict(key="GET_DATA",
+            dict(key="GET_DATA",
                  name="Get additional data",
                  description=gettext(
                      "Allows OctoApp to get additional data"
@@ -312,6 +342,15 @@ class OctoAppPlugin(
                  dangerous=False,
                  default_groups=[ADMIN_GROUP, USER_GROUP, READONLY_GROUP])
         ]
+
+    # ~~ AssetPlugin mixin
+
+    def get_assets(self):
+        return dict(
+            js=[
+                "js/octoapp.js"
+            ]
+        )
 
 
 __plugin_pythoncompat__ = ">=2.7,<4"
