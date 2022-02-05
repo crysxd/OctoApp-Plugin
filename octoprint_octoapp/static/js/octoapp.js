@@ -11,7 +11,6 @@ $(function () {
 
 		self.onDataUpdaterPluginMessage = function (plugin, data) {
 			if (plugin == "octoapp.settings") {
-				console.log("Apps:", data.apps)
 				self.apps(data.apps);
 			}
 		};
