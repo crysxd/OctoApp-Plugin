@@ -10,11 +10,13 @@ import time
 import uuid
 
 import flask
+from flask_babel import gettext
 import octoprint.plugin
 import requests
 from Crypto import Random
 from Crypto.Cipher import AES
 from octoprint.events import Events
+from octoprint.access.permissions import Permissions, ADMIN_GROUP, USER_GROUP, READONLY_GROUP
 
 
 class OctoAppPlugin(
@@ -101,17 +103,19 @@ class OctoAppPlugin(
             self.last_progress = None
             self.last_print_name = None
             self.last_time_left = None
-            self.send_notification(dict(type="completed", fileName=payload["name"]), True)
+            self.send_notification(
+                dict(type="completed", fileName=payload["name"]), True)
             self.last_m117_message = None
             self.send_m117_plugin_message()
 
         elif event == "PrintFailed" or event == "PrintCancelled":
             self.last_progress = None
             self.last_print_name = None
-            self.send_notification(dict(type="idle", fileName=payload["name"]), False)
+            self.send_notification(
+                dict(type="idle", fileName=payload["name"]), False)
             self.last_m117_message = None
             self.send_m117_plugin_message()
-            
+
         elif event == "FilamentChange" and self.last_progress is not None:
             self.send_notification(
                 dict(
@@ -138,7 +142,8 @@ class OctoAppPlugin(
             )
 
     def send_notification(self, data, highPriority):
-        t = threading.Thread(target=self.do_send_notification, args=[data, highPriority])
+        t = threading.Thread(target=self.do_send_notification, args=[
+                             data, highPriority])
         t.daemon = True
         t.start()
 
@@ -159,7 +164,8 @@ class OctoAppPlugin(
             self._logger.debug("Sending notification %s" % body)
 
             # make request and check 200
-            r = requests.post(config["sendNotificationUrl"], timeout=float(15), json=body)
+            r = requests.post(config["sendNotificationUrl"],
+                              timeout=float(15), json=body)
             if r.status_code != requests.codes.ok:
                 raise Exception("Unexpected response code %d" % r.status_code)
 
@@ -182,20 +188,27 @@ class OctoAppPlugin(
 
     def processGcode(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         if gcode == "M117":
-            self.last_m117_message=cmd.split(' ', 1)[1]
-            self._logger.debug("M117 message changed: %s" % self.last_m117_message)
+            self.last_m117_message = cmd.split(' ', 1)[1]
+            self._logger.debug("M117 message changed: %s" %
+                               self.last_m117_message)
             self.send_m117_plugin_message()
 
     def send_m117_plugin_message(self):
-        self._plugin_manager.send_plugin_message(self._identifier, { "m117": self.last_m117_message })
+        self._plugin_manager.send_plugin_message(
+            self._identifier, {"m117": self.last_m117_message})
 
     def on_api_command(self, command, data):
         self._logger.debug("Recevied command %s" % command)
 
         if command == "getPrinterFirmware":
+            if not Permissions.PLUGIN_OCTOAPP_GET_DATA.can():
+                return flask.make_response("Insufficient rights", 403)
             return flask.jsonify(self.firmware_info)
 
         elif command == "registerForNotifications":
+            if not Permissions.PLUGIN_OCTOAPP_RECEIVE_NOTIFICATIONS.can():
+                return flask.make_response("Insufficient rights", 403)
+
             fcmToken = data["fcmToken"]
 
             # load apps and filter the given FCM token out
@@ -280,6 +293,26 @@ class OctoAppPlugin(
             self._settings.set(["encryptionKey"], key)
         return key
 
+    def get_additional_permissions(self, *args, **kwargs):
+        return [
+            dict(key="RECEIVE_NOTIFICATIONS",
+                 name="Receive push notifications",
+                 description=gettext(
+                     "Allows to register OctoApp installations to receive notifications"
+                 ),
+                 roles=["admin"],
+                 dangerous=False,
+                 default_groups=[ADMIN_GROUP, USER_GROUP, READONLY_GROUP]),
+             dict(key="GET_DATA",
+                 name="Get additional data",
+                 description=gettext(
+                     "Allows OctoApp to get additional data"
+                 ),
+                 roles=["admin"],
+                 dangerous=False,
+                 default_groups=[ADMIN_GROUP, USER_GROUP, READONLY_GROUP])
+        ]
+
 
 __plugin_pythoncompat__ = ">=2.7,<4"
 __plugin_implementation__ = OctoAppPlugin()
@@ -288,6 +321,7 @@ __plugin_hooks__ = {
     "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information,
     "octoprint.comm.protocol.firmware.info": __plugin_implementation__.on_firmware_info_received,
     "octoprint.comm.protocol.gcode.queuing": __plugin_implementation__.processGcode,
+    "octoprint.access.permissions": __plugin_implementation__.get_additional_permissions,
 }
 
 
