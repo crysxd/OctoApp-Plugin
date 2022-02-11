@@ -9,7 +9,7 @@
             "args": [
                 "serve",
                 "--debug",
-                "--port=8080",
+                "--port=5500",
                 "--basedir",
                 "/Users/christian/Projects/OctoPrint/src/"
             ]
