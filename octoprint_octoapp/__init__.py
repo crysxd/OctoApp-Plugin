@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import, unicode_literals
+from asyncio.log import logger
 
 import base64
 import hashlib
@@ -113,28 +114,31 @@ class OctoAppPlugin(
         return flask.jsonify(dict())
 
     def on_emit_websocket_message(self, user, message, type, data):
-        if type == "plugin" and data.get("plugin") == "mmu2filamentselect" and isinstance(data.get("data"), dict):
-            action = data.get("data").get("action")
+        try: 
+            if type == "plugin" and data.get("plugin") == "mmu2filamentselect" and isinstance(data.get("data"), dict):
+                action = data.get("data").get("action")
 
-            if action == "show":
-                # If not currently active, send notification as we switched state
-                if  self.plugin_state.get("mmuSelectionActive") is not True:
-                    self.send_notification(
-                        dict(
-                            type="mmu_filament_selection",
-                            fileName=self.last_print_name,
-                            progress=self.last_progress,
-                            timeLeft=self.last_time_left,
-                        ),
-                        True,
-                    )
+                if action == "show":
+                    # If not currently active, send notification as we switched state
+                    if  self.plugin_state.get("mmuSelectionActive") is not True:
+                        self.send_notification(
+                            dict(
+                                type="mmu_filament_selection",
+                                fileName=self.last_print_name,
+                                progress=self.last_progress,
+                                timeLeft=self.last_time_left,
+                            ),
+                            True,
+                        )
 
-                self.plugin_state["mmuSelectionActive"] = True
-                self.send_plugin_state_message()
+                    self.plugin_state["mmuSelectionActive"] = True
+                    self.send_plugin_state_message()
 
-            elif action == "close":
-                self.plugin_state["mmuSelectionActive"] = False
-                self.send_plugin_state_message()
+                elif action == "close":
+                    self.plugin_state["mmuSelectionActive"] = False
+                    self.send_plugin_state_message()
+        except Exception as e:
+             self._logger.error("Exception while checking websocket message: %s" % e)
 
         # Always return true! Returning false will prevent the message from being send
         return True
