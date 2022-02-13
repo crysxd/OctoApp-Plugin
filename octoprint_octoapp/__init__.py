@@ -114,16 +114,16 @@ class OctoAppPlugin(
         return flask.jsonify(dict())
 
     def on_emit_websocket_message(self, user, message, type, data):
-        try: 
+        try:
             if type == "plugin" and data.get("plugin") == "mmu2filamentselect" and isinstance(data.get("data"), dict):
                 action = data.get("data").get("action")
 
                 if action == "show":
                     # If not currently active, send notification as we switched state
-                    if  self.plugin_state.get("mmuSelectionActive") is not True:
+                    if self.plugin_state.get("mmuSelectionActive") is not True:
                         self.send_notification(
                             dict(
-                                type="mmu_filament_selection",
+                                type="mmu_filament_selection_started",
                                 fileName=self.last_print_name,
                                 progress=self.last_progress,
                                 timeLeft=self.last_time_left,
@@ -135,10 +135,24 @@ class OctoAppPlugin(
                     self.send_plugin_state_message()
 
                 elif action == "close":
+                     # If currently active, send notification as we switched state
+                    if self.plugin_state.get("mmuSelectionActive") is True:
+                        self.send_notification(
+                            dict(
+                                type="mmu_filament_selection_completed",
+                                fileName=self.last_print_name,
+                                progress=self.last_progress,
+                                timeLeft=self.last_time_left,
+                            ),
+                            True,
+                        )
+
                     self.plugin_state["mmuSelectionActive"] = False
                     self.send_plugin_state_message()
+
         except Exception as e:
-             self._logger.error("Exception while checking websocket message: %s" % e)
+            self._logger.error(
+                "Exception while checking websocket message: %s" % e)
 
         # Always return true! Returning false will prevent the message from being send
         return True
@@ -244,6 +258,7 @@ class OctoAppPlugin(
 
             # encrypt message and build request body
             data["serverTime"] = int(time.time())
+            data["serverTimePrecise"] = time.time()
             cipher = AESCipher(self.get_or_create_encryption_key())
             data = cipher.encrypt(json.dumps(data))
             apps = self.get_apps()
