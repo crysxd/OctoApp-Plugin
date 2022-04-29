@@ -33,7 +33,7 @@ plugin_url = "https://github.com/crysxd/OctoApp-Plugin/"
 plugin_license = "AGPLv3"
 
 # Any additional requirements besides OctoPrint should be listed here
-plugin_requires = ["pycryptodome==3.4.3"]
+plugin_requires = ["pycryptodome==3.4.3", "pillow>=2.2.2"]
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point
