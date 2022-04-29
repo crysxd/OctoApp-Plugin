@@ -123,14 +123,25 @@ class OctoAppPlugin(
                 snapshotUrl = self._settings.global_get(["webcam", "snapshot"])
                 timeout = self._settings.global_get_int(["webcam", "snapshotTimeout"])
                 self._logger.debug("Getting snapshot from %s" % snapshotUrl)
-                response = requests.get(snapshotUrl, timeout=float(timeout), stream=True)
+                response = requests.get(
+                    snapshotUrl, timeout=float(timeout), stream=True)
                 image = Image.open(response.raw)
+
+                if (self._settings.global_get_boolean(["webcam", "rotate90"])):
+                    image = image.rotate(90, expand=True)
+
+                if (self._settings.global_get_boolean(["webcam", "flipV"])):
+                    image = image.transpose(Image.FLIP_TOP_BOTTOM)
+
+                if (self._settings.global_get_boolean(["webcam", "flipH"])):
+                    image = image.transpose(Image.FLIP_LEFT_RIGHT)
+
                 size = int(data.get("size", 720))
                 image.thumbnail([size, size])
                 imageBytes = BytesIO()
-                image.save(imageBytes, 'JPEG', quality=50)
+                image.save(imageBytes, 'WEBP', quality=data.get("quality", 70))
                 imageBytes.seek(0)
-                return send_file(imageBytes, mimetype='image/jpeg')
+                return send_file(imageBytes, mimetype='image/webp')
             except Exception as e:
                 self._logger.warning("Failed to get webcam snapshot %s" % e)
                 return flask.make_response("Failed to get snapshot from webcam", 500)
@@ -267,7 +278,7 @@ class OctoAppPlugin(
             self.send_plugin_state_message()
 
         elif gcode == "M300":
-             self.send_notification(
+            self.send_notification(
                 dict(type="beep"),
                 True,
             )
