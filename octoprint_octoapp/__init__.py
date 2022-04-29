@@ -265,6 +265,24 @@ class OctoAppPlugin(
             self._logger.debug("M117 message changed: %s" % message)
             self.send_plugin_state_message()
 
+        elif gcode == "M300":
+             self.send_notification(
+                dict(type="beep"),
+                True,
+            )
+
+        elif gcode == "M601":
+            self.send_notification(
+                dict(
+                    type="paused_gcode",
+                    fileName=self.last_print_name,
+                    progress=self.last_progress,
+                    timeLeft=self.last_time_left,
+                ),
+                False,
+            )
+            return
+
     #
     # NOTIFICATIONS
     #
