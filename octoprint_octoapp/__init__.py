@@ -121,7 +121,8 @@ class OctoAppPlugin(
 
             try:
                 snapshotUrl = self._settings.global_get(["webcam", "snapshot"])
-                timeout = self._settings.global_get_int(["webcam", "snapshotTimeout"])
+                timeout = self._settings.global_get_int(
+                    ["webcam", "snapshotTimeout"])
                 self._logger.debug("Getting snapshot from %s" % snapshotUrl)
                 response = requests.get(
                     snapshotUrl, timeout=float(timeout), stream=True)
@@ -139,9 +140,16 @@ class OctoAppPlugin(
                 size = int(data.get("size", 720))
                 image.thumbnail([size, size])
                 imageBytes = BytesIO()
-                image.save(imageBytes, 'WEBP', quality=data.get("quality", 70))
-                imageBytes.seek(0)
-                return send_file(imageBytes, mimetype='image/webp')
+                try:
+                    image.save(imageBytes, 'WEBP',
+                               quality=data.get("quality", 70))
+                    imageBytes.seek(0)
+                    return send_file(imageBytes, mimetype='image/webp')
+                except:
+                    image.save(imageBytes, 'JPEG',
+                               quality=data.get("quality", 50))
+                    imageBytes.seek(0)
+                    return send_file(imageBytes, mimetype='image/jpeg')
             except Exception as e:
                 self._logger.warning("Failed to get webcam snapshot %s" % e)
                 return flask.make_response("Failed to get snapshot from webcam", 500)
@@ -418,7 +426,7 @@ class OctoAppPlugin(
     #
 
     def get_settings_defaults(self):
-        return dict(encryptionKey=None, verison=self._plugin_version)
+        return dict(encryptionKey=None, version=self._plugin_version)
 
     def get_template_configs(self):
         return [dict(type="settings", custom_bindings=True)]
