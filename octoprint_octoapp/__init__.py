@@ -113,6 +113,7 @@ class OctoAppPlugin(
             self._logger.debug("registered apps %s" % apps)
             self.set_apps(apps)
             self._settings.save()
+            return flask.jsonify(dict())
 
         elif command == "getWebcamSnapshot":
             if not Permissions.PLUGIN_OCTOAPP_GET_DATA.can():
