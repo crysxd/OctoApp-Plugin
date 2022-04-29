@@ -14,9 +14,12 @@ import uuid
 import os
 
 import flask
+from flask import send_file, request
+from io import BytesIO
 from flask_babel import gettext
 import octoprint.plugin
 import requests
+from PIL import Image
 from Crypto import Random
 from Crypto.Cipher import AES
 from octoprint.events import Events
@@ -111,7 +114,27 @@ class OctoAppPlugin(
             self.set_apps(apps)
             self._settings.save()
 
-        return flask.jsonify(dict())
+        elif command == "getWebcamSnapshot":
+            if not Permissions.PLUGIN_OCTOAPP_GET_DATA.can():
+                return flask.make_response("Insufficient rights", 403)
+
+            try:
+                snapshotUrl = self._settings.global_get(["webcam", "snapshot"])
+                timeout = self._settings.global_get_int(["webcam", "snapshotTimeout"])
+                self._logger.debug("Getting snapshot from %s" % snapshotUrl)
+                response = requests.get(snapshotUrl, timeout=float(timeout), stream=True)
+                image = Image.open(response.raw)
+                size = int(data.get("size", 720))
+                image.thumbnail([size, size])
+                imageBytes = BytesIO()
+                image.save(imageBytes, 'JPEG', quality=50)
+                imageBytes.seek(0)
+                return send_file(imageBytes, mimetype='image/jpeg')
+            except Exception as e:
+                self._logger.warning("Failed to get webcam snapshot %s" % e)
+                return flask.make_response("Failed to get snapshot from webcam", 500)
+
+        return flask.make_response("Unkonwn command", 400)
 
     def on_emit_websocket_message(self, user, message, type, data):
         try:
@@ -135,7 +158,7 @@ class OctoAppPlugin(
                     self.send_plugin_state_message()
 
                 elif action == "close":
-                     # If currently active, send notification as we switched state
+                    # If currently active, send notification as we switched state
                     if self.plugin_state.get("mmuSelectionActive") is True:
                         self.send_notification(
                             dict(
@@ -322,7 +345,7 @@ class OctoAppPlugin(
             self.cached_config_at = time.time()
             self._logger.info("OctoApp loaded config: %s" % self.cached_config)
         except Exception as e:
-            self._logger.warn(
+            self._logger.warning(
                 "Failed to fetch config using defaults for 5 minutes, recevied %s" % e
             )
             self.cached_config = self.default_config
@@ -365,7 +388,7 @@ class OctoAppPlugin(
     #
 
     def get_settings_defaults(self):
-        return dict(encryptionKey=None)
+        return dict(encryptionKey=None, verison=self._plugin_version)
 
     def get_template_configs(self):
         return [dict(type="settings", custom_bindings=True)]
@@ -374,6 +397,7 @@ class OctoAppPlugin(
         return dict(
             registerForNotifications=[],
             getPrinterFirmware=[],
+            getWebcamSnapshot=[]
         )
 
     def get_update_information(self):
