@@ -6,7 +6,7 @@
         {
             "label": "Install and Restart",
             "type": "shell",
-            "command": "rsync -rv ~/Projects/OctoApp-Plugin/octoprint_octoapp pi@octopi.local:~/oprint/lib/python3.7/site-packages/ && curl -v --location --request POST 'http://octopi.local/api/system/commands/core/restart' --header 'X-Api-Key: AB18A6918CA5457B8E30C66B10E775C6'",
+            "command": "rsync -rv ~/Projects/OctoApp-Plugin/octoprint_octoapp pi@octopi.local:~/oprint/lib/python3.7/site-packages/ && curl -v --location --request POST 'http://octopi.local/api/system/commands/core/restart' --header 'X-Api-Key: 9ACDC0B6E7EF418A901C88C51199BF77'",
             "problemMatcher": [],
             "group": {
                 "kind": "build",

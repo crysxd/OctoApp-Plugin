@@ -122,31 +122,31 @@ class OctoAppPlugin(
             try:
                 webcamIndex = data.get("webcamIndex", 0)
                 if (webcamIndex == 0):
-                    snapshotUrl = self._settings.global_get(
-                        ["webcam", "snapshot"]
-                    )
+                    webcamSettings = self._settings.global_get(["webcam"])
                 else:
-                    snapshotUrl = self._settings.global_get(
+                    webcamSettings = self._settings.global_get(
                         ["plugins", "multicam", "multicam_profiles"]
-                    )[webcamIndex]["snapshot"]
+                    )[webcamIndex]
+                snapshotUrl = webcamSettings["snapshot"]
+
                 timeout = self._settings.global_get_int(
                     ["webcam", "snapshotTimeout"]
                 )
                 self._logger.debug(
-                    "Getting snapshot from {0} (index {1})".format(
-                        snapshotUrl, webcamIndex)
+                    "Getting snapshot from {0} (index {1}, {2})".format(
+                        snapshotUrl, webcamIndex, webcamSettings)
                 )
                 response = requests.get(
                     snapshotUrl, timeout=float(timeout), stream=True)
                 image = Image.open(response.raw)
 
-                if (self._settings.global_get_boolean(["webcam", "rotate90"])):
+                if (webcamSettings.get("rotate90")):
                     image = image.rotate(90, expand=True)
 
-                if (self._settings.global_get_boolean(["webcam", "flipV"])):
+                if (webcamSettings.get("flipV")):
                     image = image.transpose(Image.FLIP_TOP_BOTTOM)
 
-                if (self._settings.global_get_boolean(["webcam", "flipH"])):
+                if (webcamSettings.get("flipH")):
                     image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
                 size = int(data.get("size", 720))
@@ -422,7 +422,7 @@ class OctoAppPlugin(
             if apps is None:
                 apps = []
             return apps
-        else: 
+        else:
             return []
 
     def set_apps(self, apps):
