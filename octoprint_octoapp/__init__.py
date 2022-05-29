@@ -55,15 +55,14 @@ class OctoAppPlugin(
         self.plugin_state = {}
         self.last_send_plugin_state = {}
 
-        self.data_file = os.path.join(
-            self.get_plugin_data_folder(), "apps.json")
-
     #
     # EVENTS
     #
 
     def on_after_startup(self):
         self._logger.info("OctoApp started, updating config")
+        self.data_file = os.path.join(
+            self.get_plugin_data_folder(), "apps.json")
         self.get_config()
         self.get_or_create_encryption_key()
         self.update_data_structure()
@@ -417,11 +416,14 @@ class OctoAppPlugin(
             self._settings.remove(["registeredApps"])
 
     def get_apps(self):
-        with open(self.data_file, 'r') as file:
-            apps = json.load(file)
-        if apps is None:
-            apps = []
-        return apps
+        if os.path.isfile(self.data_file):
+            with open(self.data_file, 'r') as file:
+                apps = json.load(file)
+            if apps is None:
+                apps = []
+            return apps
+        else: 
+            return []
 
     def set_apps(self, apps):
         with open(self.data_file, 'w') as outfile:
