@@ -120,10 +120,22 @@ class OctoAppPlugin(
                 return flask.make_response("Insufficient rights", 403)
 
             try:
-                snapshotUrl = self._settings.global_get(["webcam", "snapshot"])
+                webcamIndex = data.get("webcamIndex", 0)
+                if (webcamIndex == 0):
+                    snapshotUrl = self._settings.global_get(
+                        ["webcam", "snapshot"]
+                    )
+                else:
+                    snapshotUrl = self._settings.global_get(
+                        ["plugins", "multicam", "multicam_profiles"]
+                    )[webcamIndex]["snapshot"]
                 timeout = self._settings.global_get_int(
-                    ["webcam", "snapshotTimeout"])
-                self._logger.debug("Getting snapshot from %s" % snapshotUrl)
+                    ["webcam", "snapshotTimeout"]
+                )
+                self._logger.debug(
+                    "Getting snapshot from {0} (index {1})".format(
+                        snapshotUrl, webcamIndex)
+                )
                 response = requests.get(
                     snapshotUrl, timeout=float(timeout), stream=True)
                 image = Image.open(response.raw)
