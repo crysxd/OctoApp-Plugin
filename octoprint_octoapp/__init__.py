@@ -6,6 +6,7 @@ import base64
 import hashlib
 import json
 import logging
+from multiprocessing.connection import wait
 from pkgutil import get_data
 import threading
 import time
@@ -51,9 +52,12 @@ class OctoAppPlugin(
         self.last_progress_notification_at = 0
         self.last_progress = None
         self.last_print_name = None
+        self.data_file = None
         self.firmware_info = {}
         self.plugin_state = {}
         self.last_send_plugin_state = {}
+        self.webcam_snapshot_cache = {}
+        self.webcam_snapshot_cache_lock = threading.Lock()
 
     #
     # EVENTS
@@ -66,6 +70,7 @@ class OctoAppPlugin(
         self.get_config()
         self.get_or_create_encryption_key()
         self.update_data_structure()
+        self.continuous_snapshot_update()
 
     def on_firmware_info_received(
         self, comm_instance, firmware_name, firmware_data, *args, **kwargs
@@ -120,48 +125,37 @@ class OctoAppPlugin(
                 return flask.make_response("Insufficient rights", 403)
 
             try:
-                webcamIndex = data.get("webcamIndex", 0)
-                if (webcamIndex == 0):
-                    webcamSettings = self._settings.global_get(["webcam"])
-                else:
-                    webcamSettings = self._settings.global_get(
-                        ["plugins", "multicam", "multicam_profiles"]
-                    )[webcamIndex]
-                snapshotUrl = webcamSettings["snapshot"]
+                with self.webcam_snapshot_cache_lock:
+                    webcamIndex = data.get("webcamIndex", 0)
+                    webcamSettings = self.get_webcam_settings(webcamIndex)
+                    cache = self.webcam_snapshot_cache.get(webcamIndex)
+                    if (cache == None):
+                        return flask.make_response("Webcam image for {} not cached".format(webcamIndex), 406)
+                
+                    image = Image.open(self.webcam_snapshot_cache[webcamIndex]).copy()
+                    size = min(max(image.width, image.height), int(data.get("size", 720)))
+                    image.thumbnail([size, size])
 
-                timeout = self._settings.global_get_int(
-                    ["webcam", "snapshotTimeout"]
-                )
-                self._logger.debug(
-                    "Getting snapshot from {0} (index {1}, {2})".format(
-                        snapshotUrl, webcamIndex, webcamSettings)
-                )
-                response = requests.get(
-                    snapshotUrl, timeout=float(timeout), stream=True)
-                image = Image.open(response.raw)
+                    if (webcamSettings.get("rotate90")):
+                        image = image.rotate(90, expand=True)
 
-                if (webcamSettings.get("rotate90")):
-                    image = image.rotate(90, expand=True)
+                    if (webcamSettings.get("flipV")):
+                        image = image.transpose(Image.FLIP_TOP_BOTTOM)
 
-                if (webcamSettings.get("flipV")):
-                    image = image.transpose(Image.FLIP_TOP_BOTTOM)
+                    if (webcamSettings.get("flipH")):
+                        image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
-                if (webcamSettings.get("flipH")):
-                    image = image.transpose(Image.FLIP_LEFT_RIGHT)
-
-                size = int(data.get("size", 720))
-                image.thumbnail([size, size])
-                imageBytes = BytesIO()
-                try:
-                    image.save(imageBytes, 'WEBP',
-                               quality=data.get("quality", 70))
-                    imageBytes.seek(0)
-                    return send_file(imageBytes, mimetype='image/webp')
-                except:
-                    image.save(imageBytes, 'JPEG',
-                               quality=data.get("quality", 50))
-                    imageBytes.seek(0)
-                    return send_file(imageBytes, mimetype='image/jpeg')
+                    imageBytes = BytesIO()
+                    try:
+                        image.save(imageBytes, 'WEBP',
+                                quality=data.get("quality", 70))
+                        imageBytes.seek(0)
+                        return send_file(imageBytes, mimetype='image/webp')
+                    except:
+                        image.save(imageBytes, 'JPEG',
+                                quality=data.get("quality", 50))
+                        imageBytes.seek(0)
+                        return send_file(imageBytes, mimetype='image/jpeg')
             except Exception as e:
                 self._logger.warning("Failed to get webcam snapshot %s" % e)
                 return flask.make_response("Failed to get snapshot from webcam", 500)
@@ -214,9 +208,8 @@ class OctoAppPlugin(
 
     def on_print_progress(self, storage, path, progress):
         self.last_progress = progress
-        self.last_time_left = self._printer.get_current_data()["progress"][
-            "printTimeLeft"
-        ]
+        self.last_time_left = self._printer.get_current_data()[
+            "progress"]["printTimeLeft"]
 
         # send update, but don't send for 100%
         # we send updated in "modulus" interval as well as for the first and last "modulus" percent
@@ -240,6 +233,9 @@ class OctoAppPlugin(
             )
 
     def on_event(self, event, payload):
+        # Plugin not ready yet?
+        if (self.data_file == None): return
+
         self._logger.debug("Recevied event %s" % event)
         if event == Events.PRINT_STARTED:
             self.last_print_name = payload["name"]
@@ -252,7 +248,9 @@ class OctoAppPlugin(
             self.last_print_name = None
             self.last_time_left = None
             self.send_notification(
-                dict(type="completed", fileName=payload["name"]), True)
+                dict(type="completed", fileName=payload["name"]),
+                True
+            )
             self.plugin_state["m117"] = None
             self.send_plugin_state_message()
 
@@ -260,7 +258,9 @@ class OctoAppPlugin(
             self.last_progress = None
             self.last_print_name = None
             self.send_notification(
-                dict(type="idle", fileName=payload["name"]), False)
+                dict(type="idle", fileName=payload["name"]),
+                False
+            )
             self.plugin_state["m117"] = None
             self.send_plugin_state_message()
 
@@ -320,8 +320,10 @@ class OctoAppPlugin(
     #
 
     def send_notification(self, data, highPriority):
-        t = threading.Thread(target=self.do_send_notification, args=[
-                             data, highPriority])
+        t = threading.Thread(
+            target=self.do_send_notification,
+            args=[data, highPriority]
+        )
         t.daemon = True
         t.start()
 
@@ -366,6 +368,63 @@ class OctoAppPlugin(
             self._plugin_manager.send_plugin_message(
                 self._identifier, self.plugin_state)
 
+    #
+    # SNAPSHOTS
+    #
+    def continuous_snapshot_update(self):
+        t = threading.Thread(
+            target=self.do_continuous_snapshot_update,
+            args=[]
+        )
+        t.daemon = True
+        t.start()
+
+    def do_continuous_snapshot_update(self):
+        while True:
+            self._logger.debug("Updating webcam snapshots")
+
+            multiCamSettings = webcamSettings = self._settings.global_get(
+                ["plugins", "multicam", "multicam_profiles"]
+            )
+
+            if (type(multiCamSettings) == list):
+                for i in range(len(multiCamSettings) - 1):
+                    self.update_snapshot_cache(i)
+            else:
+                self.update_snapshot_cache(0) 
+
+            time.sleep(3)
+
+    def update_snapshot_cache(self, webcamIndex):
+        try:
+            webcamSettings = self.get_webcam_settings(webcamIndex)
+            snapshotUrl = webcamSettings["snapshot"]
+            timeout = self._settings.global_get_int(
+                ["webcam", "snapshotTimeout"]
+            )
+            self._logger.debug(
+                "Getting snapshot from {0} (index {1}, {2})".format(
+                    snapshotUrl, webcamIndex, webcamSettings)
+            )
+            imageBytes = BytesIO()
+            raw = requests.get(
+                snapshotUrl, timeout=float(timeout), stream=True)
+
+            for chunk in raw.iter_content(chunk_size=128):
+                imageBytes.write(chunk)
+
+            with self.webcam_snapshot_cache_lock:
+                self.webcam_snapshot_cache[webcamIndex] = imageBytes
+        except Exception as e:
+            self._logger.warning("Failed to get webcam snapshot %s" % e)
+            
+    def get_webcam_settings(self, webcamIndex):
+        if (webcamIndex == 0):
+            return self._settings.global_get(["webcam"])
+        else:
+            return self._settings.global_get(
+                ["plugins", "multicam", "multicam_profiles"]
+            )[webcamIndex]
     #
     # CONFIG
     #
