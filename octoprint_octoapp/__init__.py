@@ -233,62 +233,74 @@ class OctoAppPlugin(
             )
 
     def on_event(self, event, payload):
-        # Plugin not ready yet?
-        if (self.data_file == None): return
+        try:
+            # Plugin not ready yet?
+            if (self.data_file == None): return
 
-        self._logger.debug("Recevied event %s" % event)
-        if event == Events.PRINT_STARTED:
-            self.last_print_name = payload["name"]
-            self.last_progress_notification_at = 0
-            self.plugin_state["m117"] = None
-            self.send_plugin_state_message()
+            self._logger.debug("Recevied event %s" % event)
 
-        if event == Events.PRINT_DONE:
-            self.last_progress = None
-            self.last_print_name = None
-            self.last_time_left = None
-            self.send_notification(
-                dict(type="completed", fileName=payload["name"]),
-                True
-            )
-            self.plugin_state["m117"] = None
-            self.send_plugin_state_message()
+            if event == Events.SHUTDOWN:
+                # Blocking send to guarantee completion before shutdown
+                # This notification ensures all progress notifications will be closed
+                self.send_notification_blocking(
+                    dict(type="idle"),
+                    False
+                )
 
-        elif event == Events.PRINT_FAILED or event == Events.PRINT_CANCELLED:
-            self.last_progress = None
-            self.last_print_name = None
-            self.send_notification(
-                dict(type="idle", fileName=payload["name"]),
-                False
-            )
-            self.plugin_state["m117"] = None
-            self.send_plugin_state_message()
+            if event == Events.PRINT_STARTED:
+                self.last_print_name = payload["name"]
+                self.last_progress_notification_at = 0
+                self.plugin_state["m117"] = None
+                self.send_plugin_state_message()
 
-        elif event == Events.FILAMENT_CHANGE and self.last_progress is not None:
-            self.send_notification(
-                dict(
-                    type="filament_required",
-                    fileName=self.last_print_name,
-                    progress=self.last_progress,
-                    timeLeft=self.last_time_left,
-                ),
-                True,
-            )
+            if event == Events.PRINT_DONE:
+                self.last_progress = None
+                self.last_print_name = None
+                self.last_time_left = None
+                self.send_notification(
+                    dict(type="completed", fileName=payload["name"]),
+                    True
+                )
+                self.plugin_state["m117"] = None
+                self.send_plugin_state_message()
 
-        elif event == Events.CLIENT_OPENED:
-            self.send_plugin_state_message(forced=True)
-            self.send_settings_plugin_message(self.get_apps())
+            elif event == Events.PRINT_FAILED or event == Events.PRINT_CANCELLED:
+                self.last_progress = None
+                self.last_print_name = None
+                self.send_notification(
+                    dict(type="idle", fileName=payload["name"]),
+                    False
+                )
+                self.plugin_state["m117"] = None
+                self.send_plugin_state_message()
 
-        elif event == Events.PRINT_PAUSED:
-            self.send_notification(
-                dict(
-                    type="paused",
-                    fileName=payload["name"],
-                    progress=self.last_progress,
-                    timeLeft=self.last_time_left,
-                ),
-                False,
-            )
+            elif event == Events.FILAMENT_CHANGE and self.last_progress is not None:
+                self.send_notification(
+                    dict(
+                        type="filament_required",
+                        fileName=self.last_print_name,
+                        progress=self.last_progress,
+                        timeLeft=self.last_time_left,
+                    ),
+                    True,
+                )
+
+            elif event == Events.CLIENT_OPENED:
+                self.send_plugin_state_message(forced=True)
+                self.send_settings_plugin_message(self.get_apps())
+
+            elif event == Events.PRINT_PAUSED:
+                self.send_notification(
+                    dict(
+                        type="paused",
+                        fileName=payload["name"],
+                        progress=self.last_progress,
+                        timeLeft=self.last_time_left,
+                    ),
+                    False,
+                )
+        except Exception as e:
+            self._logger.warning("Failed tohandle event %s" % e)
 
     def on_gcode_send(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         if gcode == "M117":
@@ -321,13 +333,13 @@ class OctoAppPlugin(
 
     def send_notification(self, data, highPriority):
         t = threading.Thread(
-            target=self.do_send_notification,
+            target=self.send_notification_blocking,
             args=[data, highPriority]
         )
         t.daemon = True
         t.start()
 
-    def do_send_notification(self, data, highPriority):
+    def send_notification_blocking(self, data, highPriority):
         try:
             config = self.get_config()
 
@@ -346,9 +358,11 @@ class OctoAppPlugin(
 
             # make request and check 200
             r = requests.post(config["sendNotificationUrl"],
-                              timeout=float(15), json=body)
+                              timeout=float(10), json=body)
             if r.status_code != requests.codes.ok:
                 raise Exception("Unexpected response code %d" % r.status_code)
+            else:
+                self._logger.debug("Send was success")
 
             # delete invalid tokens
             apps = self.get_apps()
