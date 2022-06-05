@@ -407,7 +407,7 @@ class OctoAppPlugin(
             else:
                 self.update_snapshot_cache(0) 
 
-            time.sleep(3)
+            time.sleep(5)
 
     def update_snapshot_cache(self, webcamIndex):
         try:
