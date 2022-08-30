@@ -28,4 +28,4 @@ The app will automatically register itself with the plugin the next time you use
 Nothing to configure! OctoApp will connect automatically to the plugin
 
 ## Issues / Rquests
-Please use the app's bug report feature in case of any issues. Feature requests can go ti [GitLab](https://gitlab.com/realoctoapp/octoapp/-/issues/).
+Please use the app's bug report function in case of any issues. Feature requests can go to [GitLab](https://gitlab.com/realoctoapp/octoapp/-/issues/).
