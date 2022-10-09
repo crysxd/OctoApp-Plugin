@@ -229,7 +229,7 @@ class OctoAppPlugin(
                     progress=self.last_progress,
                     timeLeft=self.last_time_left,
                 ),
-                False,
+                True,
             )
 
     def on_event(self, event, payload):
@@ -244,7 +244,7 @@ class OctoAppPlugin(
                 # This notification ensures all progress notifications will be closed
                 self.send_notification_blocking(
                     dict(type="idle"),
-                    False
+                    True
                 )
 
             if event == Events.PRINT_STARTED:
@@ -252,6 +252,17 @@ class OctoAppPlugin(
                 self.last_progress_notification_at = 0
                 self.plugin_state["m117"] = None
                 self.send_plugin_state_message()
+
+            if event == Events.PRINT_RESUMED:
+                self.send_notification(
+                dict(
+                    type="printing",
+                    fileName=self.last_print_name,
+                    progress=self.last_progress,
+                    timeLeft=self.last_time_left,
+                ),
+                True,
+            )
 
             if event == Events.PRINT_DONE:
                 self.last_progress = None
@@ -269,7 +280,7 @@ class OctoAppPlugin(
                 self.last_print_name = None
                 self.send_notification(
                     dict(type="idle", fileName=payload["name"]),
-                    False
+                    True
                 )
                 self.plugin_state["m117"] = None
                 self.send_plugin_state_message()
@@ -297,7 +308,7 @@ class OctoAppPlugin(
                         progress=self.last_progress,
                         timeLeft=self.last_time_left,
                     ),
-                    False,
+                    True,
                 )
         except Exception as e:
             self._logger.warning("Failed tohandle event %s" % e)
@@ -323,7 +334,7 @@ class OctoAppPlugin(
                     progress=self.last_progress,
                     timeLeft=self.last_time_left,
                 ),
-                False,
+                True,
             )
             return
 
