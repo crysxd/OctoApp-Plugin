@@ -51,16 +51,9 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                         image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
                     imageBytes = BytesIO()
-                    try:
-                        image.save(imageBytes, 'WEBP',
-                                quality=data.get("quality", 70))
-                        imageBytes.seek(0)
-                        return send_file(imageBytes, mimetype='image/webp')
-                    except:
-                        image.save(imageBytes, 'JPEG',
-                                quality=data.get("quality", 50))
-                        imageBytes.seek(0)
-                        return send_file(imageBytes, mimetype='image/jpeg')
+                    image.save(imageBytes, 'JPEG', quality=data.get("quality", 50))
+                    imageBytes.seek(0)
+                    return send_file(imageBytes, mimetype='image/jpeg')
             except Exception as e:
                 self._logger.warning("Failed to get webcam snapshot %s" % e)
                 return flask.make_response("Failed to get snapshot from webcam", 500)
