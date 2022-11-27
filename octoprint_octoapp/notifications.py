@@ -22,6 +22,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         super().__init__(parent)
         self.last_progress_notification_at = 0
         self.last_progress = None
+        self.print_id = None
         self.last_print_name = None
         self.data_file = None
     
@@ -93,6 +94,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         modulus = config["updatePercentModulus"]
         highPrecisionStart = config["highPrecisionRangeStart"]
         highPrecisionEnd = config["highPrecisionRangeEnd"]
+        self.print_id = str(uuid.uuid4()) if self.print_id is None else self.print_id
         if progress < 100 and (
             (progress % modulus) == 0
             or progress <= highPrecisionStart
@@ -117,13 +119,14 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # Blocking send to guarantee completion before shutdown
             # This notification ensures all progress notifications will be closed
             self.send_notification_blocking(
-                dict(type="idle"),
+                dict(type="idle", printId=self.print_id),
                 True
             )
 
         elif event == Events.PRINT_STARTED:
             self.last_print_name = payload["name"]
             self.last_progress_notification_at = 0
+            self.print_id = str(uuid.uuid4()) if self.print_id is None else self.print_id
 
         elif event == Events.PRINT_RESUMED:
             self.send_notification(
@@ -141,17 +144,19 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self.last_print_name = None
             self.last_time_left = None
             self.send_notification(
-                dict(type="completed", fileName=payload["name"]),
+                dict(type="completed", fileName=payload["name"], printId=self.print_id),
                 True
             )
+            self.print_id = None
 
         elif event == Events.PRINT_FAILED or event == Events.PRINT_CANCELLED:
             self.last_progress = None
             self.last_print_name = None
             self.send_notification(
-                dict(type="idle", fileName=payload["name"]),
+                dict(type="idle", fileName=payload["name"], printId=self.print_id),
                 True
             )
+            self.print_id = None
 
         elif event == Events.FILAMENT_CHANGE and self.last_progress is not None:
             self.send_notification(
@@ -219,6 +224,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # encrypt message and build request body
             data["serverTime"] = int(time.time())
             data["serverTimePrecise"] = time.time()
+            data["printId"] = data["printId"] if "printId" in data else self.print_id
             self._logger.debug("Sending notification %s" % data)
             cipher = AESCipher(self.get_or_create_encryption_key())
             data = cipher.encrypt(json.dumps(data))
