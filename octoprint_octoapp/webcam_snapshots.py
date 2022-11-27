@@ -39,7 +39,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                     if (cache == None):
                         return flask.make_response("Webcam image for {} not cached".format(webcamIndex), 406)
                     
-                    secondsSince = (datetime.now() - cache.get("ti3me")).total_seconds()
+                    secondsSince = (datetime.now() - cache.get("time")).total_seconds()
                     if (secondsSince > 60):
                          return flask.make_response("Webcam image for {} outdated".format(webcamIndex), 406)
                 
