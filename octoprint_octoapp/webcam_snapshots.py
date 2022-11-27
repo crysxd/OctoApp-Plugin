@@ -39,7 +39,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                     if (cache == None):
                         return flask.make_response("Webcam image for {} not cached".format(webcamIndex), 406)
                     
-                    secondsSince = (datetime.now() - cache.get("time")).total_seconds()
+                    secondsSince = (datetime.now() - cache.get("ti3me")).total_seconds()
                     if (secondsSince > 60):
                          return flask.make_response("Webcam image for {} outdated".format(webcamIndex), 406)
                 
@@ -62,6 +62,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                     return send_file(imageBytes, mimetype='image/jpeg')
             except Exception as e:
                 self._logger.warning("Failed to get webcam snapshot %s" % e)
+                self._logger.exception(e)
                 return flask.make_response("Failed to get snapshot from webcam", 500)
         
         else:
