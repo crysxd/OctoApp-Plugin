@@ -7,6 +7,7 @@ from PIL import Image
 import requests
 from io import BytesIO
 import flask
+from datetime import datetime
 from octoprint.access.permissions import Permissions
 
 from flask import send_file
@@ -34,10 +35,15 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                     webcamIndex = data.get("webcamIndex", 0)
                     webcamSettings = self.get_webcam_settings(webcamIndex)
                     cache = self.webcam_snapshot_cache.get(webcamIndex)
+                    
                     if (cache == None):
                         return flask.make_response("Webcam image for {} not cached".format(webcamIndex), 406)
+                    
+                    secondsSince = (datetime.now() - cache.get("time")).total_seconds()
+                    if (secondsSince > 60):
+                         return flask.make_response("Webcam image for {} outdated".format(webcamIndex), 406)
                 
-                    image = Image.open(self.webcam_snapshot_cache[webcamIndex]).copy()
+                    image = Image.open(cache.get("bytes")).copy()
                     size = min(max(image.width, image.height), int(data.get("size", 720)))
                     image.thumbnail([size, size])
 
@@ -112,7 +118,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                 imageBytes.write(chunk)
 
             with self.webcam_snapshot_cache_lock:
-                self.webcam_snapshot_cache[webcamIndex] = imageBytes
+                self.webcam_snapshot_cache[webcamIndex] = dict(bytes=imageBytes, time=datetime.now())
         except Exception as e:
             self._logger.warning("Failed to get webcam snapshot %s" % e)
       
