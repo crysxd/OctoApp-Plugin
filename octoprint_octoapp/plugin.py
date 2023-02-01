@@ -29,10 +29,10 @@ class OctoAppPlugin(
         self._logger = logging.getLogger("octoprint.plugins.octoapp")
 
         self.default_config = dict(
-            updatePercentModulus=10,
+            updatePercentModulus=5,
             highPrecisionRangeStart=5,
             highPrecisionRangeEnd=5,
-            sendNotificationUrl="https://europe-west1-octoapp-4e438.cloudfunctions.net/sendNotification",
+            sendNotificationUrl="https://europe-west1-octoapp-4e438.cloudfunctions.net/sendNotificationV2",
         )
 
         self.cached_config = self.default_config
@@ -156,7 +156,7 @@ class OctoAppPlugin(
         # Request config, fall back to default
         try:
             r = requests.get(
-                "https://www.octoapp.eu/pluginconfig.json", timeout=float(15)
+                "https://www.octoapp.eu/config/plugin.json", timeout=float(15)
             )
             if r.status_code != requests.codes.ok:
                 raise Exception("Unexpected response code %d" % r.status_code)

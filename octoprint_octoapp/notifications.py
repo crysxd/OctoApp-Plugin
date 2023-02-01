@@ -17,33 +17,29 @@ import uuid
 
 class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
+    EVENT_PAUSED="paused"
+    EVENT_PAUSED_GCODE="paused_gcode"
+    EVENT_FILAMENT_REQUIRED="filament_required"
+    EVENT_COMPLETED="completed"
+    EVENT_CANCELLED="cancelled"
+    EVENT_PRINTING="printing"
+    EVENT_MMU2_FILAMENT_START="mmu_filament_selection_started"
+    EVENT_MMU2_FILAMENT_DONE="mmu_filament_selection_completed"
+    EVENT_IDLE="idle"
+    EVENT_BEEP="beep"
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.last_progress_notification_at = 0
-        self.last_progress = None
-        self.print_id = None
-        self.last_print_name = None
         self.data_file = None
-    
-
-    def send_special_notification(self, type):
-        self.send_notification(
-            dict(
-                type=type,
-                fileName=self.last_print_name,
-                progress=self.last_progress,
-                timeLeft=self.last_time_left,
-            ),
-            True,
-        )
-
+        self.print_state = {}
+        self.last_progress_update = 0
 
     def on_after_startup(self):
         self.data_file = os.path.join(self.parent.get_plugin_data_folder(), "apps.json")
         self.update_data_structure()
         self.get_or_create_encryption_key()
-        
+        self.remove_temporary_apps()
+        self.last_event = None
     
     def on_api_command(self, command, data):
         if command == "registerForNotifications":
@@ -51,6 +47,11 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                 return flask.make_response("Insufficient rights", 403)
 
             fcmToken = data["fcmToken"]
+
+            # if this is a temporary app, remove all other temp apps for this instance
+            instnace_id = data.get("instanceId", None)
+            if fcmToken.startswith("activity:") and instnace_id is not None:
+                self.remove_temporary_apps(for_instance_id=instnace_id)
 
             # load apps and filter the given FCM token out
             apps = self.get_apps()
@@ -63,6 +64,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             apps.append(
                 dict(
                     fcmToken=fcmToken,
+                    fcmTokenFallback=data.get("fcmTokenFallback", None),
                     instanceId=data["instanceId"],
                     displayName=data["displayName"],
                     model=data["model"],
@@ -75,18 +77,22 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
             # save
             self._logger.info("Registered app %s" % fcmToken)
-            self._logger.debug("registered apps %s" % apps)
             self.set_apps(apps)
+            self.log_apps()
             self.parent._settings.save()
             return flask.jsonify(dict())
         
         else: 
             return None
 
+    def update_print_state(self):
+        progress = self.parent._printer.get_current_data()["progress"]
+        self.print_state["progress"] = int(progress["completion"])
+        self.print_state["time_left"] = progress["printTimeLeft"]
+        self.print_state["print_time"] = progress["printTime"]
 
     def on_print_progress(self, storage, path, progress):
-        self.last_progress = progress
-        self.last_time_left = self.parent._printer.get_current_data()["progress"]["printTimeLeft"]
+        self.update_print_state()
 
         # send update, but don't send for 100%
         # we send updated in "modulus" interval as well as for the first and last "modulus" percent
@@ -94,21 +100,21 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         modulus = config["updatePercentModulus"]
         highPrecisionStart = config["highPrecisionRangeStart"]
         highPrecisionEnd = config["highPrecisionRangeEnd"]
-        self.print_id = str(uuid.uuid4()) if self.print_id is None else self.print_id
-        if progress < 100 and (
+        time_since_last = time.time() - self.last_progress_update
+        if progress < 100 and progress > 0 and (
             (progress % modulus) == 0
             or progress <= highPrecisionStart
             or progress >= (100 - highPrecisionEnd)
         ):
-            self.send_notification(
-                dict(
-                    type="printing",
-                    fileName=self.last_print_name,
-                    progress=self.last_progress,
-                    timeLeft=self.last_time_left,
-                ),
-                True,
-            )
+            self._logger.debug("Updating progress in main interval %s" % self.last_event)
+            self.send_notification(event=self.EVENT_PRINTING)
+            self.last_progress_update = time.time()
+        elif time_since_last > 15:
+            self._logger.debug("Over %s sec passed since last progress update, sending low priority update" % int(time_since_last))
+            self.send_notification(event=self.EVENT_PRINTING, only_activities=True)
+            self.last_progress_update = time.time()
+        else:
+            self._logger.debug("Skipping progress update, only %s seconds passed since last" % int(time_since_last))
 
 
     def on_event(self, event, payload):
@@ -118,146 +124,307 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         if event == Events.SHUTDOWN:
             # Blocking send to guarantee completion before shutdown
             # This notification ensures all progress notifications will be closed
-            self.send_notification_blocking(
-                dict(type="idle", printId=self.print_id),
-                True
-            )
+            if self.print_state.get("progress", None) is not None:
+                self.send_notification_blocking(self.EVENT_CANCELLED)
+            else:
+                self.send_notification_blocking(self.EVENT_IDLE)
 
         elif event == Events.PRINT_STARTED:
-            self.last_print_name = payload["name"]
-            self.last_progress_notification_at = 0
-            self.print_id = str(uuid.uuid4()) if self.print_id is None else self.print_id
+            self.last_progress_update = 0
+            self.print_state = dict(
+                name=payload["name"],
+                id=str(uuid.uuid4()),
+                progress=0,
+                time_left=self.parent._printer.get_current_data()["progress"]["printTimeLeft"]
+            )
+
+            self.send_notification(event=self.EVENT_PRINTING)
 
         elif event == Events.PRINT_RESUMED:
-            self.send_notification(
-            dict(
-                type="printing",
-                fileName=self.last_print_name,
-                progress=self.last_progress,
-                timeLeft=self.last_time_left,
-            ),
-            True,
-        )
+            self.update_print_state()
+            self.send_notification(event=self.EVENT_PRINTING)
 
         elif event == Events.PRINT_DONE:
-            self.last_progress = None
-            self.last_print_name = None
-            self.last_time_left = None
-            self.send_notification(
-                dict(type="completed", fileName=payload["name"], printId=self.print_id),
-                True
-            )
-            self.print_id = None
+            self.print_state["progress"] = 100
+            self.send_notification(event=self.EVENT_COMPLETED)
+            self.print_state = {}
 
         elif event == Events.PRINT_FAILED or event == Events.PRINT_CANCELLED:
-            self.last_progress = None
-            self.last_print_name = None
-            self.send_notification(
-                dict(type="idle", fileName=payload["name"], printId=self.print_id),
-                True
-            )
-            self.print_id = None
+            # This is called twice when cancelled
+            if self.print_state.get("id", None) is not None:
+                self.send_notification(event=self.EVENT_CANCELLED)
+                self.print_state = {}
 
-        elif event == Events.FILAMENT_CHANGE and self.last_progress is not None:
-            self.send_notification(
-                dict(
-                    type="filament_required",
-                    fileName=self.last_print_name,
-                    progress=self.last_progress,
-                    timeLeft=self.last_time_left,
-                ),
-                True,
-            )
+        elif event == Events.FILAMENT_CHANGE and self.print_state.get("progress", None) is not None:
+            self.update_print_state()
+            self.send_notification(event=self.EVENT_FILAMENT_REQUIRED)
 
         elif event == Events.CLIENT_OPENED:
             self.send_settings_plugin_message(self.get_apps())
 
         elif event == Events.PRINT_PAUSED:
-            self.send_notification(
-                dict(
-                    type="paused",
-                    fileName=payload["name"],
-                    progress=self.last_progress,
-                    timeLeft=self.last_time_left,
-                ),
-                True,
-            )
-
+            # Pause is triggered after FILAMENT_CHANGE, prevent duplicate events
+            self.update_print_state()
+            if self.last_event != self.EVENT_FILAMENT_REQUIRED and self.last_event != self.EVENT_PAUSED:
+                self._logger.debug("Preparing pause notification, last event was %s" % self.last_event)
+                self.send_notification(event=self.EVENT_PAUSED)
 
     def on_gcode_send(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         if gcode == "M300":
-            self.send_notification(
-                dict(type="beep"),
-                True,
-            )
-
+            self.update_print_state()
+            time_left = self.print_state["time_left"]
+            progress = self.print_state["progress"]
+            if time_left > 30 or progress < 95:
+                self._logger.debug("Performing beep, %s seconds left and %s%" % (time_left, progress))    
+                self.send_notification(event=self.EVENT_BEEP)
+            else:
+                self._logger.debug("Skipping beep, only %s seconds left and %s%" % (time_left, progress))    
+    
         elif gcode == "M601":
-            self.send_notification(
-                dict(
-                    type="paused_gcode",
-                    fileName=self.last_print_name,
-                    progress=self.last_progress,
-                    timeLeft=self.last_time_left,
-                ),
-                True,
-            )
-
+            self.update_print_state()
+            self.send_notification(event=self.EVENT_PAUSED_GCODE)
 
     #
     # NOTIFICATIONS
     #
 
 
-    def send_notification(self, data, highPriority):
+    def send_notification(self, event, only_activities=False):
+        self.last_event = event
         t = threading.Thread(
             target=self.send_notification_blocking,
-            args=[data, highPriority]
+            args=[event, self.print_state.copy(), only_activities]
         )
         t.daemon = True
         t.start()
 
 
-    def send_notification_blocking(self, data, highPriority):
+    def send_notification_blocking(self, event, state, only_activities):
         try:
             config = self.config
 
-            # encrypt message and build request body
-            data["serverTime"] = int(time.time())
-            data["serverTimePrecise"] = time.time()
-            data["printId"] = data["printId"] if "printId" in data else self.print_id
-            self._logger.debug("Sending notification %s" % data)
-            cipher = AESCipher(self.get_or_create_encryption_key())
-            data = cipher.encrypt(json.dumps(data))
-            apps = self.get_apps()
-            if not apps:
-                self._logger.debug("No apps registered, skipping notification")
+            self._logger.debug("Preparing notification for %s" % event)
+            targets = self.get_push_targets(
+                preferActivity=self.should_prefer_activity(event),
+                canUseNonActivity=self.can_use_non_activity(event) and not only_activities
+            )
+
+            if only_activities:
+                self._logger.debug("Only activities allowed, filtering")
+                targets = self.get_activities(targets)
+
+            if not targets:
+                self._logger.debug("No targets, skipping notification")
                 return
 
-            body = dict(targets=apps, highPriority=highPriority, data=data)
+            ios_targets = self.get_ios_apps(targets)
+            activity_targets = self.get_activities(targets)
+            android_targets = self.get_android_apps(targets)
+            apnsData = self.createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None
 
-            # make request and check 200
-            r = requests.post(config["sendNotificationUrl"],
-                              timeout=float(10), json=body)
+            if not len(android_targets) and apnsData is None:
+                self._logger.debug("Skipping push, no Android targets and no APNS data, skipping notification", json.dumps(body))
+                return
+            
+            if not len(android_targets) and not len(activity_targets) and apnsData.get("alert", None) is None:
+                self._logger.debug("Skipping push, no Android targets, no iOS targets and APNS data has no alert, skipping notification")
+                return
+
+            # Base priority on only_activities. If the flag is set this is a low
+            # priority status update
+            body = dict(
+                targets=list(map(lambda x: {
+                    "fcmToken": x["fcmToken"],
+                    "fcmTokenFallback": x.get("fcmTokenFallback", None),
+                    "instanceId": x["instanceId"]
+                }, targets)),
+                highPriority=not only_activities,
+                androidData=self.createAndroidPushData(event, state),
+                apnsData=apnsData,
+            )
+
+            self._logger.debug("Sending notification: %s", json.dumps(body))
+
+            # Make request and check 200
+            r = requests.post(
+                config["sendNotificationUrl"],
+                timeout=float(10), 
+                json=body
+            )
             if r.status_code != requests.codes.ok:
                 raise Exception("Unexpected response code %d" % r.status_code)
             else:
                 self._logger.debug("Send was success")
 
-            # delete invalid tokens
+            # Delete invalid tokens
             apps = self.get_apps()
-            for fcmToken in r.json()["invalidTokens"]:
+            invalid_tokens = r.json()["invalidTokens"]
+            for fcmToken in invalid_tokens:
+                self._logger.debug("Removing %s, no longer valid" % fcmToken)
                 apps = [app for app in apps if app["fcmToken"] != fcmToken]
             self.set_apps(apps)
             self.parent._settings.save()
-            self._logger.debug("Updated apps" )
+            self.log_apps()
+
+            # Remove temporary apps after getting targets
+            if event == self.EVENT_CANCELLED or event == self.EVENT_COMPLETED:
+                self.remove_temporary_apps()
+
         except Exception as e:
             self._logger.debug("Failed to send notification %s" % e)
+
+
+    def createAndroidPushData(self, event, state):
+        cipher = AESCipher(self.get_or_create_encryption_key())
+        if event == self.EVENT_BEEP:
+            data = {}
+        else:
+            data = {
+                "serverTime": int(time.time()),
+                "serverTimePrecise": time.time(),
+                "printId": state.get("id", None),
+                "fileName": state.get("name", None),
+                "progress": state.get("progress", None),
+                "timeLeft": state.get("time_left", None),
+                "type": event
+            }
+        return cipher.encrypt(json.dumps(data))
+
+
+    def createApnsPushData(self, event, state):
+        self._logger.debug("Targets contain iOS devices, generating texts for '%s'", event)
+        notificationTitle = None
+        notificationSound = None
+        liveActivityState = None
+
+        if event == self.EVENT_BEEP:
+            return {
+                "alert": {
+                    "title": "Beep!",
+                    "body": "Your printer needs attention",
+                },
+                "sound": "default",
+            }
+
+        elif event == self.EVENT_IDLE:
+            # Not supported
+            return None
+
+        elif event == self.EVENT_PRINTING:
+            liveActivityState = "printing"
+
+        elif event == self.EVENT_CANCELLED:
+            liveActivityState = "cancelled"
+
+        elif event == self.EVENT_COMPLETED:
+            notificationTitle = "Print completed"
+            notificationSound = "notification_print_done.wav"
+            liveActivityState = "completed"
+
+        elif event == self.EVENT_FILAMENT_REQUIRED:
+            notificationTitle = "Filament required"
+            notificationSound = "notification_filament_change.wav"
+            liveActivityState = "filamentRequired"
+
+        elif event == self.EVENT_PAUSED:
+            liveActivityState = "paused"
+
+        elif event == self.EVENT_PAUSED_GCODE:
+            notificationTitle = "Print paused by Gcode"
+            notificationSound = "notification_filament_change.wav"
+            liveActivityState = "paused_gcode"
+        
+        elif event == self.EVENT_MMU2_FILAMENT_START:
+            notificationTitle = "MMU2 filament selection required"
+            notificationSound = "notification_filament_change.wav"
+            liveActivityState = "filamentRequired"
+
+        elif event == self.EVENT_MMU2_FILAMENT_DONE:
+            liveActivityState = "printing"
+
+        else:
+            self._logger.warn("Missing handling for '%s'" % event)
+            return None
+
+        data = {
+            # Let's only end the activity on cancel. If we end it on completed the alert isn't shown
+            # "event": "end" if (event == self.EVENT_COMPLETED or event == self.EVENT_CANCELLED) else "update",
+            "event": "end" if (event == self.EVENT_CANCELLED) else "update",
+            "content-state": {
+                "fileName": state.get("name", None),
+                "progress":state.get("progress", None),
+                "sourceTime": int(time.time() * 1000),
+                "state": liveActivityState,
+                "timeLeft": state.get("time_left", None),
+                "printTime": state.get("print_time", None),
+            }
+        }
+
+        if notificationSound is not None:
+            data["sound"] = notificationSound
+
+        if notificationTitle is not None:
+            data["alert"] = {
+                "title": notificationTitle,
+                "body": state.get("name", "???"),
+            }
+
+        return data
+
+    def should_prefer_activity(self, event):
+        return event != self.EVENT_BEEP
+
+    def can_use_non_activity(self, event):
+        return event != self.EVENT_PRINTING
+
+    def get_push_targets(self, preferActivity, canUseNonActivity):
+        self._logger.info("Finding targets preferActivity=%s canUseNonActivity=%s" % (preferActivity, canUseNonActivity))
+        apps = self.get_apps()
+        phones = {}
+
+        # Group all apps by phone
+        for app in apps:
+            instance_id = app["instanceId"]
+            phone = phones.get(instance_id, [])
+            phone.append(app)
+            phones[instance_id] = phone
+
+        # Pick activity if available, otherwise any other app
+        def pick_best_app(apps):
+            activities = self.get_activities(apps)
+            ios = self.get_ios_apps(apps)
+            android = self.get_android_apps(apps)
+            if len(activities) and preferActivity:
+                return activities[0]
+            elif len(ios) and canUseNonActivity:
+                return ios[0]
+            elif len(android):
+                return android[0]
+            else:
+                return None
+
+        apps = list(map(lambda phone: pick_best_app(phone), phones.values()))
+        return list(filter(lambda app: app is not None, apps))
 
 
     #
     # APPS
     #
 
+    def get_android_apps(self, apps):
+        return list(filter(lambda app: not app["fcmToken"].startswith("activity:") and not app["fcmToken"].startswith("ios:"), apps))
+
+    def get_ios_apps(self, apps):
+        return list(filter(lambda app: app["fcmToken"].startswith("ios:"), apps))
+
+    def get_activities(self, apps):
+        return list(filter(lambda app: app["fcmToken"].startswith("activity:"), apps))
+
+    def log_apps(self):
+        apps = self.get_apps()
+        self._logger.debug("Now %s apps registered" % len(apps))
+        for app in apps:
+            self._logger.debug("   => %s" % app["fcmToken"][0:100])
 
     def update_data_structure(self):
         if not os.path.isfile(self.data_file):
@@ -279,6 +446,17 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         else:
             return []
 
+    def remove_temporary_apps(self, for_instance_id=None):
+        apps = self.get_apps()
+        
+        if for_instance_id is None:
+            apps = list(filter(lambda app: not app["fcmToken"].startswith("activity:") ,apps))
+            self._logger.debug("Removed all temporary apps")
+        else:
+            apps = list(filter(lambda app: not app["fcmToken"].startswith("activity:") or app["instanceId"] != for_instance_id ,apps))
+            self._logger.debug("Removed all temporary apps for %s" % for_instance_id)
+
+        self.set_apps(apps)
 
     def set_apps(self, apps):
         with open(self.data_file, 'w') as outfile:

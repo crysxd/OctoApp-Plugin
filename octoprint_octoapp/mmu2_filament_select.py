@@ -17,7 +17,7 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
             if action == "show":
                 # If not currently active, send notification as we switched state
                 if self.parent.plugin_state.get("mmuSelectionActive") is not True:
-                    self.notifications.send_special_notification(type="mmu_filament_selection_started")
+                    self.notifications.send_notification(event=self.notifications.EVENT_MMU2_FILAMENT_START)
 
                 self.parent.plugin_state["mmuSelectionActive"] = True
                 self.parent.send_plugin_state_message()
@@ -25,7 +25,7 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
             elif action == "close":
                 # If currently active, send notification as we switched state
                 if self.parent.plugin_state.get("mmuSelectionActive") is True:
-                    self.notifications.send_special_notification(type="mmu_filament_selection_completed")
+                    self.notifications.send_notification(event=self.notifications.EVENT_MMU2_FILAMENT_DONE)
 
                 self.parent.plugin_state["mmuSelectionActive"] = False
                 self.parent.send_plugin_state_message()
