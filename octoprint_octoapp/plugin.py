@@ -40,6 +40,9 @@ class OctoAppPlugin(
         self.plugin_state = {}
         self.last_send_plugin_state = {}
 
+        # !!! Also update in setup.py !!!!
+        self.plugin_version = "1.2.0"
+
         notification_plugin =  OctoAppNotificationsSubPlugin(self)
         self.sub_plugins = [
             notification_plugin,
@@ -57,8 +60,9 @@ class OctoAppPlugin(
     #
 
     def on_after_startup(self):
-        self._logger.info("OctoApp started, updating config")
+        self._logger.info("OctoApp started, updating config, version is %s" % self._plugin_version)
         self.update_config()
+        self._settings.set(["version"], self.plugin_version)
 
         for sp in self.sub_plugins:
             try:
@@ -179,7 +183,7 @@ class OctoAppPlugin(
     #
 
     def get_settings_defaults(self):
-        return dict(encryptionKey=None, version=self._plugin_version)
+        return dict(encryptionKey=None, version=self.plugin_version)
 
     def get_template_configs(self):
         return [dict(type="settings", custom_bindings=True)]
