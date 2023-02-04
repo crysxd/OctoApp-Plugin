@@ -36,6 +36,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def on_after_startup(self):
         self.data_file = os.path.join(self.parent.get_plugin_data_folder(), "apps.json")
+        self._logger.info("Using config file %s" % self.data_file )
         self.upgrade_data_structure()
         self.upgrade_expiration_date()
         self.remove_temporary_apps()
@@ -116,7 +117,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self._logger.debug("Updating progress in main interval %s" % self.last_event)
             self.send_notification(event=self.EVENT_PRINTING)
             self.last_progress_update = time.time()
-        elif time_since_last > 120:
+        elif time_since_last > 300:
             self._logger.debug("Over %s sec passed since last progress update, sending low priority update" % int(time_since_last))
             self.send_notification(event=self.EVENT_PRINTING, only_activities=True)
             self.last_progress_update = time.time()
@@ -132,9 +133,9 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # Blocking send to guarantee completion before shutdown
             # This notification ensures all progress notifications will be closed
             if self.print_state.get("progress", None) is not None:
-                self.send_notification_blocking(self.EVENT_CANCELLED)
+                self.send_notification_blocking(self.EVENT_CANCELLED, state=self.print_state, only_activities=False)
             else:
-                self.send_notification_blocking(self.EVENT_IDLE)
+                self.send_notification_blocking(self.EVENT_IDLE, state=self.print_state, only_activities=False)
 
         elif event == Events.PRINT_STARTED:
             self.last_progress_update = 0
@@ -523,7 +524,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
     def upgrade_expiration_date(self):
         try:
             def add_expiration(app):
-                app["expireAt"] = app.get("expireAt", self.get_default_expiration_from_now())
+                app["expireAt"] = app.get("expireAt", None) or self.get_default_expiration_from_now()
                 return app
 
             apps = self.get_apps()
@@ -531,6 +532,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self.set_apps(apps)
         except Exception as e:
              self._logger.error("Failed to upgrade expiration: %s" % e)
+             self._logger.error(e)
 
     def get_apps(self):
         try: 
@@ -561,19 +563,16 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
     def set_apps(self, apps):
         with open(self.data_file, 'w') as outfile:
             json.dump(apps, outfile)
-            self.send_settings_plugin_message(apps)
+        self.send_settings_plugin_message(apps)
 
     def send_settings_plugin_message(self, apps):
-        def take_expiry(app):
-            return app.get("expireAt", None)
-
         mapped_apps = list(map(lambda x: dict(
             displayName=x.get("displayName", None),
             lastSeenAt=x.get("lastSeenAt", None),
             expireAt=x.get("expireAt", None),
             displayDescription=x.get("displayDescription", None)
         ), apps))
-        mapped_apps = sorted(mapped_apps, key=lambda d: d.get("expireAt", None))
+        mapped_apps = sorted(mapped_apps, key=lambda d: d.get("expireAt", None) or float('inf'))
         self.parent._plugin_manager.send_plugin_message(
             "%s.settings" % self.parent._identifier, {"apps": mapped_apps})
 
