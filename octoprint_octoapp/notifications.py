@@ -36,9 +36,10 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def on_after_startup(self):
         self.data_file = os.path.join(self.parent.get_plugin_data_folder(), "apps.json")
-        self.update_data_structure()
-        self.get_or_create_encryption_key()
+        self.upgrade_data_structure()
+        self.upgrade_expiration_date()
         self.remove_temporary_apps()
+        self.get_or_create_encryption_key()
         self.last_event = None
         self.continuously_check_activities_expired()
     
@@ -68,12 +69,13 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                     fcmTokenFallback=data.get("fcmTokenFallback", None),
                     instanceId=data["instanceId"],
                     displayName=data["displayName"],
+                    displayDescription=data.get("displayDescription", None),
                     model=data["model"],
                     appVersion=data["appVersion"],
                     appBuild=data["appBuild"],
                     appLanguage=data["appLanguage"],
                     lastSeenAt=time.time(),
-                    expireAt=(time.time() + data["expireInSecs"]) if "expireInSecs" in data else None,
+                    expireAt=(time.time() + data["expireInSecs"]) if "expireInSecs" in data else self.get_default_expiration_from_now(),
                 )
             )
 
@@ -86,6 +88,9 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         
         else: 
             return None
+    
+    def get_default_expiration_from_now(self):
+        return (time.time() + 2592000)
 
     def update_print_state(self):
         progress = self.parent._printer.get_current_data()["progress"]
@@ -223,7 +228,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             apnsData = self.createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None
 
             if not len(android_targets) and apnsData is None:
-                self._logger.debug("Skipping push, no Android targets and no APNS data, skipping notification", json.dumps(body))
+                self._logger.debug("Skipping push, no Android targets and no APNS data, skipping notification")
                 return
             
             if not len(android_targets) and not len(activity_targets) and apnsData.get("alert", None) is None:
@@ -246,6 +251,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def send_notification_blocking_raw(self, targets, high_priority, apnsData, androidData):
         try:
+            if not len(targets): return
             config = self.config
 
             # Base priority on only_activities. If the flag is set this is a low
@@ -454,26 +460,25 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                     self._logger.debug("Found %s expired apps" % len(expired))
                     self.log_apps()
 
-                    apnsData=self.create_activity_content_state(
-                        is_end=True,
-                        liveActivityState="expired",
-                        state=self.print_state
-                    )
-                    apnsData["alert"] = {
-                        "title": "Updates paused for %s" % self.print_state.get("name", ""),
-                        "body": "Live activities expire after 8h, open OctoApp to renew"
-                    }
-
-                    self.send_notification_blocking_raw(
-                        targets=expired,
-                        high_priority=True,
+                    expired_activities = self.get_activities(expired)
+                    if len(expired_activities):
+                        # This will end the live activity, we currently do not send a notification to inform
+                        # the user, we can do so by setting is_end=False and the apnsData as below
                         apnsData=self.create_activity_content_state(
                             is_end=True,
                             liveActivityState="expired",
                             state=self.print_state
-                        ),
-                        androidData="none"
-                    )
+                        )
+                        # apnsData["alert"] = {
+                        #     "title": "Updates paused for %s" % self.print_state.get("name", ""),
+                        #     "body": "Live activities expire after 8h, open OctoApp to renew"
+                        # }
+                        self.send_notification_blocking_raw(
+                            targets=expired_activities,
+                            high_priority=True,
+                            apnsData=apnsData,
+                            androidData="none"
+                        )
 
                     filtered_apps = list(filter(lambda app: any(app["fcmToken"] != x["fcmToken"] for x in expired), self.get_apps()))
                     self.set_apps(filtered_apps)
@@ -503,24 +508,42 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         for app in apps:
             self._logger.debug("   => %s" % app["fcmToken"][0:100])
 
-    def update_data_structure(self):
-        if not os.path.isfile(self.data_file):
-            self._logger.debug("Updating data structure to: %s" %
-                              self.data_file)
-            apps = self.parent._settings.get(["registeredApps"])
-            self.set_apps(apps)
-            self._logger.debug("Saved data to: %s" % self.data_file)
-            self.parent._settings.remove(["registeredApps"])
+    def upgrade_data_structure(self):
+        try:
+            if not os.path.isfile(self.data_file):
+                self._logger.debug("Updating data structure to: %s" %
+                                self.data_file)
+                apps = self.parent._settings.get(["registeredApps"])
+                self.set_apps(apps)
+                self._logger.debug("Saved data to: %s" % self.data_file)
+                self.parent._settings.remove(["registeredApps"])
+        except Exception as e:
+             self._logger.error("Failed to upgrade data structure: %s" % e)
 
+    def upgrade_expiration_date(self):
+        try:
+            def add_expiration(app):
+                app["expireAt"] = app.get("expireAt", self.get_default_expiration_from_now())
+                return app
+
+            apps = self.get_apps()
+            apps = list(map(lambda app: add_expiration(app), apps))
+            self.set_apps(apps)
+        except Exception as e:
+             self._logger.error("Failed to upgrade expiration: %s" % e)
 
     def get_apps(self):
-        if os.path.isfile(self.data_file):
-            with open(self.data_file, 'r') as file:
-                apps = json.load(file)
-            if apps is None:
-                apps = []
-            return apps
-        else:
+        try: 
+            if os.path.isfile(self.data_file):
+                with open(self.data_file, 'r') as file:
+                    apps = json.load(file)
+                if apps is None:
+                    apps = []
+                return apps
+            else:
+                return []
+        except Exception as e: 
+            self._logger.debug("Failed to load apps %s" % e)
             return []
 
     def remove_temporary_apps(self, for_instance_id=None):
@@ -540,13 +563,19 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             json.dump(apps, outfile)
             self.send_settings_plugin_message(apps)
 
-
     def send_settings_plugin_message(self, apps):
+        def take_expiry(app):
+            return app.get("expireAt", None)
+
         mapped_apps = list(map(lambda x: dict(
-            displayName=x["displayName"], lastSeenAt=x["lastSeenAt"]), apps))
+            displayName=x.get("displayName", None),
+            lastSeenAt=x.get("lastSeenAt", None),
+            expireAt=x.get("expireAt", None),
+            displayDescription=x.get("displayDescription", None)
+        ), apps))
+        mapped_apps = sorted(mapped_apps, key=lambda d: d.get("expireAt", None))
         self.parent._plugin_manager.send_plugin_message(
             "%s.settings" % self.parent._identifier, {"apps": mapped_apps})
-
 
     #
     # SETTINGS
