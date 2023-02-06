@@ -300,6 +300,24 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         if event == self.EVENT_BEEP:
             data = {}
         else:
+            type = None
+            if event == self.EVENT_PRINTING:
+                type = "printing"
+            elif event == self.EVENT_PAUSED:
+                type = "paused"
+            elif event == self.EVENT_PAUSED_GCODE:
+                type = "paused_gcode"
+            elif event == self.EVENT_COMPLETED:
+                type = "completed"
+            elif event == self.EVENT_FILAMENT_REQUIRED:
+                type = "filament_required"
+            elif event == self.EVENT_MMU2_FILAMENT_START:
+                type = "mmu_filament_selection_started"
+            elif event == self.EVENT_MMU2_FILAMENT_DONE:
+                type = "mmu_filament_selection_completed"
+            elif event == self.EVENT_CANCELLED or event == self.EVENT_IDLE:
+                type = "idle"
+
             data = {
                 "serverTime": int(time.time()),
                 "serverTimePrecise": time.time(),
@@ -307,10 +325,9 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                 "fileName": state.get("name", None),
                 "progress": state.get("progress", None),
                 "timeLeft": state.get("time_left", None),
-                "type": event
+                "type": type
             }
         return cipher.encrypt(json.dumps(data))
-
 
     def createApnsPushData(self, event, state):
         self._logger.debug("Targets contain iOS devices, generating texts for '%s'", event)
