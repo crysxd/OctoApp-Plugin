@@ -85,8 +85,6 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
 
     def do_continuous_snapshot_update(self):
         while True:
-            self._logger.debug("Updating webcam snapshots")
-
             multiCamSettings = webcamSettings = self.parent._settings.global_get(
                 ["plugins", "multicam", "multicam_profiles"]
             )

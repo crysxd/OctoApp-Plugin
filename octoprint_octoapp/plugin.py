@@ -29,16 +29,19 @@ class OctoAppPlugin(
         self._logger = logging.getLogger("octoprint.plugins.octoapp")
 
         self.default_config = dict(
-            updatePercentModulus=10,
+            updatePercentModulus=5,
             highPrecisionRangeStart=5,
             highPrecisionRangeEnd=5,
-            sendNotificationUrl="https://europe-west1-octoapp-4e438.cloudfunctions.net/sendNotification",
+            sendNotificationUrl="https://europe-west1-octoapp-4e438.cloudfunctions.net/sendNotificationV2",
         )
 
         self.cached_config = self.default_config
         self.cached_config_at = 0
         self.plugin_state = {}
         self.last_send_plugin_state = {}
+
+        # !!! Also update in setup.py !!!!
+        self.plugin_version = "1.2.0"
 
         notification_plugin =  OctoAppNotificationsSubPlugin(self)
         self.sub_plugins = [
@@ -57,8 +60,9 @@ class OctoAppPlugin(
     #
 
     def on_after_startup(self):
-        self._logger.info("OctoApp started, updating config")
+        self._logger.info("OctoApp started, updating config, version is %s" % self._plugin_version)
         self.update_config()
+        self._settings.set(["version"], self.plugin_version)
 
         for sp in self.sub_plugins:
             try:
@@ -156,7 +160,7 @@ class OctoAppPlugin(
         # Request config, fall back to default
         try:
             r = requests.get(
-                "https://www.octoapp.eu/pluginconfig.json", timeout=float(15)
+                "https://www.octoapp.eu/config/plugin.json", timeout=float(15)
             )
             if r.status_code != requests.codes.ok:
                 raise Exception("Unexpected response code %d" % r.status_code)
@@ -179,7 +183,7 @@ class OctoAppPlugin(
     #
 
     def get_settings_defaults(self):
-        return dict(encryptionKey=None, version=self._plugin_version)
+        return dict(encryptionKey=None, version=self.plugin_version)
 
     def get_template_configs(self):
         return [dict(type="settings", custom_bindings=True)]
