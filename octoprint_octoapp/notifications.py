@@ -470,7 +470,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
     def do_continuously_check_activities_expired(self):
          while True:
             time.sleep(60)
-            self._logger.info("Checking for expired apps")
+            self._logger.debug("Checking for expired apps")
 
             try:
                 expired = self.get_expired_apps(self.get_activities(self.get_apps()))

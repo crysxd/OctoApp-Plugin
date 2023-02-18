@@ -90,7 +90,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
             )
 
             if (type(multiCamSettings) == list):
-                for i in range(len(multiCamSettings) - 1):
+                for i in range(len(multiCamSettings)):
                     self.update_snapshot_cache(i)
             else:
                 self.update_snapshot_cache(0) 
