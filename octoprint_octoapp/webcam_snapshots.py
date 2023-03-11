@@ -61,7 +61,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                     imageBytes.seek(0)
                     return send_file(imageBytes, mimetype='image/jpeg')
             except Exception as e:
-                self._logger.warning("Failed to get webcam snapshot %s" % e)
+                self._logger.warning("SNAPSHOT     | Failed to get webcam snapshot %s" , e)
                 self._logger.exception(e)
                 return flask.make_response("Failed to get snapshot from webcam", 500)
         
@@ -84,29 +84,41 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
 
 
     def do_continuous_snapshot_update(self):
+        failure_count = 0
         while True:
             multiCamSettings = webcamSettings = self.parent._settings.global_get(
                 ["plugins", "multicam", "multicam_profiles"]
             )
 
+            success = True
+
             if (type(multiCamSettings) == list):
                 for i in range(len(multiCamSettings)):
-                    self.update_snapshot_cache(i)
+                   success = success and self.update_snapshot_cache(i)
             else:
-                self.update_snapshot_cache(0) 
+                success = success and self.update_snapshot_cache(0) 
 
-            time.sleep(5)
+            if success is False:
+                failure_count += 1
+            else:
+                failure_count = 0
+
+            time.sleep(min(120, (failure_count + 1) * 5))
 
 
     def update_snapshot_cache(self, webcamIndex):
         try:
             webcamSettings = self.get_webcam_settings(webcamIndex)
             snapshotUrl = webcamSettings["snapshot"]
+
+            if snapshotUrl == "":
+                return True
+
             timeout = self.parent._settings.global_get_int(
                 ["webcam", "snapshotTimeout"]
             )
             self._logger.debug(
-                "Getting snapshot from {0} (index {1}, {2})".format(
+                "SNAPSHOT     | Getting snapshot from {0} (index {1}, {2})".format(
                     snapshotUrl, webcamIndex, webcamSettings)
             )
             imageBytes = BytesIO()
@@ -118,8 +130,11 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
 
             with self.webcam_snapshot_cache_lock:
                 self.webcam_snapshot_cache[webcamIndex] = dict(bytes=imageBytes, time=datetime.now())
+
+            return True
         except Exception as e:
-            self._logger.warning("Failed to get webcam snapshot %s" % e)
+            self._logger.debug("SNAPSHOT     | Failed to get webcam snapshot %s" , e, exc_info=True)
+            return False
       
            
     def get_webcam_settings(self, webcamIndex):

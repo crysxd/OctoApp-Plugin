@@ -15,7 +15,7 @@ class OctoAppPrinterFirmwareSubPlugin(OctoAppSubPlugin):
     def on_firmware_info_received(
         self, comm_instance, firmware_name, firmware_data, *args, **kwargs
     ):
-        self._logger.debug("Recevied firmware info")
+        self._logger.debug("FIRMWARE     | Recevied firmware info")
         self.firmware_info = firmware_data
 
 

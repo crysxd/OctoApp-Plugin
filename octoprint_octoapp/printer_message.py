@@ -14,7 +14,7 @@ class OctoAppPrinterMessageSubPlugin(OctoAppSubPlugin):
         if gcode == "M117":
             message = cmd.split(' ', 1)[1]
             self.parent.plugin_state["m117"] = message
-            self._logger.debug("M117 message changed: %s" % message)
+            self._logger.debug("MESSAGE      | M117 message changed: %s" % message)
             self.parent.send_plugin_state_message()
             return
 

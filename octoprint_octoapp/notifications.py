@@ -36,7 +36,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def on_after_startup(self):
         self.data_file = os.path.join(self.parent.get_plugin_data_folder(), "apps.json")
-        self._logger.info("Using config file %s" % self.data_file )
+        self._logger.info("NOTIFICATION | Using config file %s" % self.data_file )
         self.upgrade_data_structure()
         self.upgrade_expiration_date()
         self.remove_temporary_apps()
@@ -81,7 +81,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             )
 
             # save
-            self._logger.info("Registered app %s" % fcmToken)
+            self._logger.info("NOTIFICATION | Registered app %s" % fcmToken)
             self.set_apps(apps)
             self.log_apps()
             self.parent._settings.save()
@@ -114,15 +114,15 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             or progress <= highPrecisionStart
             or progress >= (100 - highPrecisionEnd)
         ):
-            self._logger.debug("Updating progress in main interval %s" % self.last_event)
+            self._logger.debug("NOTIFICATION | Updating progress in main interval %s" % self.last_event)
             self.send_notification(event=self.EVENT_PRINTING)
             self.last_progress_update = time.time()
         elif time_since_last > 300:
-            self._logger.debug("Over %s sec passed since last progress update, sending low priority update" % int(time_since_last))
+            self._logger.debug("NOTIFICATION | Over %s sec passed since last progress update, sending low priority update" % int(time_since_last))
             self.send_notification(event=self.EVENT_PRINTING, only_activities=True)
             self.last_progress_update = time.time()
         else:
-            self._logger.debug("Skipping progress update, only %s seconds passed since last" % int(time_since_last))
+            self._logger.debug("NOTIFICATION | Skipping progress update, only %s seconds passed since last" % int(time_since_last))
 
 
     def on_event(self, event, payload):
@@ -174,7 +174,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # Pause is triggered after FILAMENT_CHANGE, prevent duplicate events
             self.update_print_state()
             if self.last_event != self.EVENT_FILAMENT_REQUIRED and self.last_event != self.EVENT_PAUSED:
-                self._logger.debug("Preparing pause notification, last event was %s" % self.last_event)
+                self._logger.debug("NOTIFICATION | Preparing pause notification, last event was %s" % self.last_event)
                 self.send_notification(event=self.EVENT_PAUSED)
 
     def on_gcode_send(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
@@ -183,10 +183,10 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             time_left = self.print_state["time_left"]
             progress = self.print_state["progress"]
             if time_left > 30 or progress < 95:
-                self._logger.debug("Performing beep, %s seconds left and %s%" % (time_left, progress))    
+                self._logger.debug("NOTIFICATION | Performing beep, %s seconds left and %s%" % (time_left, progress))    
                 self.send_notification(event=self.EVENT_BEEP)
             else:
-                self._logger.debug("Skipping beep, only %s seconds left and %s%" % (time_left, progress))    
+                self._logger.debug("NOTIFICATION | Skipping beep, only %s seconds left and %s%" % (time_left, progress))    
     
         elif gcode == "M601":
             self.update_print_state()
@@ -209,18 +209,18 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def send_notification_blocking(self, event, state, only_activities):
         try:
-            self._logger.debug("Preparing notification for %s" % event)
+            self._logger.info("NOTIFICATION | Preparing notification for %s" % event)
             targets = self.get_push_targets(
                 preferActivity=self.should_prefer_activity(event),
                 canUseNonActivity=self.can_use_non_activity(event) and not only_activities
             )
 
             if only_activities:
-                self._logger.debug("Only activities allowed, filtering")
+                self._logger.debug("NOTIFICATION | Only activities allowed, filtering")
                 targets = self.get_activities(targets)
 
             if not targets:
-                self._logger.debug("No targets, skipping notification")
+                self._logger.debug("NOTIFICATION | No targets, skipping notification")
                 return
 
             ios_targets = self.get_ios_apps(targets)
@@ -229,11 +229,11 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             apnsData = self.createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None
 
             if not len(android_targets) and apnsData is None:
-                self._logger.debug("Skipping push, no Android targets and no APNS data, skipping notification")
+                self._logger.info("NOTIFICATION | Skipping push, no Android targets and no APNS data, skipping notification")
                 return
             
             if not len(android_targets) and not len(activity_targets) and apnsData.get("alert", None) is None:
-                self._logger.debug("Skipping push, no Android targets, no iOS targets and APNS data has no alert, skipping notification")
+                self._logger.info("NOTIFICATION | Skipping push, no Android targets, no iOS targets and APNS data has no alert, skipping notification")
                 return
 
             self.send_notification_blocking_raw(
@@ -247,7 +247,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             if event == self.EVENT_CANCELLED or event == self.EVENT_COMPLETED:
                 self.remove_temporary_apps()
         except Exception as e:
-            self._logger.debug("Failed to send notification %s" % e)
+            self._logger.debug("NOTIFICATION | Failed to send notification %s", e, exc_info=True)
 
 
     def send_notification_blocking_raw(self, targets, high_priority, apnsData, androidData):
@@ -268,7 +268,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                 apnsData=apnsData,
             )
 
-            self._logger.debug("Sending notification: %s", json.dumps(body))
+            self._logger.debug("NOTIFICATION | Sending notification: %s", json.dumps(body))
 
             # Make request and check 200
             r = requests.post(
@@ -279,20 +279,20 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             if r.status_code != requests.codes.ok:
                 raise Exception("Unexpected response code %d" % r.status_code)
             else:
-                self._logger.debug("Send was success")
+                self._logger.info("NOTIFICATION | Send was success")
 
             # Delete invalid tokens
             apps = self.get_apps()
             invalid_tokens = r.json()["invalidTokens"]
             for fcmToken in invalid_tokens:
-                self._logger.debug("Removing %s, no longer valid" % fcmToken)
+                self._logger.info("NOTIFICATION | Removing %s, no longer valid" % fcmToken)
                 apps = [app for app in apps if app["fcmToken"] != fcmToken]
             self.set_apps(apps)
             self.parent._settings.save()
             self.log_apps()
 
         except Exception as e:
-            self._logger.debug("Failed to send notification %s" % e)
+            self._logger.warn("NOTIFICATION | Failed to send notification %s", e, exc_info=True)
 
 
     def createAndroidPushData(self, event, state):
@@ -330,7 +330,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         return cipher.encrypt(json.dumps(data))
 
     def createApnsPushData(self, event, state):
-        self._logger.debug("Targets contain iOS devices, generating texts for '%s'", event)
+        self._logger.debug("NOTIFICATION | Targets contain iOS devices, generating texts for '%s'", event)
         notificationTitle = None
         notificationSound = None
         liveActivityState = None
@@ -381,7 +381,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             liveActivityState = "printing"
 
         else:
-            self._logger.warn("Missing handling for '%s'" % event)
+            self._logger.warn("NOTIFICATION | Missing handling for '%s'" % event)
             return None
 
         # Let's only end the activity on cancel. If we end it on completed the alert isn't shown
@@ -426,7 +426,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         return event != self.EVENT_PRINTING
 
     def get_push_targets(self, preferActivity, canUseNonActivity):
-        self._logger.debug("Finding targets preferActivity=%s canUseNonActivity=%s" % (preferActivity, canUseNonActivity))
+        self._logger.debug("NOTIFICATION | Finding targets preferActivity=%s canUseNonActivity=%s" % (preferActivity, canUseNonActivity))
         apps = self.get_apps()
         phones = {}
 
@@ -468,14 +468,14 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         t.start()
 
     def do_continuously_check_activities_expired(self):
+         self._logger.debug("NOTIFICATION | Checking for expired apps every 60s")
          while True:
             time.sleep(60)
-            self._logger.debug("Checking for expired apps")
 
             try:
                 expired = self.get_expired_apps(self.get_activities(self.get_apps()))
                 if len(expired):
-                    self._logger.debug("Found %s expired apps" % len(expired))
+                    self._logger.debug("NOTIFICATION | Found %s expired apps" % len(expired))
                     self.log_apps()
 
                     expired_activities = self.get_activities(expired)
@@ -501,11 +501,11 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                     filtered_apps = list(filter(lambda app: any(app["fcmToken"] != x["fcmToken"] for x in expired), self.get_apps()))
                     self.set_apps(filtered_apps)
                     self.log_apps()
-                    self._logger.debug("Cleaned up expired apps")
+                    self._logger.debug("NOTIFICATION | Cleaned up expired apps")
 
 
             except Exception as e:
-                self._logger.debug("Failed to retire expired %s" % e)   
+                self._logger.debug("NOTIFICATION | Failed to retire expired %s", e, exc_info=True)
 
 
     def get_android_apps(self, apps):
@@ -522,21 +522,21 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def log_apps(self):
         apps = self.get_apps()
-        self._logger.debug("Now %s apps registered" % len(apps))
+        self._logger.debug("NOTIFICATION | Now %s apps registered" % len(apps))
         for app in apps:
-            self._logger.debug("   => %s" % app["fcmToken"][0:100])
+            self._logger.debug("NOTIFICATION |    => %s" % app["fcmToken"][0:100])
 
     def upgrade_data_structure(self):
         try:
             if not os.path.isfile(self.data_file):
-                self._logger.debug("Updating data structure to: %s" %
+                self._logger.debug("NOTIFICATION | Updating data structure to: %s" %
                                 self.data_file)
                 apps = self.parent._settings.get(["registeredApps"])
                 self.set_apps(apps)
-                self._logger.debug("Saved data to: %s" % self.data_file)
+                self._logger.debug("NOTIFICATION | Saved data to: %s" % self.data_file)
                 self.parent._settings.remove(["registeredApps"])
         except Exception as e:
-             self._logger.error("Failed to upgrade data structure: %s" % e)
+             self._logger.error("NOTIFICATION | Failed to upgrade data structure: %s" , e, exc_info=True)
 
     def upgrade_expiration_date(self):
         try:
@@ -548,8 +548,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             apps = list(map(lambda app: add_expiration(app), apps))
             self.set_apps(apps)
         except Exception as e:
-             self._logger.error("Failed to upgrade expiration: %s" % e)
-             self._logger.error(e)
+             self._logger.error("NOTIFICATION | Failed to upgrade expiration: %s" , e, exc_info=True)
 
     def get_apps(self):
         try: 
@@ -562,7 +561,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             else:
                 return []
         except Exception as e: 
-            self._logger.debug("Failed to load apps %s" % e)
+            self._logger.debug("NOTIFICATION | Failed to load apps %s" , e, exc_info=True)
             return []
 
     def remove_temporary_apps(self, for_instance_id=None):
@@ -570,10 +569,10 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         
         if for_instance_id is None:
             apps = list(filter(lambda app: not app["fcmToken"].startswith("activity:") ,apps))
-            self._logger.debug("Removed all temporary apps")
+            self._logger.debug("NOTIFICATION | Removed all temporary apps")
         else:
             apps = list(filter(lambda app: not app["fcmToken"].startswith("activity:") or app["instanceId"] != for_instance_id ,apps))
-            self._logger.debug("Removed all temporary apps for %s" % for_instance_id)
+            self._logger.debug("NOTIFICATION | Removed all temporary apps for %s" % for_instance_id)
 
         self.set_apps(apps)
 
@@ -602,7 +601,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         key = self.parent._settings.get(["encryptionKey"])
         if key is None:
             key = str(uuid.uuid4())
-            self._logger.info("Created new encryption key")
+            self._logger.info("NOTIFICATION | Created new encryption key")
             self.parent._settings.set(["encryptionKey"], key)
         return key
 
