@@ -183,10 +183,10 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             time_left = self.print_state["time_left"]
             progress = self.print_state["progress"]
             if time_left > 30 or progress < 95:
-                self._logger.debug("NOTIFICATION | Performing beep, %s seconds left and %s%" % (time_left, progress))    
+                self._logger.debug("NOTIFICATION | Performing beep, %s seconds left and %s percent" % (time_left, progress))    
                 self.send_notification(event=self.EVENT_BEEP)
             else:
-                self._logger.debug("NOTIFICATION | Skipping beep, only %s seconds left and %s%" % (time_left, progress))    
+                self._logger.debug("NOTIFICATION | Skipping beep, only %s seconds left and %s percent" % (time_left, progress))    
     
         elif gcode == "M601":
             self.update_print_state()

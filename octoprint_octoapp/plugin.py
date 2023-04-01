@@ -61,7 +61,9 @@ class OctoAppPlugin(
 
     def on_after_startup(self):
         self._logger_handler = logging.handlers.RotatingFileHandler(
-            self._settings.get_plugin_logfile_path(), maxBytes=512 * 1024
+            self._settings.get_plugin_logfile_path(), 
+            maxBytes=512 * 1024,
+            backupCount=1
         )
         self._logger_handler.setFormatter(logging.Formatter("%(levelname)-8s | %(asctime)s | %(message)s"))
         self._logger_handler.setLevel(logging.DEBUG)
