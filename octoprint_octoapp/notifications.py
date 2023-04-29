@@ -178,7 +178,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                 self.send_notification(event=self.EVENT_PAUSED)
 
     def on_gcode_send(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
-	self._logger.debug("GCODE        | Received %s %s" % (cmd, gcode))
+        self._logger.debug("GCODE        | Received %s %s" % (cmd, gcode))
 
         if gcode == "M300":
             self.update_print_state()
