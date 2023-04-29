@@ -14,9 +14,12 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
         if type == "plugin" and data.get("plugin") == "mmu2filamentselect" and isinstance(data.get("data"), dict):
             action = data.get("data").get("action")
 
+            self._logger.info("MMU          | Received event: %s" % action)
+
             if action == "show":
                 # If not currently active, send notification as we switched state
                 if self.parent.plugin_state.get("mmuSelectionActive") is not True:
+                    self._logger.info("MMU          | Trigger show")
                     self.notifications.send_notification(event=self.notifications.EVENT_MMU2_FILAMENT_START)
 
                 self.parent.plugin_state["mmuSelectionActive"] = True
@@ -25,6 +28,7 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
             elif action == "close":
                 # If currently active, send notification as we switched state
                 if self.parent.plugin_state.get("mmuSelectionActive") is True:
+                    self._logger.info("MMU          | Trigger close")
                     self.notifications.send_notification(event=self.notifications.EVENT_MMU2_FILAMENT_DONE)
 
                 self.parent.plugin_state["mmuSelectionActive"] = False

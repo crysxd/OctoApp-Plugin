@@ -1,5 +1,5 @@
 import logging
-
+import logging.handlers
 import threading
 import flask
 from flask_babel import gettext
@@ -41,7 +41,7 @@ class OctoAppPlugin(
         self.last_send_plugin_state = {}
 
         # !!! Also update in setup.py !!!!
-        self.plugin_version = "1.2.0"
+        self.plugin_version = "1.2.1"
 
         notification_plugin =  OctoAppNotificationsSubPlugin(self)
         self.sub_plugins = [
@@ -60,7 +60,19 @@ class OctoAppPlugin(
     #
 
     def on_after_startup(self):
-        self._logger.info("OctoApp started, updating config, version is %s" % self._plugin_version)
+        self._logger_handler = logging.handlers.RotatingFileHandler(
+            self._settings.get_plugin_logfile_path(), 
+            maxBytes=512 * 1024,
+            backupCount=1
+        )
+        self._logger_handler.setFormatter(logging.Formatter("%(levelname)-8s | %(asctime)s | %(message)s"))
+        self._logger_handler.setLevel(logging.DEBUG)
+        self._logger.addHandler(self._logger_handler)
+        self._logger.setLevel(logging.DEBUG)
+        self._logger.propagate = False
+    
+        self._logger.info("PLUGIN       | OctoApp started, updating config, version is %s" % self._plugin_version)
+
         self.update_config()
         self._settings.set(["version"], self.plugin_version)
 
@@ -68,7 +80,7 @@ class OctoAppPlugin(
             try:
                 sp.on_after_startup()
             except Exception as e:
-                self._logger.warning("Failed to handle after startup %s" % e)
+                self._logger.warning("PLUGIN       | Failed to handle after startup %s" , e, exc_info=True)
 
 
     def on_firmware_info_received(self, comm_instance, firmware_name, firmware_data, *args, **kwargs):
@@ -76,11 +88,11 @@ class OctoAppPlugin(
             try:
                 sp.on_firmware_info_received(comm_instance, firmware_name, firmware_data, args, kwargs)
             except Exception as e:
-                self._logger.warning("Failed to handle firmware info %s" % e)
+                self._logger.warning("PLUGIN       | Failed to handle firmware info %s" , e, exc_info=True)
 
 
     def on_api_command(self, command, data):
-        self._logger.debug("Recevied command %s" % command)
+        self._logger.debug("PLUGIN       |Recevied command %s" % command)
 
         for sp in self.sub_plugins:
             try:
@@ -88,10 +100,10 @@ class OctoAppPlugin(
                 if res != None:
                     return res
             except Exception as e:
-                self._logger.warning("Failed to handle api request %s" % e)
+                self._logger.warning("PLUGIN       | Failed to handle api request %s" , e, exc_info=True)
                 return flask.make_response("Internal error", 500)
 
-        return flask.make_response("Unkonwn command", 400)
+        return flask.make_response("PLUGIN       | Unkonwn command", 400)
 
 
     def on_emit_websocket_message(self, user, message, type, data):
@@ -99,7 +111,7 @@ class OctoAppPlugin(
             try:
                 sp.on_emit_websocket_message(user=user, message=message, type=type, data=data)
             except Exception as e:
-                self._logger.warning("Failed to handle websocket message %s" % e)
+                self._logger.warning("PLUGIN       | Failed to handle websocket message %s" , e, exc_info=True)
 
         # Always return true! Returning false will prevent the message from being send
         return True
@@ -110,7 +122,7 @@ class OctoAppPlugin(
             try:
                 sp.on_print_progress(storage=storage, path=path, progress=progress)
             except Exception as e:
-                self._logger.warning("Failed to handle progress %s" % e)
+                self._logger.warning("PLUGIN       | Failed to handle progress %s" , e, exc_info=True)
 
 
     def on_event(self, event, payload):
@@ -118,7 +130,7 @@ class OctoAppPlugin(
             try:
                 sp.on_event(event=event, payload=payload)
             except Exception as e:
-                self._logger.warning("Failed to handle event %s" % e)
+                self._logger.warning("PLUGIN       | Failed to handle event %s" , e, exc_info=True)
         
         if event == Events.CLIENT_OPENED:
             self.send_plugin_state_message(forced=True)
@@ -129,7 +141,7 @@ class OctoAppPlugin(
             try:
                 sp.on_gcode_send(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
             except Exception as e:
-                self._logger.warning("Failed to handle gcode %s" % e)
+                self._logger.warning("PLUGIN       | Failed to handle gcode %s" , e, exc_info=True)
 
 
     def send_plugin_state_message(self, forced=False):
@@ -166,16 +178,16 @@ class OctoAppPlugin(
                 raise Exception("Unexpected response code %d" % r.status_code)
             self.cached_config = r.json()
             self.cached_config_at = time.time()
-            self._logger.info("OctoApp loaded config: %s" % self.cached_config)
+            self._logger.info("PLUGIN       | OctoApp loaded config: %s" % self.cached_config)
     
             for sp in self.sub_plugins:
                 sp.config = self.default_config
         except Exception as e:
             self._logger.warning(
-                "Failed to fetch config using defaults for 5 minutes, recevied %s" % e
+                "PLUGIN       | Failed to fetch config using defaults for 5 minutes, recevied %s" % e
             )
             self.cached_config = self.default_config
-            self._logger.info("OctoApp loaded config: %s" % self.cached_config)
+            self._logger.info("PLUGIN       | OctoApp loaded config: %s" % self.cached_config)
             self.cached_config_at = cache_config_max_age + 300
 
     #
