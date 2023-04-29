@@ -188,7 +188,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             else:
                 self._logger.debug("NOTIFICATION | Skipping beep, only %s seconds left and %s percent" % (time_left, progress))    
     
-        elif gcode == "M601":
+        elif gcode == "M601" or gcode == "@pause":
             self.update_print_state()
             self.send_notification(event=self.EVENT_PAUSED_GCODE)
 
