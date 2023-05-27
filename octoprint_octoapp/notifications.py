@@ -164,8 +164,12 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                 self.print_state = {}
 
         elif event == Events.FILAMENT_CHANGE and self.print_state.get("progress", None) is not None:
-            self.update_print_state()
-            self.send_notification(event=self.EVENT_FILAMENT_REQUIRED)
+            time_left = self.print_state["time_left"]
+            if time_left > 60:
+                self.update_print_state()
+                self.send_notification(event=self.EVENT_FILAMENT_REQUIRED)
+            else:
+                self._logger.debug("NOTIFICATION | Skipping filament change notification, only %s seconds left" % time_left)
 
         elif event == Events.CLIENT_OPENED:
             self.send_settings_plugin_message(self.get_apps())
