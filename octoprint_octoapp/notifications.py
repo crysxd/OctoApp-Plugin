@@ -108,6 +108,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         modulus = config["updatePercentModulus"]
         highPrecisionStart = config["highPrecisionRangeStart"]
         highPrecisionEnd = config["highPrecisionRangeEnd"]
+        minIntervalSecs = config["minIntervalSecs"]
         time_since_last = time.time() - self.last_progress_update
         if progress < 100 and progress > 0 and (
             (progress % modulus) == 0
@@ -117,7 +118,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self._logger.debug("NOTIFICATION | Updating progress in main interval %s" % self.last_event)
             self.send_notification(event=self.EVENT_PRINTING)
             self.last_progress_update = time.time()
-        elif time_since_last > 300:
+        elif time_since_last > minIntervalSecs:
             self._logger.debug("NOTIFICATION | Over %s sec passed since last progress update, sending low priority update" % int(time_since_last))
             self.send_notification(event=self.EVENT_PRINTING, only_activities=True)
             self.last_progress_update = time.time()
@@ -283,7 +284,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             if r.status_code != requests.codes.ok:
                 raise Exception("Unexpected response code %d" % r.status_code)
             else:
-                self._logger.info("NOTIFICATION | Send was success")
+                self._logger.info("NOTIFICATION | Send was success %s" % r.json())
 
             # Delete invalid tokens
             apps = self.get_apps()

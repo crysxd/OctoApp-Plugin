@@ -32,6 +32,7 @@ class OctoAppPlugin(
             updatePercentModulus=5,
             highPrecisionRangeStart=5,
             highPrecisionRangeEnd=5,
+            minIntervalSecs=300,
             sendNotificationUrl="https://europe-west1-octoapp-4e438.cloudfunctions.net/sendNotificationV2",
         )
 
@@ -41,7 +42,7 @@ class OctoAppPlugin(
         self.last_send_plugin_state = {}
 
         # !!! Also update in setup.py !!!!
-        self.plugin_version = "1.2.2"
+        self.plugin_version = "1.2.3"
 
         notification_plugin =  OctoAppNotificationsSubPlugin(self)
         self.sub_plugins = [
