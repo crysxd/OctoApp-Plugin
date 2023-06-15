@@ -36,7 +36,8 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def on_after_startup(self):
         self.data_file = os.path.join(self.parent.get_plugin_data_folder(), "apps.json")
-        self._logger.info("NOTIFICATION | Using config file %s" % self.data_file )
+        self._logger.info("NOTIFICATION | Using config file %s" % self.data_file)
+        self._logger.info("NOTIFICATION | Has PrintTimeGenius: %s" % self.has_print_time_genius())
         self.upgrade_data_structure()
         self.upgrade_expiration_date()
         self.remove_temporary_apps()
@@ -92,12 +93,25 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
     
     def get_default_expiration_from_now(self):
         return (time.time() + 2592000)
+    
+    def has_print_time_genius(self):
+        return self.parent._plugin_manager.get_plugin("PrintTimeGenius") is not None
 
     def update_print_state(self):
         progress = self.parent._printer.get_current_data()["progress"]
-        self.print_state["progress"] = int(progress["completion"])
-        self.print_state["time_left"] = progress["printTimeLeft"]
-        self.print_state["print_time"] = progress["printTime"]
+        printTimeLeft = progress["printTimeLeft"]
+        printTime = progress["printTime"]
+        completion = progress["completion"]
+
+        # Progress is time based if PrintTimeGenius is installed
+
+        if self.has_print_time_genius() and printTime is not None and printTimeLeft is not None:
+            self.print_state["progress"] = int((printTime / float(printTime + printTimeLeft)) * 100.0)
+        else:
+            self.print_state["progress"] = int(completion)
+            
+        self.print_state["time_left"] = printTimeLeft
+        self.print_state["print_time"] = printTime
 
     def on_print_progress(self, storage, path, progress):
         self.update_print_state()

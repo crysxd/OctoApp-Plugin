@@ -42,7 +42,7 @@ class OctoAppPlugin(
         self.last_send_plugin_state = {}
 
         # !!! Also update in setup.py !!!!
-        self.plugin_version = "1.2.3"
+        self.plugin_version = "1.3.0"
 
         notification_plugin =  OctoAppNotificationsSubPlugin(self)
         self.sub_plugins = [
