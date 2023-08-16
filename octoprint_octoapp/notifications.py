@@ -317,7 +317,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
     def createAndroidPushData(self, event, state):
         cipher = AESCipher(self.get_or_create_encryption_key())
         if event == self.EVENT_BEEP:
-            data = { type: "beep" }
+            data = { "type": "beep" }
         else:
             type = None
             if event == self.EVENT_PRINTING:
