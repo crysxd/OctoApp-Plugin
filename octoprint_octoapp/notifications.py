@@ -461,16 +461,27 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             activities = self.get_activities(apps)
             ios = self.get_ios_apps(apps)
             android = self.get_android_apps(apps)
-            if len(activities) and preferActivity:
-                return activities[0]
-            elif len(ios) and canUseNonActivity:
-                return ios[0]
-            elif len(android):
-                return android[0]
-            else:
-                return None
 
+            # If we have an activity and we should prefer it, use it
+            if len(activities) and preferActivity:
+                return activities[0:1]
+            
+            # If we have an iOS app and we can use non-activity targets, use it
+            # This means iOS might not be picked at all if we only can use activity but no activity is available!
+            elif len(ios) and canUseNonActivity:
+                return ios[0:1]
+
+            # If we have any android devices, use all of them (might be watch + phone)
+            elif len(android):
+                return android
+            
+            # Oh no!
+            else:
+                return []
+
+        # Get apps per phone and flatten
         apps = list(map(lambda phone: pick_best_app(phone), phones.values()))
+        apps = [app for sublist in apps for app in sublist]
         return list(filter(lambda app: app is not None, apps))
 
 
