@@ -2,7 +2,7 @@ import os
 import threading
 import socket
 
-from octoeverywhere.websocketimpl import Client
+from octoapp.websocketimpl import Client
 
 from .Util import Util
 from .Paths import Paths
@@ -17,7 +17,7 @@ class Configure:
     # This is the common service prefix we use for all of our service file names.
     # This MUST be used for all instances running on this device, both local plugins and companions.
     # This also MUST NOT CHANGE, as it's used by the Updater logic to find all of the locally running services.
-    c_ServiceCommonNamePrefix = "octoeverywhere"
+    c_ServiceCommonNamePrefix = "octoapp"
 
     def Run(self, context:Context):
 
@@ -63,8 +63,8 @@ class Configure:
             context.PrinterDataConfigFolder = Util.GetParentDirectory(context.MoonrakerConfigFilePath)
 
             # There really is no printer data folder, so make one that's unique per instance.
-            # So based on the config folder, go to the root of it, and them make the folder "octoeverywhere_data"
-            context.PrinterDataFolder = os.path.join(Util.GetParentDirectory(context.PrinterDataConfigFolder), f"octoeverywhere_data{serviceSuffixStr}")
+            # So based on the config folder, go to the root of it, and them make the folder "octoapp_data"
+            context.PrinterDataFolder = os.path.join(Util.GetParentDirectory(context.PrinterDataConfigFolder), f"octoapp_data{serviceSuffixStr}")
             Util.EnsureDirExists(context.PrinterDataFolder, context, True)
         else:
             # For now we assume the folder structure is the standard Klipper folder config,
@@ -94,7 +94,7 @@ class Configure:
 
         # Since the moonraker config folder is unique to the moonraker instance, we will put our storage in it.
         # This also prevents the user from messing with it accidentally.
-        context.LocalFileStorageFolder = os.path.join(context.PrinterDataFolder, "octoeverywhere-store")
+        context.LocalFileStorageFolder = os.path.join(context.PrinterDataFolder, "octoapp-store")
 
         # Ensure the storage folder exists and is owned by the correct user.
         Util.EnsureDirExists(context.LocalFileStorageFolder, context, True)
@@ -112,7 +112,7 @@ class Configure:
                 context.PrinterDataLogsFolder = os.path.join(Util.GetParentDirectory(context.PrinterDataConfigFolder), f"printer_logs{serviceSuffixStr}")
                 if os.path.exists(context.PrinterDataLogsFolder) is False:
                     # Failed, make a folder in the printer data root.
-                    context.PrinterDataLogsFolder = os.path.join(context.PrinterDataFolder, "octoeverywhere-logs")
+                    context.PrinterDataLogsFolder = os.path.join(context.PrinterDataFolder, "octoapp-logs")
                     # Create the folder and force the permissions so our service can write to it.
                     Util.EnsureDirExists(context.PrinterDataLogsFolder, context, True)
 
@@ -143,7 +143,7 @@ class Configure:
                 # Let the user keep this connection setup, or try to set it up again.
                 Logger.Blank()
                 Logger.Warn(f"No Klipper connection found at {ip}:{port}.")
-                if Util.AskYesOrNoQuestion("Do you want to setup the Klipper connection again for this OctoEverywhere companion instance?") is False:
+                if Util.AskYesOrNoQuestion("Do you want to setup the Klipper connection again for this OctoApp companion instance?") is False:
                     Logger.Info(f"Keeping the existing Klipper connection setup. {ip}:{port}")
                     return
 
@@ -164,8 +164,8 @@ class Configure:
         Logger.Header("     Klipper Companion Setup")
         Logger.Header("##################################")
         Logger.Blank()
-        Logger.Info("For OctoEverywhere Companion to work, it needs to know how to connect to the Klipper device on your network.")
-        Logger.Info("If you have any trouble, we are happy to help! Contact us at support@octoeverywhere.com")
+        Logger.Info("For OctoApp Companion to work, it needs to know how to connect to the Klipper device on your network.")
+        Logger.Info("If you have any trouble, we are happy to help! Contact us at hello@octoapp.com")
         Logger.Blank()
         Logger.Info("Searching for local Klipper printers... please wait... (about 5 seconds)")
         foundIps = self._ScanForMoonrakerInstances()

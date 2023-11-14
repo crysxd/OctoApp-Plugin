@@ -3,7 +3,7 @@ from enum import Enum
 import configparser
 import requests
 
-from moonraker_octoeverywhere.config import Config
+from moonraker_octoapp.config import Config
 
 from .Logging import Logger
 from .Context import Context
@@ -120,7 +120,7 @@ class Frontend:
                 Logger.Info("        myprinter.local:4409")
                 Logger.Blank()
                 if firstTry is False:
-                    Logger.Info("If you're having trouble, contact us at support@octoeverywhere.com")
+                    Logger.Info("If you're having trouble, contact us at hello2@octoapp.eu")
                     Logger.Blank()
                 firstTry = False
                 response = input("Please enter the port or web address: ")
@@ -264,7 +264,7 @@ class Frontend:
     # (portStr:str, frontendHint:str (can be None))
     # Returns (None, None) if the file can't be found.
     def _TryToReadCurrentFrontendSetup(self, context:Context):
-        filePath = self.GetOctoEverywhereServiceConfigFilePath(context)
+        filePath = self.GetOctoAppServiceConfigFilePath(context)
         # Don't try catch, let this throw if there's a problem reading the config,
         # That would be bad.
         if os.path.exists(filePath) is False:
@@ -287,7 +287,7 @@ class Frontend:
     # We use the main config file, since it's already there, and we don't want to have overlapping settings in different places.
     # If the service hasn't ran yet, the file won't exist, in which case we will create it.
     def _WriteFrontendSetup(self, context:Context, portStr:str, frontendHint_CanBeNone:str):
-        filePath = self.GetOctoEverywhereServiceConfigFilePath(context)
+        filePath = self.GetOctoAppServiceConfigFilePath(context)
 
         # Read the current config if there is one, this is important.
         config = configparser.ConfigParser()
@@ -311,7 +311,7 @@ class Frontend:
         Util.SetFileOwnerRecursive(filePath, context.UserName)
 
 
-    def GetOctoEverywhereServiceConfigFilePath(self, context:Context) -> str:
+    def GetOctoAppServiceConfigFilePath(self, context:Context) -> str:
         # Don't do the join if there is no path, otherwise the result will just be a file name.
         if context.PrinterDataConfigFolder is None or len(context.PrinterDataConfigFolder) == 0:
             return None

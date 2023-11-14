@@ -11,9 +11,9 @@ class DiscoveryObserver:
 
     # This is the base data folder name that will be used, the plugin id suffix will be added to end of it.
     # The folders will always be in the user's home path.
-    c_ObserverPluginDataRootFolder_Lower = "octoeverywhere-companion-"
+    c_ObserverPluginDataRootFolder_Lower = "octoapp-companion-"
     # The legacy name, only used to find existing folders.
-    c_ObserverPluginDataRootFolder_old_Lower = ".octoeverywhere-observer-"
+    c_ObserverPluginDataRootFolder_old_Lower = ".octoapp-observer-"
 
     def ObserverDiscovery(self, context:Context):
         Logger.Debug("Starting observer discovery.")
@@ -31,7 +31,7 @@ class DiscoveryObserver:
         if len(existingObserverFolders) > 0:
             count = 1
             Logger.Blank()
-            Logger.Header("Existing OctoEverywhere Observer Plugins Found")
+            Logger.Header("Existing OctoApp Observer Plugins Found")
             Logger.Blank()
             Logger.Info( "If you want to update or re-setup an instance, select instance id.")
             Logger.Info( "                        - or - ")
@@ -58,7 +58,7 @@ class DiscoveryObserver:
                     if isFirstPrint:
                         isFirstPrint = False
                     else:
-                        Logger.Warn( "If you need help, contact us! https://octoeverywhere.com/support")
+                        Logger.Warn( "If you need help, contact us! hello@octoapp.eu")
                     response = input("Enter an instance id or 'n': ")
                     response = response.lower().strip()
                     # If the response is n, fall through.

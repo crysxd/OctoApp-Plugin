@@ -71,7 +71,7 @@ class Discovery:
         Logger.Blank()
         Logger.Blank()
         Logger.Warn("Multiple Moonraker instances found.")
-        Logger.Warn("An instance of OctoEverywhere must be installed for every Moonraker instance, so this installer must be ran for each instance individually.")
+        Logger.Warn("An instance of OctoApp must be installed for every Moonraker instance, so this installer must be ran for each instance individually.")
         Logger.Blank()
         if context.IsCrealityOs():
             Logger.Header("Creality Users - If you only have one printer setup, select 1) moonraker_service")
@@ -92,7 +92,7 @@ class Discovery:
                 if isFirstPrint:
                     isFirstPrint = False
                 else:
-                    Logger.Warn( "If you need help, contact us! https://octoeverywhere.com/support")
+                    Logger.Warn( "If you need help, contact us! hello@octoapp.eu")
                 response = input("Enter the number for the config you would like to setup now: ")
                 response = response.lower().strip()
                 # Parse the input and -1 it, so it aligns with the array length.

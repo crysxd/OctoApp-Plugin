@@ -23,7 +23,7 @@ class ObserverConfigFile:
     @staticmethod
     def GetConfigFilePathFromDataPath(observerDataPath:str):
         # This file name is shared with the plugin, so it can't be changed.
-        return os.path.join(ObserverConfigFile.GetConfigFolderPathFromDataPath(observerDataPath), "octoeverywhere-observer.cfg")
+        return os.path.join(ObserverConfigFile.GetConfigFolderPathFromDataPath(observerDataPath), "octoapp-observer.cfg")
 
 
     # Returns the (ip:str, port:str) if the config can be parsed. Otherwise (None, None)

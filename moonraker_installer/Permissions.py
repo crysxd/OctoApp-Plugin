@@ -68,7 +68,7 @@ class Permissions:
 
         # These following files or folders must be owned by the user the service is running under.
         f = Frontend()
-        SetPermissions(f.GetOctoEverywhereServiceConfigFilePath(context))
+        SetPermissions(f.GetOctoAppServiceConfigFilePath(context))
         SetPermissions(context.MoonrakerConfigFilePath)
         SetPermissions(context.ObserverDataPath)
         SetPermissions(context.LocalFileStorageFolder)

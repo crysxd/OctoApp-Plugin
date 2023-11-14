@@ -1,7 +1,7 @@
 import os
 import stat
 
-from moonraker_octoeverywhere.version import Version
+from moonraker_octoapp.version import Version
 
 from .Context import Context
 from .Context import OsTypes
@@ -16,8 +16,8 @@ from .Paths import Paths
 # But it does work for both.
 #
 # However, this is quite easy, for a few reasons.
-#    1) All plugins and companions will use the same ~/octoeverywhere/ git repo.
-#          All Creality based installs will use /usr/shared/octoeverywhere
+#    1) All plugins and companions will use the same ~/octoapp/ git repo.
+#          All Creality based installs will use /usr/shared/octoapp
 #    2) We always run the ./install.sh script before launching the PY installer, which handles updating system packages and PIP packages.
 #
 # So all we really need to do is find and restart all of the services.
@@ -70,7 +70,7 @@ class Updater:
 
         Logger.Blank()
         Logger.Header("-------------------------------------------")
-        Logger.Info(  "    OctoEverywhere Update Successful")
+        Logger.Info(  "    OctoApp Update Successful")
         Logger.Info( f"          New Version: {pluginVersionStr}")
         Logger.Purple("            Happy Printing!")
         Logger.Header("-------------------------------------------")
@@ -86,11 +86,11 @@ class Updater:
 #!/bin/bash
 
 #
-# Run this script to update all OctoEverywhere instances on this device!
+# Run this script to update all OctoApp instances on this device!
 #
 # This works for all install types, normal plugins, Creality OS, and companion installs.
 #
-# If you need help, feel free to contact us at support@octoeverywhere.com
+# If you need help, feel free to contact us at hello@octoapp.eu
 #
 
 # The update and install scripts need to be ran from the repo root.
@@ -107,7 +107,7 @@ cd $startingDir
                 targetPath="/root"
 
             # Create the file.
-            updateFilePath = os.path.join(targetPath, "update-octoeverywhere.sh")
+            updateFilePath = os.path.join(targetPath, "update-OctoApp.sh")
             with open(updateFilePath, 'w', encoding="utf-8") as f:
                 f.write(s)
 

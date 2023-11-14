@@ -12,7 +12,7 @@ from .Context import OsTypes
 class Service:
 
     def Install(self, context:Context):
-        Logger.Header("Setting Up OctoEverywhere's System Service...")
+        Logger.Header("Setting Up OctoApp's System Service...")
 
         # We always re-write the service file, to make sure it's current.
         if os.path.exists(context.ServiceFilePath):
@@ -50,9 +50,9 @@ class Service:
     # Install for debian setups
     def _InstallDebian(self, context:Context, argsJsonBase64):
         s = f'''\
-    # OctoEverywhere For Moonraker Service
+    # OctoApp For Moonraker Service
     [Unit]
-    Description=OctoEverywhere For Moonraker
+    Description=OctoApp For Moonraker
     # Start after network and moonraker has started.
     After=network-online.target moonraker.service
 
@@ -64,7 +64,7 @@ class Service:
     Type=simple
     User={context.UserName}
     WorkingDirectory={context.RepoRootFolder}
-    ExecStart={context.VirtualEnvPath}/bin/python3 -m moonraker_octoeverywhere "{argsJsonBase64}"
+    ExecStart={context.VirtualEnvPath}/bin/python3 -m moonraker_octoapp "{argsJsonBase64}"
     Restart=always
     # Since we will only restart on a fatal Logger.Error, set the restart time to be a bit higher, so we don't spin and spam.
     RestartSec=10
@@ -112,7 +112,7 @@ start_service() {{
     procd_set_param env HOME=/root
     procd_set_param env PYTHONPATH={context.RepoRootFolder}
     procd_set_param oom_adj $OOM_ADJ
-    procd_set_param command {context.VirtualEnvPath}/bin/python3 -m moonraker_octoeverywhere "{argsJsonBase64}"
+    procd_set_param command {context.VirtualEnvPath}/bin/python3 -m moonraker_octoapp "{argsJsonBase64}"
     procd_close_instance
 }}
 '''

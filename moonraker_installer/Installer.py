@@ -1,7 +1,7 @@
 import sys
 import traceback
 
-from .Linker import Linker
+# from .Linker import Linker
 from .Logging import Logger
 from .Service import Service
 from .Context import Context
@@ -29,7 +29,7 @@ class Installer:
             Logger.Error(str(tb))
             Logger.Blank()
             Logger.Blank()
-            Logger.Header("Please contact our support team directly at support@octoeverywhere.com so we can help you fix this issue!")
+            Logger.Header("Please contact our support team directly at hello@octoapp.eu so we can help you fix this issue!")
             Logger.Blank()
             Logger.Blank()
 
@@ -129,7 +129,7 @@ class Installer:
 
         # Before we start the service, check if the secrets config file already exists and if a printer id already exists.
         # This will indicate if this is a fresh install or not.
-        context.ExistingPrinterId = Linker.GetPrinterIdFromServiceSecretsConfigFile(context)
+        # context.ExistingPrinterId = Linker.GetPrinterIdFromServiceSecretsConfigFile(context)
 
         # Final validation
         context.Validate(4)
@@ -150,15 +150,14 @@ class Installer:
         updater.EnsureCronUpdateJob(context.RepoRootFolder)
 
         # The service is ready! Now do the account linking process.
-        linker = Linker()
-        linker.Run(context)
+        # linker = Linker()
+        # linker.Run(context)
 
         # Success!
         Logger.Blank()
         Logger.Blank()
         Logger.Blank()
-        Logger.Purple("        ~~~ OctoEverywhere For Klipper Setup Complete ~~~    ")
-        Logger.Warn(  "  You Can Access Your Printer Anytime From OctoEverywhere.com")
+        Logger.Purple("        ~~~ OctoApp For Klipper Setup Complete ~~~    ")
         Logger.Header("                   Welcome To Our Community                  ")
         Logger.Error( "                            <3                               ")
         Logger.Blank()
@@ -187,11 +186,11 @@ class Installer:
         Logger.Blank()
         Logger.Blank()
         Logger.Header("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        Logger.Header("    OctoEverywhere For Klipper      ")
+        Logger.Header("    OctoApp For Klipper      ")
         Logger.Header("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         Logger.Blank()
-        Logger.Info("This installer script is used for installing the OctoEverywhere plugin on Klipper/Moonraker/Mainsail/Fluidd setups. It is NOT used for OctoPrint setups.")
-        Logger.Info("If you want to install OctoEverywhere for OctoPrint, use the plugin manager in OctoPrint's settings to install the plugin.")
+        Logger.Info("This installer script is used for installing the OctoApp plugin on Klipper/Moonraker/Mainsail/Fluidd setups. It is NOT used for OctoPrint setups.")
+        Logger.Info("If you want to install OctoApp for OctoPrint, use the plugin manager in OctoPrint's settings to install the plugin.")
         Logger.Blank()
         Logger.Warn("Command line format:")
         Logger.Info("  <moonraker config file path> <moonraker service file path> -other -args")
@@ -199,8 +198,8 @@ class Installer:
         Logger.Warn("Argument details:")
         Logger.Info("  <moonraker config file path>  - optional - If supplied, the install will target this moonraker setup without asking or searching for others")
         Logger.Info("  <moonraker service name> - optional - If supplied, the install will target this moonraker service file without searching.")
-        Logger.Info("       Used when multiple moonraker instances are ran on the same device. The service name is used to find the unique moonraker identifier. OctoEverywhere will follow the same naming convention. Typically the file name is something like `moonraker-1.service` or `moonraker-somename.service`")
-        Logger.Info("  -observer - optional flag - If passed, the plugin is setup as an observer, which is a plugin not running on the same device as moonraker. This is useful for built-in printer hardware where OctoEverywhere can't run, like the Sonic Pad or K1.")
+        Logger.Info("       Used when multiple moonraker instances are ran on the same device. The service name is used to find the unique moonraker identifier. OctoApp will follow the same naming convention. Typically the file name is something like `moonraker-1.service` or `moonraker-somename.service`")
+        Logger.Info("  -observer - optional flag - If passed, the plugin is setup as an observer, which is a plugin not running on the same device as moonraker. This is useful for built-in printer hardware where OctoApp can't run, like the Sonic Pad or K1.")
         Logger.Blank()
         Logger.Warn("Other Optional Args:")
         Logger.Info("  -help            - Shows this message.")
@@ -208,6 +207,6 @@ class Installer:
         Logger.Info("  -debug           - Enable debug logging to the console.")
         Logger.Info("  -skipsudoactions - Skips sudo required actions. This is useful for debugging, but will make the install not fully work.")
         Logger.Blank()
-        Logger.Info("If you need help, contact our support team at support@octoeverywhere.com")
+        Logger.Info("If you need help, contact our support team at hello@octoapp.eu")
         Logger.Blank()
         Logger.Blank()

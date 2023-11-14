@@ -28,10 +28,10 @@ class Context:
         # Generation 1
         #
 
-        # This is the repo root of OctoEverywhere. This is common for all instances.
+        # This is the repo root of OctoApp. This is common for all instances.
         self.RepoRootFolder:str = None
 
-        # This is the path to the PY virtual env for OctoEverywhere. This is common for all instances.
+        # This is the path to the PY virtual env for OctoApp. This is common for all instances.
         self.VirtualEnvPath:str = None
 
         # This is the user name of the user who launched the install script.
@@ -100,7 +100,7 @@ class Context:
         # Generation 3 - This it the path to the printer data logs folder.
         self.PrinterDataLogsFolder:str = None
 
-        # Generation 3 - This is the name of this OctoEverywhere instance's service.
+        # Generation 3 - This is the name of this OctoApp instance's service.
         self.ServiceName:str = None
 
         # Generation 3 - The full file path and file name of this instance's service file.
@@ -165,7 +165,7 @@ class Context:
                 self.ObserverDataPath = self.ObserverDataPath.strip()
                 self.ObserverInstanceId = self.ObserverInstanceId.strip()
                 if self.OsType != OsTypes.Debian:
-                    raise Exception("The OctoEverywhere companion can only be installed on Debian based operating systems.")
+                    raise Exception("The OctoApp companion can only be installed on Debian based operating systems.")
             else:
                 self._ValidatePathAndExists(self.MoonrakerConfigFilePath, "Required config var Moonraker Config File Path was not found")
                 self._ValidateString(self.MoonrakerServiceFileName, "Required config var Moonraker Service File Name was not found")

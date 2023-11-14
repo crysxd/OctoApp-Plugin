@@ -22,7 +22,7 @@ class Logger:
     def InitFile(userHomePath):
         try:
             # pylint: disable=consider-using-with
-            Logger.OutputFile = open(os.path.join(userHomePath, "octoeverywhere-installer.log"), "w", encoding="utf-8")
+            Logger.OutputFile = open(os.path.join(userHomePath, "octoapp-installer.log"), "w", encoding="utf-8")
         except Exception as e:
             print("Failed to make log file. "+str(e))
 
