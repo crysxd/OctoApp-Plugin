@@ -3,10 +3,10 @@
 
 
 #
-# OctoEverywhere for Klipper!
+# OctoApp for Klipper!
 #
-# This script works for any setup of OctoEverywhere, the normal plugin install, companion install, or a Creality install.
-# The script will automatically find all OctoEverywhere instances on this device and update them.
+# This script works for any setup of OctoApp, the normal plugin install, companion install, or a Creality install.
+# The script will automatically find all OctoApp instances on this device and update them.
 #
 # If you need help, feel free to contact us at support@octoeverywhere.com
 #
@@ -30,7 +30,7 @@ c_cyan=$(echo -en "\e[96m")
 
 echo ""
 echo ""
-echo -e "${c_yellow}Starting an OctoEverywhere update!${c_default}"
+echo -e "${c_yellow}Starting an OctoApp update!${c_default}"
 echo ""
 echo ""
 

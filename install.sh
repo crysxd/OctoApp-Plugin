@@ -3,14 +3,14 @@
 
 
 #
-# OctoEverywhere for Klipper!
+# OctoApp for Klipper!
 #
 # Use this script to install the plugin on a normal device or a Creality device, or to install the companion!
 # For a companion install, use the -companion argument.
 #
 # Simply run ./install.sh from the git repo root directory to get started!
 #
-# If you need help, feel free to contact us at support@octoeverywhere.com
+# If you need help, feel free to contact us at hello@octoapp.eu
 #
 
 
@@ -36,12 +36,12 @@ then
 fi
 
 # Get the root path of the repo, aka, where this script is executing
-OE_REPO_DIR=$(readlink -f $(dirname "$0"))
+OCTOAPP_REPO_DIR=$(readlink -f $(dirname "$0"))
 
-# This is the root of where our py virtual env will be. Note that all OctoEverywhere instances share this same
+# This is the root of where our py virtual env will be. Note that all OctoApp instances share this same
 # virtual environment. This how the rest of the system is, where all other services, even with multiple instances, share the same
 # virtual environment. I probably wouldn't have done it like this, but we have to create this before we know what instance we are targeting, so it's fine.
-OE_ENV="${HOME}/octoeverywhere-env"
+OCTOAPP_ENV="${HOME}/octoapp-env"
 
 # Note that this is parsed by the update process to find and update required system packages on update!
 # On update THIS SCRIPT ISN'T RAN, only this line is parsed out and used to install / update system packages.
@@ -103,13 +103,13 @@ ensure_creality_os_right_repo_path()
     if $IS_CREALITY_OS
     then
         EXPECT='/usr/share/'
-        if [[ "$OE_REPO_DIR" != *"$EXPECT"* ]]; then
-            log_error "For the Creality OS this repo must be cloned into /usr/share/octoeverywhere."
+        if [[ "$OCTOAPP_REPO_DIR" != *"$EXPECT"* ]]; then
+            log_error "For the Creality OS this repo must be cloned into /usr/share/octoapp."
             log_important "Moving the repo and running the install again..."
             cd /usr/share
             # Send errors to null, if the folder already exists this will fail.
-            git clone https://github.com/QuinnDamerell/OctoPrint-OctoEverywhere octoeverywhere 2>/dev/null || true
-            cd /usr/share/octoeverywhere
+            git clone https://github.com/QuinnDamerell/OctoPrint-OctoApp octoapp 2>/dev/null || true
+            cd /usr/share/octoapp
             # Ensure state
             git reset --hard
             git checkout master
@@ -118,7 +118,7 @@ ensure_creality_os_right_repo_path()
             ./install.sh "$@" || true
             installExit=$?
             # Delete this folder.
-            rm -fr $OE_REPO_DIR
+            rm -fr $OCTOAPP_REPO_DIR
             # Take the user back to the new install folder.
             cd /usr/share/
             # Exit.
@@ -132,20 +132,20 @@ ensure_creality_os_right_repo_path()
 #
 ensure_py_venv()
 {
-    log_header "Checking Python Virtual Environment For OctoEverywhere..."
+    log_header "Checking Python Virtual Environment For OctoApp..."
     # If the service is already running, we can't recreate the virtual env
     # so if it exists, don't try to create it.
-    if [ -d $OE_ENV ]; then
+    if [ -d $OCTOAPP_ENV ]; then
         # This virtual env refresh fails on some devices when the service is already running, so skip it for now.
         # This only refreshes the virtual environment package anyways, so it's not super needed.
         #log_info "Virtual environment found, updating to the latest version of python."
-        #python3 -m venv --upgrade "${OE_ENV}"
+        #python3 -m venv --upgrade "${OCTOAPP_ENV}"
         return 0
     fi
 
     log_info "No virtual environment found, creating one now."
-    mkdir -p "${OE_ENV}"
-    virtualenv -p /usr/bin/python3 --system-site-packages "${OE_ENV}"
+    mkdir -p "${OCTOAPP_ENV}"
+    virtualenv -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
 }
 
 #
@@ -168,6 +168,7 @@ install_or_update_system_dependencies()
         # Note that since cloudflare will auto force http -> https, we use https, but ignore cert errors, that could be
         # caused by an incorrect date.
         # Note some companion systems don't have curl installed, so this will fail.
+        # KEEP WITH OCTOEVERYWHERE!
         sudo date -s `curl --insecure 'https://octoeverywhere.com/api/util/date' 2>/dev/null` || true
 
         # These we require to be installed in the OS.
@@ -197,11 +198,11 @@ install_or_update_python_env()
 
     # Update pip if needed - we added a note because this takes a while on the sonic pad.
     log_info "Updating PIP if needed... (this can take a few seconds or so)"
-    "${OE_ENV}"/bin/python -m pip install --upgrade pip
+    "${OCTOAPP_ENV}"/bin/python -m pip install --upgrade pip
 
     # Finally, ensure our plugin requirements are installed and updated.
     log_info "Installing or updating required python libs..."
-    "${OE_ENV}"/bin/pip3 install -q -r "${OE_REPO_DIR}"/requirements.txt
+    "${OCTOAPP_ENV}"/bin/pip3 install -q -r "${OCTOAPP_REPO_DIR}"/requirements.txt
     log_info "Python libs installed."
 }
 
@@ -220,8 +221,8 @@ check_for_octoprint()
         if curl -s "http://127.0.0.1:5000" >/dev/null ; then
             log_important "Just a second... OctoPrint was detected!"
             log_blank
-            log_important "This install script is used to install OctoEverywhere for Mainsail, Fluidd, Moonraker, etc."
-            log_important "If you want to install OctoEverywhere for OctoPrint, you need to use OctoPrint's Plugin Manager, found in OctoPrint's web settings UI."
+            log_important "This install script is used to install OctoApp for Mainsail, Fluidd, Moonraker, etc."
+            log_important "If you want to install OctoApp for OctoPrint, you need to use OctoPrint's Plugin Manager, found in OctoPrint's web settings UI."
             log_blank
             read -p       "Do you want to continue this setup for Mainsail, Fluidd, Moonraker, etc? [y/n]: " -e result
             log_blank
@@ -237,36 +238,55 @@ log_blank
 log_blank
 log_blank
 cat << EOF
-@@@@@@@@@@@@@@@@@@@@@@@@***@@@@@@@@@@@@@@@@@@@@@@@
-@@@@@@@@@@@@@@***********************@@@@@@@@@@@@@
-@@@@@@@@@@*******************************@@@@@@@@@
-@@@@@@@@***********************************@@@@@@@
-@@@@@,,,************************/////////*****@@@@
-@@@@,,,,,,*****************//////////////******@@@
-@@,,,,,,,,,,***********//////////////////*******@@
-@@,,,,,,,,,,,,*******////////****///////*********@
-@,,,,,,,,,,,/////////////////****//////***********
-@,,,,,,,//////////////////////////////************
-,,,,,,,,////////////////////////////**************
-@,,,,,,,,,,,,/////////////////////****************
-@,,,,,,,,,,,,,,/////////////////******************
-@@,,,,,,,,,,,,,,,,//////////////*****************@
-@@@,,,,,/#######,,,,///////////*****************@@
-@@@@,,,##########,,,,,,,//////,****************@@@
-@@@@@,##########,,,,,,,,,////,,,,*************@@@@
-@@@@@########,,,,,,,,,,,,//,,,,,,,,********@@@@@@@
-@@@@@#@@@@,,,,,,,,,,,,,,,,,,,,,,,,,,,***,@@@@@@@@@
-@@@@@@@@@@@@@@@,,,,,,,,,,,,,,,,,,,,,@@@@@@@@@@@@@@
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                          .....                                           
+                                   .'^":IIIIIIIII;,"`'.                                   
+                               .'";IIII;,,""^^"",:IIIII:^.                                
+                             '"III;"`'.............'`^,III;`.                             
+                           ',III"`......................`:III^                            
+                          ^III"'..........................`:II;'                          
+                        .,II:'..............................^III`                         
+                        :II,.................................`III`                        
+                       "II:...................................`III.                       
+                      .III`....................................,II,                       
+                      `II;...........'`'..........'`'..........`III.                      
+                      ^II;.........':IIII`......`;III:'........`III.                      
+                      `III.........`IIIII,......"IIIII`........^II;                       
+                      .III`.........`",,^........`,,"`.........;II^                       
+                       ^II:...................................`III.                       
+                       .III'..................................,II,                        
+                        ;II`..................................;II`                        
+                        :II^..................................III`                        
+                        III`..................................:II^                        
+                       `II;...................................^II;.                       
+         `"^.         .;II^....................................;II^          `"".         
+         "III^.       ,II:....''...........................`'..`III`       ':II;.         
+          ':III"'.  ':II:'..`;II'.........................:II,..`III".  .`:III^           
+            ',IIIIIIIII"...^III^...^^'.....'```'....',,'..';II,'.',IIIIIIII:^.            
+             ..`^,,,"`...':II;`..';II"..`,IIIIII:`..^II;'...,II;`..'`",""`'...            
+             ..........'"III"...`;II".."III^''^;II:'.,II;'...`;II:`...........            
+             .'.....'`,III,'...^III^..,II;.    ."II;`."II;`...."III;^`.....''             
+            :II;:,:IIII;^'...',II;`.."II;.       ^III'.^III,'....`:IIIII;;III`            
+            .`":;I;:"^'.....^III,'.."II;.         "II;'.',III"'....'`^,,:,,^'             
+                 ........`"III;`..',II;.           "II;`..`:III,^'........                
+                `"""",,;IIII,`..'"III".             `III,'..'^:IIII;::::;;^               
+                "IIIII;:,^`...`,III,.                ."III,`...'`^",::::,"'               
+                    ........';II;^.                    ."IIII'...                         
+                             '`'                          '``                             
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+                                                                                          
+
 EOF
 log_blank
-log_header "           OctoEverywhere For Klipper"
-log_blank
-log_blank
-log_important "OctoEverywhere empowers the worldwide maker community with..."
-log_info      "  - Free & Unlimited Mainsail and Fluidd Remote Access"
-log_info      "  - Free & Unlimited Next-Gen AI Print Failure Detection"
-log_info      "  - Real-Time Print Notifications"
-log_info      "  - And So Much More"
+log_header "           OctoApp For Klipper"
 log_blank
 log_blank
 
@@ -284,7 +304,7 @@ ensure_creality_os_right_repo_path
 install_or_update_system_dependencies
 
 # Check that OctoPrint isn't found. If it is, we want to check with the user to make sure they are
-# not trying to setup OE for OctoPrint.
+# not trying to setup OctoApp for OctoPrint.
 check_for_octoprint
 
 # Now make sure the virtual env exists, is updated, and all of our currently required PY packages are updated.
@@ -296,17 +316,17 @@ install_or_update_python_env
 USERNAME=${USER}
 USER_HOME=${HOME}
 CMD_LINE_ARGS=${@}
-PY_LAUNCH_JSON="{\"OE_REPO_DIR\":\"${OE_REPO_DIR}\",\"OE_ENV\":\"${OE_ENV}\",\"USERNAME\":\"${USERNAME}\",\"USER_HOME\":\"${USER_HOME}\",\"CMD_LINE_ARGS\":\"${CMD_LINE_ARGS}\"}"
+PY_LAUNCH_JSON="{\"OCTOAPP_REPO_DIR\":\"${OCTOAPP_REPO_DIR}\",\"OCTOAPP_ENV\":\"${OCTOAPP_ENV}\",\"USERNAME\":\"${USERNAME}\",\"USER_HOME\":\"${USER_HOME}\",\"CMD_LINE_ARGS\":\"${CMD_LINE_ARGS}\"}"
 log_info "Bootstrap done. Starting python installer..."
 
 # Now launch into our py setup script, that does everything else required.
 # Since we use a module for file includes, we need to set the path to the root of the module
 # so python will find it.
-export PYTHONPATH="${OE_REPO_DIR}"
+export PYTHONPATH="${OCTOAPP_REPO_DIR}"
 
 # We can't use pushd on Creality OS, so do this.
 CURRENT_DIR=${pwd}
-cd ${OE_REPO_DIR} > /dev/null
+cd ${OCTOAPP_REPO_DIR} > /dev/null
 
 # Disable the PY cache files (-B), since they will be written as sudo, since that's what we launch the PY
 # installer as. The PY installer must be sudo to write the service files, but we don't want the
@@ -314,9 +334,9 @@ cd ${OE_REPO_DIR} > /dev/null
 if $IS_CREALITY_OS
 then
     # Creality OS only has a root user and we can't use sudo.
-    ${OE_ENV}/bin/python3 -B -m moonraker_installer ${PY_LAUNCH_JSON}
+    ${OCTOAPP_ENV}/bin/python3 -B -m moonraker_installer ${PY_LAUNCH_JSON}
 else
-    sudo ${OE_ENV}/bin/python3 -B -m moonraker_installer ${PY_LAUNCH_JSON}
+    sudo ${OCTOAPP_ENV}/bin/python3 -B -m moonraker_installer ${PY_LAUNCH_JSON}
 fi
 
 cd ${CURRENT_DIR} > /dev/null
