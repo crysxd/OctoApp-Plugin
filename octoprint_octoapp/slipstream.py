@@ -3,13 +3,13 @@ import time
 import zlib
 import sys
 
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.compat import Compat
-from octoeverywhere.octohttprequest import OctoHttpRequest
-from octoeverywhere.octohttprequest import PathTypes
-from octoeverywhere.WebStream.octoheaderimpl import HeaderHelper
-from octoeverywhere.WebStream.octoheaderimpl import BaseProtocol
-from octoeverywhere.octostreammsgbuilder import OctoStreamMsgBuilder
+from octoapp.sentry import Sentry
+from octoapp.compat import Compat
+from octoapp.octohttprequest import OctoHttpRequest
+from octoapp.octohttprequest import PathTypes
+from octoapp.WebStream.octoheaderimpl import HeaderHelper
+from octoapp.WebStream.octoheaderimpl import BaseProtocol
+from octoapp.octostreammsgbuilder import OctoStreamMsgBuilder
 
 from .localauth import LocalAuth
 

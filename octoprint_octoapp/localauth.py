@@ -2,7 +2,7 @@ import random
 import string
 
 from octoprint.access.permissions import Permissions
-from octoeverywhere.compat import Compat
+from octoapp.compat import Compat
 
 # A class that manages the local auth rights of OctoEverywhere.
 #

@@ -4,17 +4,17 @@ import sys
 import random
 import string
 
-from octoeverywhere.webcamhelper import WebcamHelper
-from octoeverywhere.octoeverywhereimpl import OctoEverywhere
-from octoeverywhere.octohttprequest import OctoHttpRequest
-from octoeverywhere.commandhandler import CommandHandler
-from octoeverywhere.octopingpong import OctoPingPong
-from octoeverywhere.telemetry import Telemetry
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.mdns import MDns
-from octoeverywhere.notificationshandler import NotificationsHandler
-from octoeverywhere.Proto.ServerHost import ServerHost
-from octoeverywhere.compat import Compat
+from octoapp.webcamhelper import WebcamHelper
+from octoapp.octoeverywhereimpl import OctoEverywhere
+from octoapp.octohttprequest import OctoHttpRequest
+from octoapp.commandhandler import CommandHandler
+from octoapp.octopingpong import OctoPingPong
+from octoapp.telemetry import Telemetry
+from octoapp.sentry import Sentry
+from octoapp.mdns import MDns
+from octoapp.notificationshandler import NotificationsHandler
+from octoapp.Proto.ServerHost import ServerHost
+from octoapp.compat import Compat
 #from .threaddebug import ThreadDebug
 
 from .localauth import LocalAuth

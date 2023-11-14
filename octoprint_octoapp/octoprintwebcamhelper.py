@@ -2,9 +2,9 @@ import logging
 import json
 import time
 
-from octoeverywhere.webcamhelper import WebcamSettingItem, WebcamHelper
-from octoeverywhere.octohttprequest import OctoHttpRequest
-from octoeverywhere.sentry import Sentry
+from octoapp.webcamhelper import WebcamSettingItem, WebcamHelper
+from octoapp.octohttprequest import OctoHttpRequest
+from octoapp.sentry import Sentry
 
 # This class implements the webcam platform helper interface for OctoPrint.
 class OctoPrintWebcamHelper():

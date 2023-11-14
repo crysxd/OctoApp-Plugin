@@ -1,6 +1,6 @@
 from octoprint.printer import PrinterInterface
 
-from octoeverywhere.sentry import Sentry
+from octoapp.sentry import Sentry
 
 # Implements a common interface shared by OctoPrint and Moonraker.
 class PrinterStateObject:

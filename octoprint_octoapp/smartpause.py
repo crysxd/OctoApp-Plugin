@@ -1,6 +1,6 @@
 import time
 
-from octoeverywhere.compat import Compat
+from octoapp.compat import Compat
 
 #
 # The point of this class is to allow pause commands (from Gadget and else where) that are less likely to cause harm to the current print.

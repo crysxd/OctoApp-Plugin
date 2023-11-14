@@ -3,8 +3,8 @@ import logging
 from octoprint import __version__
 from octoprint.printer import PrinterInterface
 
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.commandhandler import CommandHandler, CommandResponse
+from octoapp.sentry import Sentry
+from octoapp.commandhandler import CommandHandler, CommandResponse
 
 from .smartpause import SmartPause
 
