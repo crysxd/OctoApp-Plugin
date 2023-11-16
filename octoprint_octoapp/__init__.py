@@ -33,7 +33,6 @@ class OctoeverywherePlugin(octoprint.plugin.StartupPlugin,
                             octoprint.plugin.SettingsPlugin,
                             octoprint.plugin.AssetPlugin,
                             octoprint.plugin.TemplatePlugin,
-                            octoprint.plugin.WizardPlugin,
                             octoprint.plugin.SimpleApiPlugin,
                             octoprint.plugin.EventHandlerPlugin,
                             octoprint.plugin.ProgressPlugin):
@@ -53,33 +52,7 @@ class OctoeverywherePlugin(octoprint.plugin.StartupPlugin,
         self.HasPendingSmartPauseMessage = False
         # Let the compat system know this is an OctoPrint host.
         Compat.SetIsOctoPrint(True)
-
-     # Assets we use, just for the wizard right now.
-    def get_assets(self):
-        return {
-            "js"  : ["js/OctoEverywhere.js"],
-            "less": ["less/OctoEverywhere.less"],
-            "css" : ["css/OctoEverywhere.css"]
-        }
-
-    # Return true if the wizard needs to be shown.
-    def is_wizard_required(self):
-        # We don't need to show the wizard if we know there are account connected.
-        hasConnectedAccounts = self.GetHasConnectedAccounts()
-        return hasConnectedAccounts is False
-
-    # Increment this if we need to pop the wizard again.
-    def get_wizard_version(self):
-        return 10
-
-    def get_wizard_details(self):
-        # Do some sanity checking logic, since this has been sensitive in the past.
-        printerUrl = self.GetAddPrinterUrl()
-        if printerUrl is None:
-            self._logger.error("Failed to get OctoPrinter Url for wizard.")
-            printerUrl = "https://octoeverywhere.com/getstarted"
-        return {"AddPrinterUrl": printerUrl + "&source=octoprint_wizard"}
-
+    
     # Return the default settings.
     def get_settings_defaults(self):
         return {}
