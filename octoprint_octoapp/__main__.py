@@ -17,9 +17,6 @@ from octoapp.Proto.ServerHost import ServerHost
 from octoapp.compat import Compat
 #from .threaddebug import ThreadDebug
 
-from .localauth import LocalAuth
-from .slipstream import Slipstream
-from .smartpause import SmartPause
 from .octoprintwebcamhelper import OctoPrintWebcamHelper
 
 
@@ -211,13 +208,6 @@ if __name__ == '__main__':
 
     # Setup the snapshot helper
     WebcamHelper.Init(logger, OctoPrintWebcamHelper(logger, None))
-
-    # These 3 classes are OctoPrint specific!
-    # The order matters, LocalAuth needs to be init before Slipstream.
-    LocalAuth.Init(logger, None)
-    LocalAuth.Get().SetApiKeyForTesting("SuperSecureApiKey")
-    Slipstream.Init(logger)
-    SmartPause.Init(logger, None, None)
 
     uiPopInvoker = UiPopupInvokerStub(logger)
     statusHandler = StatusChangeHandlerStub(logger, PrinterId)

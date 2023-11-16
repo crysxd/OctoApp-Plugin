@@ -6,8 +6,6 @@ from octoprint.printer import PrinterInterface
 from octoapp.sentry import Sentry
 from octoapp.commandhandler import CommandHandler, CommandResponse
 
-from .smartpause import SmartPause
-
 # This class implements the Platform Command Handler Interface
 class OctoPrintCommandHandler:
 
@@ -160,42 +158,7 @@ class OctoPrintCommandHandler:
     # If not, it must return the correct two error codes accordingly.
     # This must return a CommandResponse.
     def ExecutePause(self, smartPause, suppressNotificationBool, disableHotendBool, disableBedBool, zLiftMm, retractFilamentMm, showSmartPausePopup):
-        # Ensure we are printing, if not, respond with the common error.
-        if self.OctoPrintPrinterObject.is_printing() is False:
-            self.Logger.info("ExecutePause is not doing anything because theres' no print in progress..")
-            return CommandResponse.Error(CommandHandler.c_CommandError_InvalidPrinterState, "Printer state is not printing.")
-
-        # If we aren't using smart pause, just pause now.
-        if smartPause is False:
-            try:
-                # Set the suppression if desired.
-                if suppressNotificationBool:
-                    SmartPause.Get().SetLastPauseNotificationSuppressionTimeNow()
-
-                # Do the pause.
-                self.OctoPrintPrinterObject.pause_print()
-
-                # Return success.
-                return CommandResponse.Success(None)
-
-            except Exception as e:
-                Sentry.Exception("Pause command failed to execute.", e)
-                return CommandResponse.Error(500, "Failed to pause")
-
-        # Otherwise, do the smart pause.
-        try:
-            # If this doesn't throw it's successful
-            SmartPause.Get().DoSmartPause(disableHotendBool, disableBedBool, zLiftMm, retractFilamentMm, suppressNotificationBool)
-        except Exception as e:
-            Sentry.Exception("Failed to ExecutePause, SmartPause error.", e)
-            return CommandResponse.Error(500, "Failed to pause")
-
-        # On success, if we did a smart pause, send a notification to tell the user.
-        if self.MainPluginImpl is not None and showSmartPausePopup and (disableBedBool or disableHotendBool or zLiftMm > 0 or retractFilamentMm > 0):
-            self.MainPluginImpl.ShowSmartPausePopUpOnPortalLoad()
-
-        # Success!
-        return CommandResponse.Success(None)
+        return CommandResponse.Error(500, "Not supported")
 
 
     # !! Platform Command Handler Interface Function !!
