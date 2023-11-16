@@ -4,9 +4,15 @@ import threading
 import socket
 from datetime import datetime
 
+import time
 import flask
+from flask_babel import gettext
 import requests
 import octoprint.plugin
+import logging
+import logging.handlers
+from octoprint.access.permissions import ADMIN_GROUP, USER_GROUP, READONLY_GROUP
+from octoprint.events import Events
 
 from octoapp.webcamhelper import WebcamHelper
 from octoapp.octoeverywhereimpl import OctoEverywhere
@@ -21,20 +27,40 @@ from octoapp.Proto.ServerHost import ServerHost
 from octoapp.commandhandler import CommandHandler
 from octoapp.compat import Compat
 
+from .notifications import OctoAppNotificationsSubPlugin
+from .printermessage import OctoAppPrinterMessageSubPlugin
+from .printerfirmware import OctoAppPrinterFirmwareSubPlugin
+from .mmu2filamentselect import OctoAppMmu2FilamentSelectSubPlugin
+from .webcamsnapshots import OctoAppWebcamSnapshotsSubPlugin
 
 from .printerstateobject import PrinterStateObject
 from .octoprintcommandhandler import OctoPrintCommandHandler
 from .octoprintwebcamhelper import OctoPrintWebcamHelper
 
-class OctoeverywherePlugin(octoprint.plugin.StartupPlugin,
-                            octoprint.plugin.SettingsPlugin,
-                            octoprint.plugin.AssetPlugin,
-                            octoprint.plugin.TemplatePlugin,
-                            octoprint.plugin.SimpleApiPlugin,
-                            octoprint.plugin.EventHandlerPlugin,
-                            octoprint.plugin.ProgressPlugin):
-
+class OctoAppPlugin(octoprint.plugin.AssetPlugin,
+                    octoprint.plugin.ProgressPlugin,
+                    octoprint.plugin.StartupPlugin,
+                    octoprint.plugin.TemplatePlugin,
+                    octoprint.plugin.SimpleApiPlugin,
+                    octoprint.plugin.SettingsPlugin,
+                    octoprint.plugin.EventHandlerPlugin,
+                    octoprint.plugin.RestartNeedingPlugin):
+    
     def __init__(self):
+        # Update logger
+        self._logger = logging.getLogger("octoprint.plugins.octoapp")
+        # Create default config
+        self.DefaultConfig = dict(
+            updatePercentModulus=5,
+            highPrecisionRangeStart=5,
+            highPrecisionRangeEnd=5,
+            minIntervalSecs=300,
+            sendNotificationUrl="https://europe-west1-octoapp-4e438.cloudfunctions.net/sendNotificationV2",
+        )
+        self.CachedConfig = self.DefaultConfig
+        self.CachedConfig_at = 0
+        self.PluginState = {}
+        self.LastSentPluginState = {}
         # Default the handler to None since that will make the var name exist
         # but we can't actually create the class yet until the system is more initialized.
         self.NotificationHandler = None
@@ -42,22 +68,22 @@ class OctoeverywherePlugin(octoprint.plugin.StartupPlugin,
         self.HasOnStartupBeenCalledYet = False
         # Let the compat system know this is an OctoPrint host.
         Compat.SetIsOctoPrint(True)
-    
+
+    #
+    # EVENTS
+    #
+
     # Called when the system is starting up.
     def on_startup(self, host, port):
         # Setup Sentry to capture issues.
+        self._init_logger()
         Sentry.Init(self._logger, self._plugin_version, False)
-
-        # Setup our telemetry class.
-        Telemetry.Init(self._logger)
+        Sentry.Info("PLUGIN", "OctoApp starting" % self._plugin_version)
 
         #
         # Due to settings bugs in OctoPrint, as much of the generated values saved into settings should be set here as possible.
         # For more details, see SaveToSettingsIfUpdated()
         #
-
-        # Ensure the plugin version is updated in the settings for the frontend.
-        self.EnsurePluginVersionSet()
 
         # Init the static snapshot helper
         WebcamHelper.Init(self._logger, OctoPrintWebcamHelper(self._logger, self._settings))
@@ -72,196 +98,219 @@ class OctoeverywherePlugin(octoprint.plugin.StartupPlugin,
         # Create our command handler and our platform specific command handler.
         CommandHandler.Init(self._logger, self.NotificationHandler, OctoPrintCommandHandler(self._logger, self._printer, printerStateObject, self))
 
+        self.sub_plugins = [
+            OctoAppNotificationsSubPlugin(NotificationsHandler),
+            OctoAppPrinterMessageSubPlugin(self),
+            OctoAppPrinterFirmwareSubPlugin(self),
+            OctoAppMmu2FilamentSelectSubPlugin(self, NotificationsHandler),
+            OctoAppWebcamSnapshotsSubPlugin(self)
+        ]
+
+        for sp in self.sub_plugins:
+            sp.config = self.DefaultConfig
+
         # Indicate this has been called and things have been inited.
         self.HasOnStartupBeenCalledYet = True
 
-    #
-    # Functions are for the gcode receive plugin hook
-    #
-    def received_gcode(self, comm, line, *args, **kwargs):
-        # Blocking will block the printer commands from being handled so we can't block here!
+    def on_after_startup(self):
+        self._logger_handler()
+        Sentry.Info("PLUGIN", "OctoApp started, updating config, version is %s" % self._plugin_version)
+        self.update_config()
+        self._settings.set(["version"], self._plugin_version)
 
-        if line and self.NotificationHandler is not None:
-            # ToLower the line for better detection.
-            lineLower = line.lower()
-
-            # M600 is a filament change command.
-            # https://marlinfw.org/docs/gcode/M600.html
-            # On my Pursa, I see this "fsensor_update - M600" AND this "echo:Enqueuing to the front: "M600""
-            # We check for this both in sent and received, to make sure we cover all use cases. The OnFilamentChange will only allow one notification to fire every so often.
-            # This m600 usually comes from when the printer sensor has detected a filament run out.
-            if "m600" in lineLower or "fsensor_update" in lineLower:
-                self._logger.info("Firing On Filament Change Notification From GcodeReceived: "+str(line))
-                # No need to use a thread since all events are handled on a new thread.
-                self.NotificationHandler.OnFilamentChange()
-            else:
-                # Look for a line indicating user interaction is needed.
-                if "paused for user" in lineLower or "// action:paused" in lineLower:
-                    self._logger.info("Firing On User Interaction Required From GcodeReceived: "+str(line))
-                    # No need to use a thread since all events are handled on a new thread.
-                    self.NotificationHandler.OnUserInteractionNeeded()
-
-        # We must return line the line won't make it to OctoPrint!
-        return line
-
-    def sent_gcode(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
-        # Blocking will block the printer commands from being handled so we can't block here!
-
-        # M600 is a filament change command.
-        # https://marlinfw.org/docs/gcode/M600.html
-        # We check for this both in sent and received, to make sure we cover all use cases. The OnFilamentChange will only allow one notification to fire every so often.
-        # This M600 usually comes from filament change required commands embedded in the gcode, for color changes and such.
-        if self.NotificationHandler is not None and gcode and gcode == "M600":
-            self._logger.info("Firing On Filament Change Notification From GcodeSent: "+str(gcode))
-            # No need to use a thread since all events are handled on a new thread.
-            self.NotificationHandler.OnFilamentChange()
-
-        # Look for positive extrude commands, so we can keep track of them for final snap and our first layer tracking logic.
-        # Example cmd value: `G1 X112.979 Y93.81 E.03895`
-        if self.NotificationHandler is not None and gcode and cmd and gcode == "G1":
+        for sp in self.sub_plugins:
             try:
-                indexOfE = cmd.find('E')
-                if indexOfE != -1:
-                    endOfEValue = cmd.find(' ', indexOfE)
-                    if endOfEValue == -1:
-                        endOfEValue = len(cmd)
-                    eValue = cmd[indexOfE+1:endOfEValue]
-                    # The value will look like one of these: -.333,1.33,.33
-                    # We don't care about negative values, so ignore them.
-                    if eValue[0] != '-':
-                        # If the value doesn't start with a 0, the float parse wil fail.
-                        if eValue[0] != '0':
-                            eValue = "0" + eValue
-                        # Now the value should be something like 1.33 or 0.33
-                        if float(eValue) > 0:
-                            self.NotificationHandler.ReportPositiveExtrudeCommandSent()
+                sp.on_after_startup()
             except Exception as e:
-                self._logger.debug("Failed to parse gcode %s, error %s", cmd, str(e))
+                Sentry.ExceptionNoSend("Failed to handle after startup", e)
 
-    #
-    # Functions are for the Process Plugin
-    #
-    # pylint: disable=arguments-renamed
-    def on_print_progress(self, storage, path, progressInt):
-        if self.NotificationHandler is not None:
-            self.NotificationHandler.OnPrintProgress(progressInt, None)
+    def _init_logger(self):
+        self._logger_handler = logging.handlers.RotatingFileHandler(
+            self._settings.get_plugin_logfile_path(), 
+            maxBytes=512 * 1024,
+            backupCount=1
+        )
+        self._logger_handler.setFormatter(logging.Formatter("%(levelname)-8s | %(asctime)s | %(message)s"))
+        self._logger_handler.setLevel(logging.DEBUG)
+        self._logger.addHandler(self._logger_handler)
+        self._logger.setLevel(logging.DEBUG)
+        self._logger.propagate = False
 
 
-    # A dict helper
-    def _exists(self, dictObj:dict, key:str) -> bool:
-        return key in dictObj and dictObj[key] is not None
+    def on_firmware_info_received(self, comm_instance, firmware_name, firmware_data, *args, **kwargs):
+        for sp in self.sub_plugins:
+            try:
+                sp.on_firmware_info_received(comm_instance, firmware_name, firmware_data, args, kwargs)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle firmware info", e)
+
+    def on_api_command(self, command, data):
+        Sentry.Info("PLUGIN", "Recevied command %s" % command)
+
+        for sp in self.sub_plugins:
+            try:
+                res = sp.on_api_command(command=command, data=data)
+                if res != None:
+                    return res
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle api request", e)
+                return flask.make_response("Internal error", 500)
+
+        return flask.make_response("Unkonwn command", 400)
 
 
-    #
-    # Functions for the Event Handler Mixin
-    #
-    # Note that on_event can actually fire before on_startup in some cases.
-    #
+    def on_emit_websocket_message(self, user, message, type, data):
+        for sp in self.sub_plugins:
+            try:
+                sp.on_emit_websocket_message(user=user, message=message, type=type, data=data)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle websocket message", e)
+
+        # Always return true! Returning false will prevent the message from being send
+        return True
+
+
+    def on_print_progress(self, storage, path, progress):
+        for sp in self.sub_plugins:
+            try:
+                sp.on_print_progress(storage=storage, path=path, progress=progress)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle progress", e)
+
     def on_event(self, event, payload):
-        # This can be called before on_startup where things are inited.
-        # Never handle anything that's sent before then.
-        if self.HasOnStartupBeenCalledYet is False:
-            return
-
-        # Ensure there's a payload
-        if payload is None:
-            payload = {}
-
-        # Listen for client authed events, these fire whenever a websocket opens and is auth is done.
-        if event == "ClientAuthed":
-            self.HandleClientAuthedEvent()
-
-        # Only check the event after the notification handler has been created.
-        # Specifically here, we have seen the Error event be fired before `on_startup` is fired,
-        # and thus the handler isn't created.
-        if self.NotificationHandler is None:
-            return
-
-        # Listen for the rest of these events for notifications.
-        # OctoPrint Events
-        if event == "PrintStarted":
-            fileName = self.GetDictStringOrEmpty(payload, "name")
-            # Gather some stats from other places, if they exist.
-            currentData = self._printer.get_current_data()
-            fileSizeKBytes = 0
-            if self._exists(currentData, "job") and self._exists(currentData["job"], "file") and self._exists(currentData["job"]["file"], "size"):
-                fileSizeKBytes = int(currentData["job"]["file"]["size"]) / 1024
-            totalFilamentUsageMm = 0
-            if self._exists(currentData, "job") and self._exists(currentData["job"], "filament") and self._exists(currentData["job"]["filament"], "tool0") and self._exists(currentData["job"]["filament"]["tool0"], "length"):
-                totalFilamentUsageMm = int(currentData["job"]["filament"]["tool0"]["length"])
-            self.NotificationHandler.OnStarted(fileName, fileSizeKBytes, totalFilamentUsageMm)
-        elif event == "PrintFailed":
-            fileName = self.GetDictStringOrEmpty(payload, "name")
-            durationSec = self.GetDictStringOrEmpty(payload, "time")
-            reason = self.GetDictStringOrEmpty(payload, "reason")
-            self.NotificationHandler.OnFailed(fileName, durationSec, reason)
-        elif event == "PrintDone":
-            fileName = self.GetDictStringOrEmpty(payload, "name")
-            durationSec = self.GetDictStringOrEmpty(payload, "time")
-            self.NotificationHandler.OnDone(fileName, durationSec)
-        elif event == "PrintPaused":
-            fileName = self.GetDictStringOrEmpty(payload, "name")
-            self.NotificationHandler.OnPaused(fileName)
-        elif event == "PrintResumed":
-            fileName = self.GetDictStringOrEmpty(payload, "name")
-            self.NotificationHandler.OnResume(fileName)
-
-        # Printer Connection
-        elif event == "Error":
-            error = self.GetDictStringOrEmpty(payload, "error")
-            self.NotificationHandler.OnError(error)
-
-        # GCODE Events
-        # Note most of these aren't sent when printing from the SD card
-        elif event == "Waiting":
-            self.NotificationHandler.OnWaiting()
-        elif event == "FilamentChange":
-            # We also handle some of these filament change gcode events ourselves, but since we already have
-            # anti duplication logic in the notification handler for this event, might as well send it here as well.
-            self.NotificationHandler.OnFilamentChange()
+        for sp in self.sub_plugins:
+            try:
+                sp.on_event(event=event, payload=payload)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle event", e)
+        
+        if event == Events.CLIENT_OPENED:
+            self.send_plugin_state_message(forced=True)
 
 
-    def GetDictStringOrEmpty(self, d, key):
-        if d[key] is None:
-            return ""
-        return str(d[key])
+    def on_gcode_queued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+        for sp in self.sub_plugins:
+            try:
+                sp.on_gcode_queued(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle gcode queued", e)
 
-    # Ensures the plugin version is set into the settings for the frontend.
-    def EnsurePluginVersionSet(self):
-        # We save the current plugin version into the settings so the frontend JS can get it.
-        self.SaveToSettingsIfUpdated("PluginVersion", self._plugin_version)
+    def on_gcode_sent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+        for sp in self.sub_plugins:
+            try:
+                sp.on_gcode_sent(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle gcode sent", e)
 
-    # Returns the frontend http port OctoPrint's http proxy is running on.
-    def GetFrontendHttpPort(self):
-        # Always try to get and parse the settings value. If the value doesn't exist
-        # or it's invalid this will fall back to the default value.
+
+    def on_gcode_received(self, comm_instance, line, *args, **kwargs):
+        for sp in self.sub_plugins:
+            try:
+                sp.on_gcode_received(comm_instance=comm_instance, line = line, args=args, kwargs=kwargs)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle gcode received", e)
+
+    def send_plugin_state_message(self, forced=False):
+        # Only send if we are forced to update or the state actually changed
+        if forced or self.LastSentPluginState != self.PluginState:
+            self.LastSentPluginState = self.PluginState.copy()
+            self._plugin_manager.send_plugin_message(
+                self._identifier, self.PluginState)
+
+    #
+    # CONFIG
+    #
+
+    def update_config(self):
+        t = threading.Thread(target=self.do_update_config)
+        t.daemon = True
+        t.start()
+        return self.CachedConfig
+
+    def do_update_config(self):
+        # If we have no config cached or the cache is older than a day, request new config
+        cache_config_max_age = time.time() - 86400
+        if (self.CachedConfig is not None) and (
+            self.CachedConfig_at > cache_config_max_age
+        ):
+            return self.CachedConfig
+
+        # Request config, fall back to default
         try:
-            return int(self.GetFromSettings("HttpFrontendPort", 80))
-        except Exception:
-            return 80
+            r = requests.get(
+                "https://www.octoapp.eu/config/plugin.json", timeout=float(15)
+            )
+            if r.status_code != requests.codes.ok:
+                raise Exception("Unexpected response code %d" % r.status_code)
+            self.CachedConfig = r.json()
+            self.CachedConfig_at = time.time()
+    
+            for sp in self.sub_plugins:
+                sp.config = self.DefaultConfig
+        except Exception as e:
+            Sentry.ExceptionNoSend("Failed to fetch config using defaults for 5 minutes", e)
+            self.CachedConfig = self.DefaultConfig
+            self.CachedConfig_at = cache_config_max_age + 300
+        
+        Sentry.Info("PLUGIN", "OctoApp loaded config: %s" % self.CachedConfig)
 
-    # Returns the if the frontend http proxy for OctoPrint is using https.
-    def GetFrontendIsHttps(self):
-        # Always try to get and parse the settings value. If the value doesn't exist
-        # or it's invalid this will fall back to the default value.
-        try:
-            return self.GetFromSettings("HttpFrontendIsHttps", False)
-        except Exception:
-            return False
+    #
+    # MISC
+    #
 
-    # Gets the current setting or the default value.
-    def GetBoolFromSettings(self, name, default):
-        value = self._settings.get([name])
-        if value is None:
-            return default
-        return value is True
+    def get_settings_defaults(self):
+        return dict(encryptionKey=None, version=self._plugin_version)
 
-    # Gets the current setting or the default value.
-    def GetFromSettings(self, name, default):
-        value = self._settings.get([name])
-        if value is None:
-            return default
-        return value
+    def get_template_configs(self):
+        return [dict(type="settings", custom_bindings=True)]
+
+    def get_api_commands(self):
+        return dict(
+            registerForNotifications=[],
+            getPrinterFirmware=[],
+            getWebcamSnapshot=[]
+        )
+
+    def get_update_information(self):
+        return dict(
+            octoapp=dict(
+                displayName="OctoApp",
+                displayVersion=self._plugin_version,
+                type="github_release",
+                current=self._plugin_version,
+                user="crysxd",
+                repo="OctoApp-Plugin",
+                pip="https://github.com/crysxd/OctoApp-Plugin/archive/{target}.zip",
+            )
+        )
+
+    def get_additional_permissions(self, *args, **kwargs):
+        return [
+            dict(key="RECEIVE_NOTIFICATIONS",
+                 name="Receive push notifications",
+                 description=gettext(
+                     "Allows to register OctoApp installations to receive notifications"
+                 ),
+                 roles=["admin"],
+                 dangerous=False,
+                 default_groups=[ADMIN_GROUP, USER_GROUP, READONLY_GROUP]),
+            dict(key="GET_DATA",
+                 name="Get additional data",
+                 description=gettext(
+                     "Allows OctoApp to get additional data"
+                 ),
+                 roles=["admin"],
+                 dangerous=False,
+                 default_groups=[ADMIN_GROUP, USER_GROUP, READONLY_GROUP])
+        ]
+
+    def get_assets(self):
+        return dict(
+            js=[
+                "js/octoapp.js"
+            ]
+        )
+
 
     # Saves the value into to the settings object if the value changed.
     def SaveToSettingsIfUpdated(self, name, value):
@@ -289,17 +338,20 @@ __plugin_name__ = "OctoEverywhere!"
 __plugin_pythoncompat__ = ">=3.0,<4" # Only PY3
 
 def __plugin_load__():
+    global __plugin_pythoncompat__
+    __plugin_pythoncompat__ = ">=3,<4"
+
     global __plugin_implementation__
-    __plugin_implementation__ = OctoeverywherePlugin()
+    __plugin_implementation__ = OctoAppPlugin()
+
 
     global __plugin_hooks__
     __plugin_hooks__ = {
-        "octoprint.accesscontrol.keyvalidator": __plugin_implementation__.key_validator,
         "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information,
         "octoprint.comm.protocol.gcode.received": __plugin_implementation__.received_gcode,
         "octoprint.comm.protocol.gcode.sent": __plugin_implementation__.sent_gcode,
         "octoprint.comm.protocol.gcode.queuing": __plugin_implementation__.queuing_gcode,
-        # We supply a int here to set our order, so we can be one of the first plugins to execute, to prevent issues.
-        # The default order value is 1000
-        "octoprint.comm.protocol.scripts": (__plugin_implementation__.script_hook, 1337),
+        "octoprint.comm.protocol.firmware.info": __plugin_implementation__.on_firmware_info_received,
+        "octoprint.access.permissions": __plugin_implementation__.get_additional_permissions,
+        "octoprint.server.sockjs.emit": __plugin_implementation__.on_emit_websocket_message,
     }

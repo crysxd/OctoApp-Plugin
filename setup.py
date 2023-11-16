@@ -10,40 +10,32 @@
 # If you need help, feel free to contact us at support@octoeverywhere.com
 #
 
-
-
-
-
-
-
-from setuptools import setup
-
 # The plugin's identifier, has to be unique
-plugin_identifier = "octoeverywhere"
+plugin_identifier = "octoapp"
 
 # The plugin's python package, should be "octoprint_<plugin identifier>", has to be unique
-plugin_package = "octoprint_octoeverywhere"
+plugin_package = "octoprint_octoapp"
 
 # The plugin's human readable name. Can be overwritten within OctoPrint's internal data via __plugin_name__ in the
 # plugin module
-plugin_name = "OctoEverywhere"
+plugin_name = "OctoApp"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
 # Note that this is also parsed by the moonraker module to pull the version, so the string and format must remain the same!
-plugin_version = "2.9.2"
+plugin_version = "2.0.0"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
-plugin_description = """Access OctoPrint remotely over the internet anywhere! Including full webcam streaming. Free. Simple. Secure."""
+plugin_description = """The Companion Plugin for OctoApp"""
 
 # The plugin's author. Can be overwritten within OctoPrint's internal data via __plugin_author__ in the plugin module
-plugin_author = "Quinn Damerell"
+plugin_author = "Christian Würthner"
 
 # The plugin's author's mail address.
-plugin_author_email = "quinnd@outlook.com"
+plugin_author_email = "hello@octoapp.eu"
 
 # The plugin's homepage URL. Can be overwritten within OctoPrint's internal data via __plugin_url__ in the plugin module
-plugin_url = "http://www.OctoEverywhere.com"
+plugin_url = "https://github.com/crysxd/OctoApp-Plugin/"
 
 # The plugin's license. Can be overwritten within OctoPrint's internal data via __plugin_license__ in the plugin module
 plugin_license = "AGPLv3"
@@ -68,7 +60,7 @@ plugin_license = "AGPLv3"
 #   urllib3 - There is a bug with parsing headers in versions older than 1.26.? (https://github.com/diyan/pywinrm/issues/269). At least 1.26.6 fixes it, ubt we decide to just stick with a newer version.
 #
 # Note! These also need to stay in sync with requirements.txt, for the most part they should be the exact same!
-plugin_requires = ["websocket_client>=1.6.0,<1.6.99", "requests>=2.24.0", "octoflatbuffers==2.0.5", "pillow", "certifi>=2023.7.22", "rsa>=4.9", "dnspython>=2.3.0", "httpx==0.24.0", "urllib3>=1.26.15,<1.27.0" ]
+plugin_requires = ["pycryptodome>=3.15.0", "pillow"]
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point
@@ -82,7 +74,7 @@ plugin_additional_data = []
 
 # Any additional python packages you need to install with your plugin that are not contained in <plugin_package>.*
 # For OctoEverywhere, we need to include or common packages shared between hosts, so OctoPrint copies them into the package folder as well.
-plugin_additional_packages = [ "octoeverywhere", "octoeverywhere.Proto", "octoeverywhere.WebStream" ]
+plugin_additional_packages = [ "octoapp", "octoapp.Proto", "octoapp.WebStream" ]
 
 # Any python packages within <plugin_package>.* you do NOT want to install with your plugin
 plugin_ignored_packages = []
@@ -99,13 +91,15 @@ additional_setup_parameters = {}
 
 ########################################################################################################################
 
+from setuptools import setup
+
 try:
-    import octoprint_setuptools
-except Exception:
-    print("Could not import OctoPrint's setuptools, are you sure you are running that under "
-        "the same python installation that OctoPrint is installed under?")
-    import sys
-    sys.exit(-1)
+	import octoprint_setuptools
+except:
+	print("Could not import OctoPrint's setuptools, are you sure you are running that under "
+	      "the same python installation that OctoPrint is installed under?")
+	import sys
+	sys.exit(-1)
 
 setup_parameters = octoprint_setuptools.create_plugin_setup_parameters(
 	identifier=plugin_identifier,
@@ -124,7 +118,7 @@ setup_parameters = octoprint_setuptools.create_plugin_setup_parameters(
 )
 
 if len(additional_setup_parameters):
-    from octoprint.util import dict_merge
-    setup_parameters = dict_merge(setup_parameters, additional_setup_parameters)
+	from octoprint.util import dict_merge
+	setup_parameters = dict_merge(setup_parameters, additional_setup_parameters)
 
 setup(**setup_parameters)

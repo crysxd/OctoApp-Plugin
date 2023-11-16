@@ -88,6 +88,21 @@ class Sentry:
 
         # Return none to prevent sending.
         return None
+    
+    @staticmethod
+    def Info(tag, msg):
+        paddedTag = "{:<15}".format(tag).upper()
+        Sentry.logger.log(paddedTag + " | " + msg)
+
+    @staticmethod
+    def Debug(tag, msg):
+        paddedTag = "{:<15}".format(tag).upper()
+        Sentry.logger.debug(paddedTag + " | " + msg)
+
+    @staticmethod
+    def Warn(tag, msg, e=None):
+        paddedTag = "{:<15}".format(tag).upper()
+        Sentry.logger.warning(paddedTag + " | " + msg, e, exc_info = True)
 
 
     # Logs and reports an exception.
