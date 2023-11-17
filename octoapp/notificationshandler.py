@@ -960,7 +960,8 @@ class NotificationsHandler:
                 try:
                     # Since we are sending the snapshot, we must send a multipart form.
                     # Thus we must use the data and files fields, the json field will not work.
-                    r = requests.post(eventApiUrl, data=args, files=files, timeout=5*60)
+                    #r = requests.post(eventApiUrl, data=args, files=files, timeout=5*60)
+                    Sentry.Info("NOTIFICATIONS", "Sending %s (%s)" % (event, args))
 
                     # Capture the status code.
                     statusCode = r.status_code

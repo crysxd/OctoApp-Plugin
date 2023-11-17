@@ -26,7 +26,9 @@ from octoapp.hostcommon import HostCommon
 from octoapp.Proto.ServerHost import ServerHost
 from octoapp.commandhandler import CommandHandler
 from octoapp.compat import Compat
+from octoapp.appsstorage import AppStorageHelper
 
+from .octoprintappstorage import OctoPrintAppStorageSubPlugin
 from .notifications import OctoAppNotificationsSubPlugin
 from .printermessage import OctoAppPrinterMessageSubPlugin
 from .printerfirmware import OctoAppPrinterFirmwareSubPlugin
@@ -91,6 +93,10 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         # Setup our printer state object, that implements the interface.
         printerStateObject = PrinterStateObject(self._logger, self._printer)
 
+        # Setup App storage
+        octoPrintAppStorage = OctoPrintAppStorageSubPlugin()
+        AppStorageHelper.Init(octoPrintAppStorage)
+
         # Create the notification object now that we have the logger.
         self.NotificationHandler = NotificationsHandler(self._logger, printerStateObject)
         printerStateObject.SetNotificationHandler(self.NotificationHandler)
@@ -99,6 +105,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         CommandHandler.Init(self._logger, self.NotificationHandler, OctoPrintCommandHandler(self._logger, self._printer, printerStateObject, self))
 
         self.sub_plugins = [
+            octoPrintAppStorage,
             OctoAppNotificationsSubPlugin(NotificationsHandler),
             OctoAppPrinterMessageSubPlugin(self),
             OctoAppPrinterFirmwareSubPlugin(self),
