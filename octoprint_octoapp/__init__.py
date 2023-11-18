@@ -204,6 +204,9 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 sp.on_gcode_received(comm_instance=comm_instance, line = line, args=args, kwargs=kwargs)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to handle gcode received", e)
+        
+        # We must return line the line won't make it to OctoPrint!
+        return line
 
     def send_plugin_state_message(self, forced=False):
         # Only send if we are forced to update or the state actually changed
