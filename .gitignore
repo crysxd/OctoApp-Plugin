@@ -10,3 +10,4 @@ dist
 py2venv/*
 py3venv/*
 venv
+octoprint-data
