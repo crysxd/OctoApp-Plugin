@@ -7,7 +7,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def __init__(self, parent, notification_handler: NotificationsHandler):
         super().__init__(parent)
-        self.notifications = notification_handler
+        self.NotificationHandler = notification_handler
 
     def on_print_progress(self, storage, path, progress):
         if self.NotificationHandler is not None:

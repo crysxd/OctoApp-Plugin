@@ -1,5 +1,5 @@
 
-from sentry import Sentry
+from octoapp.sentry import Sentry
 import threading
 import time
 
@@ -17,7 +17,7 @@ class AppInstance:
               appBuild:int,
               appLanguage:str,
               lastSeenAt:float,
-              expiresAt:float,
+              expireAt:float,
     ):
         self.FcmToken = fcmToken
         self.FcmFallbackToken = fcmFallbackToken
@@ -29,11 +29,11 @@ class AppInstance:
         self.AppBuild = appBuild
         self.AppLanguage = appLanguage
         self.LastSeenAt = lastSeenAt
-        self.ExpireAt = expiresAt
+        self.ExpireAt = expireAt
 
 
     def ToDict(self): 
-        dict(
+        return dict(
             fcmToken=self.FcmToken,
             fcmTokenFallback=self.FcmFallbackToken,
             instanceId=self.InstanceId,
@@ -49,7 +49,7 @@ class AppInstance:
 
     @staticmethod
     def FromDict(dict:dict):
-        AppInstance(
+        return AppInstance(
             fcmToken=dict["fcmToken"],
             fcmFallbackToken=dict["fcmTokenFallback"],
             instanceId=dict["instanceId"],
@@ -60,7 +60,7 @@ class AppInstance:
             appBuild=dict["appBuild"],
             appLanguage=dict["appLanguage"],
             lastSeenAt=dict["lastSeenAt"],
-            expiresAt=dict["expireAt"],
+            expireAt=dict["expireAt"],
         )
 
        
@@ -142,12 +142,12 @@ class AppStorageHelper:
 
     def GetActivities(self, apps):
         return list(filter(lambda app: app.fcmToken.startswith("activity:"), apps))
+    
+    def GetDefaultExpirationFromNow(self):
+        return (time.time() + 2592000)
 
     def LogApps(self):
-        apps = self.GetApps()
-        Sentry.Debug("APPS", "Now %s apps registered")
-        for app in apps:
-            Sentry.Debug("APPS", "     => %s" % app.fcmToken[0:100])
+        self.AppStoragePlatformHelper.LogAllApps()
 
     def RemoveTemporaryApps(self, for_instance_id=None):
         apps = self.GetApps()
@@ -161,11 +161,11 @@ class AppStorageHelper:
 
         self.SetApps(apps)
 
-    def GetApps(self) -> [AppInstance]:
-        apps = self.AppStoragePlatformHelper.GetApps()
+    def GetAllApps(self) -> [AppInstance]:
+        apps = self.AppStoragePlatformHelper.GetAllApps()
         Sentry.Debug("APPS", "Loading %s apps" % len(apps))
         return apps
 
-    def SetApps(self, apps:[AppInstance]):
+    def SetAllApps(self, apps:[AppInstance]):
         Sentry.Debug("APPS", "Storing %s apps" % len(apps))
-        self.AppStoragePlatformHelper.SetApps(apps)
+        self.AppStoragePlatformHelper.SetAllApps(apps)

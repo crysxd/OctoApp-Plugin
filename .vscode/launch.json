@@ -14,7 +14,7 @@
                 "--debug",
                 "--port=5500",
                 "--basedir",
-                "/Users/christian/Projects/OctoPrdint/src/"
+                "/Users/christian/Projects/OctoPrint2/src/"
             ]
         },
         {

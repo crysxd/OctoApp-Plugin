@@ -1,5 +1,5 @@
 
-from .sub_plugin import OctoAppSubPlugin
+from .subplugin import OctoAppSubPlugin
 
 import threading
 import time

@@ -1,6 +1,5 @@
 import json
 
-from .octostreammsgbuilder import OctoStreamMsgBuilder
 from .octohttprequest import OctoHttpRequest
 from .octohttprequest import PathTypes
 from .webcamhelper import WebcamHelper

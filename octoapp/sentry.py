@@ -1,4 +1,4 @@
-#import logging
+import logging
 import time
 import traceback
 
@@ -92,7 +92,7 @@ class Sentry:
     @staticmethod
     def Info(tag, msg):
         paddedTag = "{:<15}".format(tag).upper()
-        Sentry.logger.log(paddedTag + " | " + msg)
+        Sentry.logger.info(paddedTag + " | " + msg)
 
     @staticmethod
     def Debug(tag, msg):
