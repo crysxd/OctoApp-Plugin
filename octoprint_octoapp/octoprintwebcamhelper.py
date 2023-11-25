@@ -13,8 +13,7 @@ class OctoPrintWebcamHelper():
     # the trade off here is freshness of data vs the compute cost of getting the settings.
     c_WebcamSettingsCacheTimeSeconds = 10.0
 
-    def __init__(self, logger:logging.Logger, octoPrintSettingsObject):
-        self.Logger = logger
+    def __init__(self, octoPrintSettingsObject):
         self.OctoPrintSettingsObject = octoPrintSettingsObject
 
         self.CachedWebcamSettingsResults = []
@@ -35,7 +34,7 @@ class OctoPrintWebcamHelper():
     def GetWebcamConfig(self):
         # In dev mode, we won't have this.
         if self.OctoPrintSettingsObject is None:
-            self.Logger.info("OctoPrintWebcamHelper has no OctoPrintSettingsObject. Returning default address.")
+            Sentry.Info("WEBCAM", "OctoPrintWebcamHelper has no OctoPrintSettingsObject. Returning default address.")
             baseUrl = f"http://{OctoHttpRequest.GetLocalhostAddress()}"
             return [
                 WebcamSettingItem(f"{baseUrl}/webcam/?action=snapshot", f"{baseUrl}/webcam/?action=stream", False, False, 0)
@@ -69,12 +68,11 @@ class OctoPrintWebcamHelper():
                 for webcamName, providerContainer in webcams.items():
                     webcam:octoprint.schema.webcam.Webcam = providerContainer.config
                     # Log for debugging.
-                    if self.Logger.isEnabledFor(logging.DEBUG):
-                        self.Logger.debug(f"OctoPrint Webcam Config Found: Name: {webcamName}, Can Snapshot: {webcam.canSnapshot}, Webcam Snapshot: \"{webcam.snapshotDisplay}\", Extras: {json.dumps(webcam.extras)}")
+                    Sentry.Debug("WEBCAM", f"OctoPrint Webcam Config Found: Name: {webcamName}, Can Snapshot: {webcam.canSnapshot}, Webcam Snapshot: \"{webcam.snapshotDisplay}\", Extras: {json.dumps(webcam.extras)}")
                     # Since the snapshot is critical for Gadget and others, only allow webcams that have snapshot (for now)
                     # Also note the webcam system has a fallback for stream url only webcams, we could rely on that?
                     if webcam.canSnapshot is False:
-                        self.Logger.info(f"We found a webcam {webcamName} but it doesn't support snapshots, so we are ignoring it.")
+                        Sentry.Info("WEBCAM", f"We found a webcam {webcamName} but it doesn't support snapshots, so we are ignoring it.")
                         continue
 
                     # Make an empty webcam settings item to fill.
@@ -98,12 +96,12 @@ class OctoPrintWebcamHelper():
                     # Ensure we got what we need. We only check snapshot, because that's critical for notifications, Gadget, etc.
                     # It's better to find one webcam with a valid snapshot, rather than finding no webcams with a snapshot and stream url.
                     if webSettingsItem.SnapshotUrl is None:
-                        self.Logger.debug(f"OctoPrint Webcam Config Found {webcamName} but no snapshot URL, moving on to the next.")
+                        Sentry.Debug("WEBCAM", f"OctoPrint Webcam Config Found {webcamName} but no snapshot URL, moving on to the next.")
                         continue
 
                     # Warn if we are missing a stream url, this shouldn't happen often. Most plugins would always have a stream url over a snapshot url.
                     if webSettingsItem.StreamUrl is None:
-                        self.Logger.warn(F"Warning! We didn't get a stream url for webcam {webcamName} - {webSettingsItem.SnapshotUrl}")
+                        Sentry.Warn("WEBCAM", F"Warning! We didn't get a stream url for webcam {webcamName} - {webSettingsItem.SnapshotUrl}")
 
                     # We are going to use this webcam, grab the rest of the common vars
                     webSettingsItem.FlipH = webcam.flipH
@@ -117,11 +115,11 @@ class OctoPrintWebcamHelper():
                         webSettingsItem.Rotation = 270
 
                     # Ensure we have everything required.
-                    if webSettingsItem.Validate(self.Logger):
+                    if webSettingsItem.Validate():
                         results.append(webSettingsItem)
-                        self.Logger.debug(f"Webcam found. Name: {webcamName}, {webSettingsItem.StreamUrl}, {webSettingsItem.SnapshotUrl}, {webSettingsItem.FlipH}, {webSettingsItem.FlipV}, {webSettingsItem.Rotation}")
+                        Sentry.Debug("WEBCAM", f"Webcam found. Name: {webcamName}, {webSettingsItem.StreamUrl}, {webSettingsItem.SnapshotUrl}, {webSettingsItem.FlipH}, {webSettingsItem.FlipV}, {webSettingsItem.Rotation}")
                     else:
-                        self.Logger.debug(f"Webcam settings item validation failed for {webcamName}")
+                        Sentry.Debug("WEBCAM", f"Webcam settings item validation failed for {webcamName}")
 
         except Exception as e:
             Sentry.Exception("GetWebcamConfig failed to handle new 1.9.0 logic. Falling back to the old logic.", e)
@@ -170,11 +168,11 @@ class OctoPrintWebcamHelper():
 
             # Try to add the default camera.
             webSettingsItem = WebcamSettingItem("Default", snapshotUrl, streamUrl, flipH, flipV, rotationInt)
-            if webSettingsItem.Validate(self.Logger):
+            if webSettingsItem.Validate():
                 results.append(webSettingsItem)
-                self.Logger.debug(f"Webcam fallback found. Name: {webSettingsItem.Name}, {webSettingsItem.StreamUrl}, {webSettingsItem.SnapshotUrl}, {webSettingsItem.FlipH}, {webSettingsItem.FlipV}, {webSettingsItem.Rotation}")
+                Sentry.Debug("WEBCAM", f"Webcam fallback found. Name: {webSettingsItem.Name}, {webSettingsItem.StreamUrl}, {webSettingsItem.SnapshotUrl}, {webSettingsItem.FlipH}, {webSettingsItem.FlipV}, {webSettingsItem.Rotation}")
             else:
-                self.Logger.debug(f"Webcam settings item validation failed for FALLBACK {webSettingsItem.Name}")
+                Sentry.Debug("WEBCAM", f"Webcam settings item validation failed for FALLBACK {webSettingsItem.Name}")
 
 
         # As of the new OctoPi image, a common backend is camera-streamer, which supports WebRTC! This is a great choice because it's more efficient than jmpeg,
@@ -187,7 +185,7 @@ class OctoPrintWebcamHelper():
         for item in results:
             cameraStreamerJmpegUrl = WebcamHelper.DetectCameraStreamerWebRTCStreamUrlAndTranslate(item.StreamUrl)
             if cameraStreamerJmpegUrl is not None:
-                self.Logger.info(f"Camera-streamer webrtc {item.Name} stream url {item.StreamUrl} converted to jmpeg {cameraStreamerJmpegUrl}")
+                Sentry.Info("WEBCAM", f"Camera-streamer webrtc {item.Name} stream url {item.StreamUrl} converted to jmpeg {cameraStreamerJmpegUrl}")
                 item.StreamUrl = cameraStreamerJmpegUrl
 
         # Save the results in our cache.

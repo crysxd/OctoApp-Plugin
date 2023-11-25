@@ -100,9 +100,14 @@ class Sentry:
         Sentry.logger.debug(paddedTag + " | " + msg)
 
     @staticmethod
-    def Warn(tag, msg, e=None):
+    def Warn(tag, msg):
         paddedTag = "{:<15}".format(tag).upper()
-        Sentry.logger.warning(paddedTag + " | " + msg, e, exc_info = True)
+        Sentry.logger.warning(paddedTag + " | " + msg)
+
+    @staticmethod
+    def Error(tag, msg):
+        paddedTag = "{:<15}".format(tag).upper()
+        Sentry.logger.error(paddedTag + " | " + msg)
 
 
     # Logs and reports an exception.

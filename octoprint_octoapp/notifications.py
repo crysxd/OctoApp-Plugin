@@ -9,12 +9,25 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         super().__init__(parent)
         self.NotificationHandler = notification_handler
 
-    def on_print_progress(self, storage, path, progress):
+    def _getPrinterName(self):
+        name = self.parent._settings.global_get(
+            ["appearance", "name"]
+        )
+
+        if name == "" or name is None:
+            name = "OctoPrint"
+
+        return name
+
+    def OnAfterStartup(self):
+        self.NotificationHandler.NotificationSender.PrinterName = self._getPrinterName()
+
+    def OnPrintProgress(self, storage, path, progress):
         if self.NotificationHandler is not None:
             self.NotificationHandler.OnPrintProgress(progress, None)
 
-    def on_event(self, event, payload):
-          # Only check the event after the notification handler has been created.
+    def OnEvent(self, event, payload):       
+        # Only check the event after the notification handler has been created.
         # Specifically here, we have seen the Error event be fired before `on_startup` is fired,
         # and thus the handler isn't created.
         if self.NotificationHandler is None:
@@ -29,7 +42,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         if event == "PrintStarted":
             fileName = self.GetDictStringOrEmpty(payload, "name")
             # Gather some stats from other places, if they exist.
-            currentData = self._printer.get_current_data()
+            currentData = self.parent._printer.get_current_data()
             fileSizeKBytes = 0
             if self._exists(currentData, "job") and self._exists(currentData["job"], "file") and self._exists(currentData["job"]["file"], "size"):
                 fileSizeKBytes = int(currentData["job"]["file"]["size"]) / 1024
@@ -37,7 +50,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             if self._exists(currentData, "job") and self._exists(currentData["job"], "filament") and self._exists(currentData["job"]["filament"], "tool0") and self._exists(currentData["job"]["filament"]["tool0"], "length"):
                 totalFilamentUsageMm = int(currentData["job"]["filament"]["tool0"]["length"])
             self.NotificationHandler.OnStarted(fileName, fileSizeKBytes, totalFilamentUsageMm)
-        elif event == "PrintFailed":
+        elif event == "PrintFailed" or event == "PrintCancelled":
             fileName = self.GetDictStringOrEmpty(payload, "name")
             durationSec = self.GetDictStringOrEmpty(payload, "time")
             reason = self.GetDictStringOrEmpty(payload, "reason")
@@ -66,8 +79,11 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # We also handle some of these filament change gcode events ourselves, but since we already have
             # anti duplication logic in the notification handler for this event, might as well send it here as well.
             self.NotificationHandler.OnFilamentChange()
+        elif event == "SettingsUpdated":
+            # Name might have changed
+            self.NotificationHandler.NotificationSender.PrinterName = self._getPrinterName()
 
-    def on_gcode_sent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+    def OnGcodeSent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         # Blocking will block the printer commands from being handled so we can't block here!
 
         # M600 is a filament change command.
@@ -75,7 +91,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         # We check for this both in sent and received, to make sure we cover all use cases. The OnFilamentChange will only allow one notification to fire every so often.
         # This M600 usually comes from filament change required commands embedded in the gcode, for color changes and such.
         if self.NotificationHandler is not None and gcode and gcode == "M600":
-            self._logger.info("Firing On Filament Change Notification From GcodeSent: "+str(gcode))
+            Sentry.Info("NOTIFICATION", "Firing On Filament Change Notification From GcodeSent: "+str(gcode))
             # No need to use a thread since all events are handled on a new thread.
             self.NotificationHandler.OnFilamentChange()
 
@@ -99,9 +115,9 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                         if float(eValue) > 0:
                             self.NotificationHandler.ReportPositiveExtrudeCommandSent()
             except Exception as e:
-                self._logger.debug("Failed to parse gcode %s, error %s", cmd, str(e))
+                Sentry.Warn("Failed to parse gcode %s, error %s" % (cmd, str(e)))
     
-    def on_gcode_received(self, comm_instance, line, *args, **kwargs):
+    def OnGcodeReceived(self, comm_instance, line, *args, **kwargs):
         # Blocking will block the printer commands from being handled so we can't block here!
 
         if line and self.NotificationHandler is not None:
@@ -114,13 +130,22 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # We check for this both in sent and received, to make sure we cover all use cases. The OnFilamentChange will only allow one notification to fire every so often.
             # This m600 usually comes from when the printer sensor has detected a filament run out.
             if "m600" in lineLower or "fsensor_update" in lineLower:
-                self._logger.info("Firing On Filament Change Notification From GcodeReceived: "+str(line))
+                Sentry.Info("NOTIFICATION", "Firing On Filament Change Notification From GcodeReceived: "+str(line))
                 # No need to use a thread since all events are handled on a new thread.
                 self.NotificationHandler.OnFilamentChange()
-            else:
-                # Look for a line indicating user interaction is needed.
-                if "paused for user" in lineLower or "// action:paused" in lineLower:
-                    self._logger.info("Firing On User Interaction Required From GcodeReceived: "+str(line))
+            elif "m300" in lineLower:
+                timeLeft = self.NotificationHandler.PrinterStateInterface.GetPrintTimeRemainingEstimateInSeconds()
+                progress = self.NotificationHandler.PrinterStateInterface.GetCurrentProgress()
+
+                if timeLeft > 30 or (progress < 95 and progress >= 0):
+                    Sentry.Debug("NOTIFICATION", "Performing beep, %s seconds left and %s percent" % (timeLeft, progress))    
+                    self.NotificationHandler.OnBeep()
+                else:
+                    Sentry.Debug("NOTIFICATION", "Skipping beep, only %s seconds left and %s percent" % (timeLeft, progress)) 
+
+            # Look for a line indicating user interaction is needed.
+            elif "paused for user" in lineLower or "// action:paused" in lineLower or "//action:pause" in lineLower or "@pause" in lineLower:
+                    Sentry.Info("NOTIFICATION", "Firing On User Interaction Required From GcodeReceived: "+str(line))
                     # No need to use a thread since all events are handled on a new thread.
                     self.NotificationHandler.OnUserInteractionNeeded()
 
@@ -132,9 +157,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         return key in dictObj and dictObj[key] is not None
 
     def GetDictStringOrEmpty(self, d, key):
-        if d[key] is None:
-            return ""
-        return str(d[key])
+        return str(d.get(key, ""))
 
     # Gets the current setting or the default value.
     def GetBoolFromSettings(self, name, default):

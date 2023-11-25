@@ -44,16 +44,6 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
     def __init__(self):
         # Update logger
         self._logger = logging.getLogger("octoprint.plugins.octoapp")
-        # Create default config
-        self.DefaultConfig = dict(
-            updatePercentModulus=5,
-            highPrecisionRangeStart=5,
-            highPrecisionRangeEnd=5,
-            minIntervalSecs=300,
-            sendNotificationUrl="https://europe-west1-octoapp-4e438.cloudfunctions.net/sendNotificationV2",
-        )
-        self.CachedConfig = self.DefaultConfig
-        self.CachedConfig_at = 0
         self.PluginState = {}
         self.SubPlugins = []
         self.LastSentPluginState = {}
@@ -66,32 +56,32 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         Compat.SetIsOctoPrint(True)
 
     #
-    # EVENTS
+    # Mixins
     #
 
-    # Called when the system is starting up.
+     # Mixin method
     def on_startup(self, host, port):
         # Setup Sentry to capture issues.
-        self._init_logger()
+        self._initLogger()
         Sentry.Init(self._logger, self._plugin_version, False)
         Sentry.Info("PLUGIN", "OctoApp starting %s" % self._plugin_version)
 
         # Init the static snapshot helper
-        WebcamHelper.Init(self._logger, OctoPrintWebcamHelper(self._logger, self._settings))
+        WebcamHelper.Init(self._logger, OctoPrintWebcamHelper(self._settings))
 
         # Setup our printer state object, that implements the interface.
-        printerStateObject = PrinterStateObject(self._logger, self._printer)
+        printerStateObject = PrinterStateObject(self._printer)
 
         # Setup App storage
         octoPrintAppStorage = OctoPrintAppStorageSubPlugin(self)
         AppStorageHelper.Init(octoPrintAppStorage)
 
         # Create the notification object now that we have the logger.
-        self.NotificationHandler = NotificationsHandler(self._logger, printerStateObject)
+        self.NotificationHandler = NotificationsHandler(printerStateObject)
         printerStateObject.SetNotificationHandler(self.NotificationHandler)
 
         # Create our command handler and our platform specific command handler.
-        CommandHandler.Init(self._logger, self.NotificationHandler, OctoPrintCommandHandler(self._logger, self._printer, printerStateObject, self))
+        CommandHandler.Init(self.NotificationHandler, OctoPrintCommandHandler(self._printer, printerStateObject, self))
 
         self.SubPlugins = [
             octoPrintAppStorage,
@@ -102,49 +92,29 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
             OctoAppWebcamSnapshotsSubPlugin(self)
         ]
 
-        for sp in self.SubPlugins:
-            sp.config = self.DefaultConfig
-
         # Indicate this has been called and things have been inited.
         self.HasOnStartupBeenCalledYet = True
 
+
+    # Mixin method
     def on_after_startup(self):
-        Sentry.Info("PLUGIN", "OctoApp started, updating config, version is %s" % self._plugin_version)
-        self.update_config()
+        Sentry.Info("PLUGIN", "OctoApp started, version is %s" % self._plugin_version)
         self._settings.set(["version"], self._plugin_version)
 
         for sp in self.SubPlugins:
             try:
-                sp.on_after_startup()
+                sp.OnAfterStartup()
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to handle after startup", e)
 
-    def _init_logger(self):
-        self._logger_handler = logging.handlers.RotatingFileHandler(
-            self._settings.get_plugin_logfile_path(), 
-            maxBytes=512 * 1024,
-            backupCount=1
-        )
-        self._logger_handler.setFormatter(logging.Formatter("%(levelname)-8s | %(asctime)s | %(message)s"))
-        self._logger_handler.setLevel(logging.DEBUG)
-        self._logger.addHandler(self._logger_handler)
-        self._logger.setLevel(logging.DEBUG)
-        self._logger.propagate = True
 
-
-    def on_firmware_info_received(self, comm_instance, firmware_name, firmware_data, *args, **kwargs):
-        for sp in self.SubPlugins:
-            try:
-                sp.on_firmware_info_received(comm_instance, firmware_name, firmware_data, args, kwargs)
-            except Exception as e:
-                Sentry.ExceptionNoSend("Failed to handle firmware info", e)
-
+    # Mixin method
     def on_api_command(self, command, data):
         Sentry.Info("PLUGIN", "Recevied command %s" % command)
 
         for sp in self.SubPlugins:
             try:
-                res = sp.on_api_command(command=command, data=data)
+                res = sp.OnApiCommand(command=command, data=data)
                 if res != None:
                     return res
             except Exception as e:
@@ -154,113 +124,17 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         return flask.make_response("Unkonwn command", 400)
 
 
-    def on_emit_websocket_message(self, user, message, type, data):
-        for sp in self.SubPlugins:
-            try:
-                sp.on_emit_websocket_message(user=user, message=message, type=type, data=data)
-            except Exception as e:
-                Sentry.ExceptionNoSend("Failed to handle websocket message", e)
-
-        # Always return true! Returning false will prevent the message from being send
-        return True
-
-
-    def on_print_progress(self, storage, path, progress):
-        for sp in self.SubPlugins:
-            try:
-                sp.on_print_progress(storage=storage, path=path, progress=progress)
-            except Exception as e:
-                Sentry.ExceptionNoSend("Failed to handle progress", e)
-
-    def on_event(self, event, payload):
-        for sp in self.SubPlugins:
-            try:
-                sp.on_event(event=event, payload=payload)
-            except Exception as e:
-                Sentry.ExceptionNoSend("Failed to handle event", e)
-        
-        if event == Events.CLIENT_OPENED:
-            self.send_plugin_state_message(forced=True)
-
-
-    def on_gcode_queued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
-        for sp in self.SubPlugins:
-            try:
-                sp.on_gcode_queued(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
-            except Exception as e:
-                Sentry.ExceptionNoSend("Failed to handle gcode queued", e)
-
-    def on_gcode_sent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
-        for sp in self.SubPlugins:
-            try:
-                sp.on_gcode_sent(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
-            except Exception as e:
-                Sentry.ExceptionNoSend("Failed to handle gcode sent", e)
-
-
-    def on_gcode_received(self, comm_instance, line, *args, **kwargs):
-        for sp in self.SubPlugins:
-            try:
-                sp.on_gcode_received(comm_instance=comm_instance, line = line, args=args, kwargs=kwargs)
-            except Exception as e:
-                Sentry.ExceptionNoSend("Failed to handle gcode received", e)
-        
-        # We must return line the line won't make it to OctoPrint!
-        return line
-
-    def send_plugin_state_message(self, forced=False):
-        # Only send if we are forced to update or the state actually changed
-        if forced or self.LastSentPluginState != self.PluginState:
-            self.LastSentPluginState = self.PluginState.copy()
-            self._plugin_manager.send_plugin_message(self._identifier, self.PluginState)
-
-    #
-    # CONFIG
-    #
-
-    def update_config(self):
-        t = threading.Thread(target=self.do_update_config)
-        t.daemon = True
-        t.start()
-        return self.CachedConfig
-
-    def do_update_config(self):
-        # If we have no config cached or the cache is older than a day, request new config
-        cache_config_max_age = time.time() - 86400
-        if (self.CachedConfig is not None) and (
-            self.CachedConfig_at > cache_config_max_age
-        ):
-            return self.CachedConfig
-
-        # Request config, fall back to default
-        try:
-            r = requests.get(
-                "https://www.octoapp.eu/config/plugin.json", timeout=float(15)
-            )
-            if r.status_code != requests.codes.ok:
-                raise Exception("Unexpected response code %d" % r.status_code)
-            self.CachedConfig = r.json()
-            self.CachedConfig_at = time.time()
-    
-            for sp in self.SubPlugins:
-                sp.config = self.DefaultConfig
-        except Exception as e:
-            Sentry.ExceptionNoSend("Failed to fetch config using defaults for 5 minutes", e)
-            self.CachedConfig = self.DefaultConfig
-            self.CachedConfig_at = cache_config_max_age + 300
-        
-        Sentry.Info("PLUGIN", "OctoApp loaded config: %s" % self.CachedConfig)
-
-    #
-    # MISC
-    #
-
+    # Mixin method
     def get_settings_defaults(self):
         return dict(encryptionKey=None, version=self._plugin_version)
 
+
+    # Mixin method
     def get_template_configs(self):
         return [dict(type="settings", custom_bindings=True)]
 
+
+    # Mixin method
     def get_api_commands(self):
         return dict(
             registerForNotifications=[],
@@ -268,7 +142,99 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
             getWebcamSnapshot=[]
         )
 
-    def get_update_information(self):
+
+    # Mixin method
+    def get_assets(self):
+        return dict(
+            js=[
+                "js/octoapp.js"
+            ]
+        )
+    
+    
+    # Mixin method
+    def on_print_progress(self, storage, path, progress):
+        for sp in self.SubPlugins:
+            try:
+                sp.OnPrintProgress(storage=storage, path=path, progress=progress)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle progress", e)
+
+
+    # Mixin method
+    def on_event(self, event, payload):
+        for sp in self.SubPlugins:
+            try:
+                sp.OnEvent(event=event, payload=payload)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle event", e)
+        
+        if event == Events.CLIENT_OPENED:
+            self.SendPluginStateMessage(forced=True)
+    
+
+    #
+    # EVENTS
+    #
+
+    def OnFirmwareInfoReceived(self, comm_instance, firmware_name, firmware_data, *args, **kwargs):
+        for sp in self.SubPlugins:
+            try:
+                sp.OnFirmwareInfoReceived(comm_instance, firmware_name, firmware_data, args, kwargs)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle firmware info", e)
+
+
+    def OnEmitWebsocketMessage(self, user, message, type, data):
+        for sp in self.SubPlugins:
+            try:
+                sp.OnEmitWebsocketMessage(user=user, message=message, type=type, data=data)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle websocket message", e)
+
+        # Always return true! Returning false will prevent the message from being send
+        return True
+
+
+    def OnGcodeQueued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+        for sp in self.SubPlugins:
+            try:
+                sp.OnGcodeQueued(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle gcode queued", e)
+
+
+    def OnGcodeSent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+        for sp in self.SubPlugins:
+            try:
+                sp.OnGcodeSent(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle gcode sent", e)
+
+
+    def OnGcodeReceived(self, comm_instance, line, *args, **kwargs):
+        for sp in self.SubPlugins:
+            try:
+                sp.OnGcodeReceived(comm_instance=comm_instance, line = line, args=args, kwargs=kwargs)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle gcode received", e)
+        
+        # We must return line the line won't make it to OctoPrint!
+        return line
+
+
+    def SendPluginStateMessage(self, forced=False):
+        # Only send if we are forced to update or the state actually changed
+        if forced or self.LastSentPluginState != self.PluginState:
+            self.LastSentPluginState = self.PluginState.copy()
+            self._plugin_manager.send_plugin_message(self._identifier, self.PluginState)
+
+
+    #
+    # Utility methods
+    #
+
+    def GetUpdateInformation(self):
         return dict(
             octoapp=dict(
                 displayName="OctoApp",
@@ -281,7 +247,8 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
             )
         )
 
-    def get_additional_permissions(self, *args, **kwargs):
+
+    def GetAdditionalPermissions(self, *args, **kwargs):
         return [
             dict(key="RECEIVE_NOTIFICATIONS",
                  name="Receive push notifications",
@@ -300,13 +267,21 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                  dangerous=False,
                  default_groups=[ADMIN_GROUP, USER_GROUP, READONLY_GROUP])
         ]
+    
 
-    def get_assets(self):
-        return dict(
-            js=[
-                "js/octoapp.js"
-            ]
+    def _initLogger(self):
+        self._logger_handler = logging.handlers.RotatingFileHandler(
+            self._settings.get_plugin_logfile_path(), 
+            maxBytes=512 * 1024,
+            backupCount=1
         )
+        self._logger_handler.setFormatter(logging.Formatter("%(levelname)-8s | %(asctime)s | %(message)s"))
+        self._logger_handler.setLevel(logging.DEBUG)
+        self._logger.addHandler(self._logger_handler)
+        self._logger.setLevel(logging.DEBUG)
+        self._logger.propagate = True
+
+
 
 
 __plugin_name__ = "OctoApp"
@@ -322,11 +297,11 @@ def __plugin_load__():
 
     global __plugin_hooks__
     __plugin_hooks__ = {
-        "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.get_update_information,
-        "octoprint.comm.protocol.gcode.received": __plugin_implementation__.on_gcode_received,
-        "octoprint.comm.protocol.gcode.sent": __plugin_implementation__.on_gcode_sent,
-        "octoprint.comm.protocol.gcode.queuing": __plugin_implementation__.on_gcode_queued,
-        "octoprint.comm.protocol.firmware.info": __plugin_implementation__.on_firmware_info_received,
-        "octoprint.access.permissions": __plugin_implementation__.get_additional_permissions,
-        "octoprint.server.sockjs.emit": __plugin_implementation__.on_emit_websocket_message,
+        "octoprint.plugin.softwareupdate.check_config": __plugin_implementation__.GetUpdateInformation,
+        "octoprint.comm.protocol.gcode.received": __plugin_implementation__.OnGcodeReceived,
+        "octoprint.comm.protocol.gcode.sent": __plugin_implementation__.OnGcodeSent,
+        "octoprint.comm.protocol.gcode.queuing": __plugin_implementation__.OnGcodeQueued,
+        "octoprint.comm.protocol.firmware.info": __plugin_implementation__.OnFirmwareInfoReceived,
+        "octoprint.access.permissions": __plugin_implementation__.GetAdditionalPermissions,
+        "octoprint.server.sockjs.emit": __plugin_implementation__.OnEmitWebsocketMessage,
     }

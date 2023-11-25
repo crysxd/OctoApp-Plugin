@@ -21,11 +21,11 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
         self.webcam_snapshot_cache_lock = threading.Lock()
 
 
-    def on_after_startup(self):
-        self.continuous_snapshot_update()
+    def OnAfterStartup(self):
+        self._continuouslyUpdateSnapshots()
 
     
-    def on_api_command(self, command, data):
+    def OnApiCommand(self, command, data):
         if command == "getWebcamSnapshot":
             if not Permissions.PLUGIN_OCTOAPP_GET_DATA.can():
                 return flask.make_response("Insufficient rights", 403)
@@ -33,7 +33,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
             try:
                 with self.webcam_snapshot_cache_lock:
                     webcamIndex = data.get("webcamIndex", 0)
-                    webcamSettings = self.get_webcam_settings(webcamIndex)
+                    webcamSettings = self._getWebcamSettings(webcamIndex)
                     cache = self.webcam_snapshot_cache.get(webcamIndex)
                     
                     if (cache == None):
@@ -73,16 +73,16 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
     #
 
 
-    def continuous_snapshot_update(self):
+    def _continuouslyUpdateSnapshots(self):
         t = threading.Thread(
-            target=self.do_continuous_snapshot_update,
+            target=self._doContinuouslyUpdateSnapshots,
             args=[]
         )
         t.daemon = True
         t.start()
 
 
-    def do_continuous_snapshot_update(self):
+    def _doContinuouslyUpdateSnapshots(self):
         failure_count = 0
         success_count = 0
         
@@ -96,9 +96,9 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
 
             if (type(multiCamSettings) == list):
                 for i in range(len(multiCamSettings)):
-                   success = success and self.update_snapshot_cache(webcamIndex = i, log = log)
+                   success = success and self._updateSnapshotCache(webcamIndex = i, log = log)
             else:
-                success = success and self.update_snapshot_cache(webcamIndex = 0, log = log) 
+                success = success and self._updateSnapshotCache(webcamIndex = 0, log = log) 
 
             if success is False:
                 failure_count += 1
@@ -110,9 +110,9 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
             time.sleep(min(120, (failure_count + 1) * 5))
 
 
-    def update_snapshot_cache(self, webcamIndex, log):
+    def _updateSnapshotCache(self, webcamIndex, log):
         try:
-            webcamSettings = self.get_webcam_settings(webcamIndex)
+            webcamSettings = self._getWebcamSettings(webcamIndex)
             snapshotUrl = webcamSettings["snapshot"]
 
             if snapshotUrl == "" or snapshotUrl is None:
@@ -139,7 +139,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
             return False
       
            
-    def get_webcam_settings(self, webcamIndex):
+    def _getWebcamSettings(self, webcamIndex):
         if (webcamIndex == 0):
             return self.parent._settings.global_get(["webcam"])
         else:

@@ -9,8 +9,7 @@ from octoapp.commandhandler import CommandHandler, CommandResponse
 # This class implements the Platform Command Handler Interface
 class OctoPrintCommandHandler:
 
-    def __init__(self, logger:logging.Logger, octoPrintPrinterObject:PrinterInterface, printerStateObject, mainPluginImpl):
-        self.Logger = logger
+    def __init__(self, octoPrintPrinterObject:PrinterInterface, printerStateObject, mainPluginImpl):
         self.OctoPrintPrinterObject = octoPrintPrinterObject
         self.PrinterStateObject = printerStateObject
         self.MainPluginImpl = mainPluginImpl
@@ -168,7 +167,7 @@ class OctoPrintCommandHandler:
     def ExecuteResume(self):
         # Ensure we are paused, if not, respond with the common error.
         if self.OctoPrintPrinterObject.is_paused() is False and self.OctoPrintPrinterObject.is_pausing() is False:
-            self.Logger.info("ExecuteResume is not doing anything because the printer isn't paused..")
+            Sentry.Info("Command", "ExecuteResume is not doing anything because the printer isn't paused..")
             return CommandResponse.Error(CommandHandler.c_CommandError_InvalidPrinterState, "Printer state is not paused.")
 
         # Do the resume.
@@ -186,7 +185,7 @@ class OctoPrintCommandHandler:
         # Ensure we are paused, if not, respond with the common error.
         state = self.OctoPrintPrinterObject.get_state_id()
         if state != "PRINTING" and state != "RESUMING" and state != "FINISHING" and state != "STARTING" and state != "PAUSED" and state != "PAUSING":
-            self.Logger.info("ExecuteCancel is not doing anything because the printer printing.")
+            Sentry.Info("Command", "ExecuteCancel is not doing anything because the printer printing.")
             return CommandResponse.Error(CommandHandler.c_CommandError_InvalidPrinterState, "Printer state is not printing.")
 
         # Do the cancel.

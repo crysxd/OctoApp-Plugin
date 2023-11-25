@@ -15,6 +15,7 @@ from .snapshotresizeparams import SnapshotResizeParams
 from .repeattimer import RepeatTimer
 from .webcamhelper import WebcamHelper
 from .finalsnap import FinalSnap
+from .notificationsender import NotificationSender
 
 try:
     # On some systems this package will install but the import will fail due to a missing system .so.
@@ -48,17 +49,16 @@ class NotificationsHandler:
     # globally unique. This value must stay in sync with the service.
     PrintIdLength = 60
 
-    def __init__(self, logger:logging.Logger, printerStateInterface):
-        self.Logger = logger
+    def __init__(self, printerStateInterface):
         # On init, set the key to empty.
         self.OctoKey = None
         self.PrinterId = None
-        self.ProtocolAndDomain = "https://printer-events-v1-oeapi.octoeverywhere.com"
         self.PrinterStateInterface = printerStateInterface
+        self.NotificationSender = NotificationSender()
         self.ProgressTimer = None
         self.FirstLayerTimer = None
         self.FinalSnapObj:FinalSnap = None
-        self.Gadget = Gadget(logger, self, self.PrinterStateInterface)
+        # self.Gadget = Gadget(logger, self, self.PrinterStateInterface)
 
         # Define all the vars
         self.CurrentFileName = ""
@@ -125,45 +125,14 @@ class NotificationsHandler:
         # This list must be in order, from the lowest value to the highest.
         # See _getCurrentProgressFloat for usage.
         self.ProgressCompletionReported = []
-        self.ProgressCompletionReported.append(ProgressCompletionReportItem(10.0, False))
-        self.ProgressCompletionReported.append(ProgressCompletionReportItem(20.0, False))
-        self.ProgressCompletionReported.append(ProgressCompletionReportItem(30.0, False))
-        self.ProgressCompletionReported.append(ProgressCompletionReportItem(40.0, False))
-        self.ProgressCompletionReported.append(ProgressCompletionReportItem(50.0, False))
-        self.ProgressCompletionReported.append(ProgressCompletionReportItem(60.0, False))
-        self.ProgressCompletionReported.append(ProgressCompletionReportItem(70.0, False))
-        self.ProgressCompletionReported.append(ProgressCompletionReportItem(80.0, False))
-        self.ProgressCompletionReported.append(ProgressCompletionReportItem(90.0, False))
-
-
-    def SetPrinterId(self, printerId):
-        self.PrinterId = printerId
-
-
-    def SetOctoKey(self, octoKey):
-        self.OctoKey = octoKey
-
-
-    def SetServerProtocolAndDomain(self, protocolAndDomain):
-        self.Logger.info("NotificationsHandler default domain and protocol set to: "+protocolAndDomain)
-        self.ProtocolAndDomain = protocolAndDomain
-
-
-    def SetGadgetServerProtocolAndDomain(self, protocolAndDomain):
-        self.Gadget.SetServerProtocolAndDomain(protocolAndDomain)
-
+        for x in range(1, 100):
+            self.ProgressCompletionReported.append(ProgressCompletionReportItem(x, False))
 
     def GetPrintId(self) -> str:
         return self.PrintId
 
-
     def GetPrintStartTimeSec(self):
         return self.PrintStartTimeSec
-
-
-    def GetGadget(self):
-        return self.Gadget
-
 
     def ReportPositiveExtrudeCommandSent(self):
         self.zOffsetHasSeenPositiveExtrude = True
@@ -188,26 +157,26 @@ class NotificationsHandler:
         if moonrakerPrintStatsState == "printing":
             # There is an active print. Check our state.
             if self._IsPingTimerRunning():
-                self.Logger.info("Moonraker client sync state: Detected an active print and our timers are already running, there's nothing to do.")
+                Sentry.Info("NOTIFICATION", "Moonraker client sync state: Detected an active print and our timers are already running, there's nothing to do.")
                 return
             else:
-                self.Logger.info("Moonraker client sync state: Detected an active print but we aren't tracking it, so we will restore now.")
+                Sentry.Info("NOTIFICATION", "Moonraker client sync state: Detected an active print but we aren't tracking it, so we will restore now.")
                 # We need to do the restore of a active print.
         elif moonrakerPrintStatsState == "paused":
             # There is a print currently paused, check to see if we have a filename, which indicates if we know of a print or not.
             if self._HasCurrentPrintFileName():
-                self.Logger.info("Moonraker client sync state: Detected a paused print, but we are already tracking a print, so there's nothing to do.")
+                Sentry.Info("NOTIFICATION", "Moonraker client sync state: Detected a paused print, but we are already tracking a print, so there's nothing to do.")
                 return
             else:
-                self.Logger.info("Moonraker client sync state: Detected a paused print, but we aren't tracking any prints, so we will restore now")
+                Sentry.Info("NOTIFICATION", "Moonraker client sync state: Detected a paused print, but we aren't tracking any prints, so we will restore now")
         else:
             # There's no print running.
             if self._IsPingTimerRunning():
-                self.Logger.info("Moonraker client sync state: Detected no active print but our ping timers ARE RUNNING. Stopping them now.")
+                Sentry.Info("NOTIFICATION", "Moonraker client sync state: Detected no active print but our ping timers ARE RUNNING. Stopping them now.")
                 self.StopTimers()
                 return
             else:
-                self.Logger.info("Moonraker client sync state: Detected no active print and no ping timers are running, so there's nothing to do.")
+                Sentry.Info("NOTIFICATION", "Moonraker client sync state: Detected no active print and no ping timers are running, so there's nothing to do.")
                 return
 
         # If we are here, we need to restore a print.
@@ -240,7 +209,7 @@ class NotificationsHandler:
                 hoursReportedInt = int(math.floor(totalDurationFloatSec_CanBeNone / 60.0 / 60.0))
 
             # Setup the timers, with hours reported, to make sure that the ping timer and Gadget are running.
-            self.Logger.info("Moonraker client sync state: Restoring printing timer with existing duration of "+str(totalDurationFloatSec_CanBeNone))
+            Sentry.Info("NOTIFICATION", "Moonraker client sync state: Restoring printing timer with existing duration of "+str(totalDurationFloatSec_CanBeNone))
             self.StartPrintTimers(False, hoursReportedInt)
         else:
             # On paused, make sure they are stopped.
@@ -277,8 +246,8 @@ class NotificationsHandler:
         self.CurrentFileSizeInKBytes = fileSizeKBytes
         self.CurrentEstFilamentUsageMm = totalFilamentUsageMm
         self.StartPrintTimers(True, None)
-        self._sendEvent("started")
-        self.Logger.info(f"New print started; PrintId: {str(self.PrintId)} file:{str(self.CurrentFileName)} size:{str(self.CurrentFileSizeInKBytes)} filament:{str(self.CurrentEstFilamentUsageMm)}")
+        self._sendEvent(NotificationSender.EVENT_STARTED)
+        Sentry.Info("NOTIFICATION", f"New print started; PrintId: {str(self.PrintId)} file:{str(self.CurrentFileName)} size:{str(self.CurrentFileSizeInKBytes)} filament:{str(self.CurrentEstFilamentUsageMm)}")
 
 
     # Fired when a print fails
@@ -288,7 +257,7 @@ class NotificationsHandler:
         self._updateCurrentFileName(fileName)
         self._updateToKnownDuration(durationSecStr)
         self.StopTimers()
-        self._sendEvent("failed", { "Reason": reason})
+        self._sendEvent(NotificationSender.EVENT_CANCELLED, { "Reason": reason})
 
 
     # Fired when a print done
@@ -299,7 +268,7 @@ class NotificationsHandler:
         self._updateCurrentFileName(fileName_CanBeNone)
         self._updateToKnownDuration(durationSecStr_CanBeNone)
         self.StopTimers()
-        self._sendEvent("done", useFinalSnapSnapshot=True)
+        self._sendEvent(NotificationSender.EVENT_DONE, useFinalSnapSnapshot=True)
 
 
     # Fired when a print is paused
@@ -316,11 +285,11 @@ class NotificationsHandler:
         if Compat.HasSmartPauseInterface():
             lastSuppressTimeSec = Compat.GetSmartPauseInterface().GetAndResetLastPauseNotificationSuppressionTimeSec()
             if lastSuppressTimeSec is None or time.time() - lastSuppressTimeSec > 20.0:
-                self._sendEvent("paused")
+                self._sendEvent(NotificationSender.EVENT_PAUSED)
             else:
-                self.Logger.info("Not firing the pause notification due to a Smart Pause suppression.")
+                Sentry.Info("NOTIFICATION", "Not firing the pause notification due to a Smart Pause suppression.")
         else:
-            self._sendEvent("paused")
+            self._sendEvent(NotificationSender.EVENT_PAUSED)
 
         # Stop the ping timer, so we don't report progress while we are paused.
         self.StopTimers()
@@ -331,7 +300,7 @@ class NotificationsHandler:
         if self._shouldIgnoreEvent(fileName):
             return
         self._updateCurrentFileName(fileName)
-        self._sendEvent("resume")
+        self._sendEvent(NotificationSender.EVENT_RESUME)
 
         # Clear any spammy event contexts we have, assuming the user cleared any issues before resume.
         self._clearSpammyEventContexts()
@@ -351,7 +320,7 @@ class NotificationsHandler:
         if self._shouldSendSpammyEvent("on-error"+str(error), 30.0) is False:
             return
 
-        self._sendEvent("error", {"Error": error })
+        self._sendEvent(NotificationSender.EVENT_ERROR, {"Error": error })
 
 
     # Fired when the waiting command is received from the printer.
@@ -373,7 +342,7 @@ class NotificationsHandler:
             return
 
         # Otherwise, send it.
-        self._sendEvent("filamentchange")
+        self._sendEvent(NotificationSender.EVENT_FILAMENT_REQUIRED)
 
 
     # Fired when the printer needs user interaction to continue
@@ -387,7 +356,22 @@ class NotificationsHandler:
             return
 
         # Otherwise, send it.
-        self._sendEvent("userinteractionneeded")
+        self._sendEvent(NotificationSender.EVENT_USER_INTERACTION_NEEDED)
+
+    
+     # Fired when the printer needs user interaction to continue
+    def OnBeep(self):
+        if self._shouldIgnoreEvent():
+            return
+        
+        # This event might fire over and over or might be paired with a filament change event.
+        # In any case, we only want to fire it every so often.
+        # It's important to use the same key to make sure we de-dup the possible OnUserInteractionNeeded that might fire second.
+        if self._shouldSendSpammyEvent("beep", 5.0) is False:
+            return
+
+        # Otherwise, send it.
+        self._sendEvent(NotificationSender.EVENT_BEEP)
 
 
     # Fired when a print is making progress.
@@ -406,7 +390,7 @@ class NotificationsHandler:
             self.FallbackProgressInt = int(moonrakerProgressFloat)
             self.MoonrakerReportedProgressFloat_CanBeNone = moonrakerProgressFloat
         else:
-            self.Logger.error("OnPrintProgress called with no args!")
+            Sentry.Error("NOTIFICATION", "OnPrintProgress called with no args!")
             return
 
         # Get the computed print progress value. (see _getCurrentProgressFloat about why)
@@ -416,14 +400,14 @@ class NotificationsHandler:
         # This is a tricky number to set. For long prints, 1% can be very long, where as for quick prints we might not even see
         # all of the % updates.
         # First of all, don't bother unless the % complete is > 90% (this also guards from divide by 0)
-        if computedProgressFloat > 90.0 and self.FinalSnapObj is None:
-            currentTimeSec = self.GetCurrentDurationSecFloat()
-            estTimeRemainingSec = (self.GetCurrentDurationSecFloat() * 100.0) / computedProgressFloat
-            estTimeUntilCompleteSec = estTimeRemainingSec - currentTimeSec
-            # If we guess the print will be done in less than one minute, then start the final snap system.
-            if estTimeUntilCompleteSec < 60.0:
-                if self.FinalSnapObj is None:
-                    self.FinalSnapObj = FinalSnap(self.Logger, self)
+        # if computedProgressFloat > 90.0 and self.FinalSnapObj is None:
+        #     currentTimeSec = self.GetCurrentDurationSecFloat()
+        #     estTimeRemainingSec = (self.GetCurrentDurationSecFloat() * 100.0) / computedProgressFloat
+        #     estTimeUntilCompleteSec = estTimeRemainingSec - currentTimeSec
+        #     # If we guess the print will be done in less than one minute, then start the final snap system.
+        #     if estTimeUntilCompleteSec < 60.0:
+        #         if self.FinalSnapObj is None:
+        #             self.FinalSnapObj = FinalSnap(self)
 
         # Since we are computing the progress based on the ETA (see notes in _getCurrentProgressFloat)
         # It's possible we get duplicate ints or even progresses that goes back in time.
@@ -459,7 +443,7 @@ class NotificationsHandler:
 
         # It's important we send the "snapped" progress here (rounded to the tens place) because the service depends on it
         # to filter out % increments the user didn't want to get notifications for.
-        self._sendEvent("progress", None, progressToSendFloat)
+        self._sendEvent(NotificationSender.EVENT_PROGRESS, None, progressToSendFloat)
 
 
     # Fired every hour while a print is running
@@ -475,7 +459,7 @@ class NotificationsHandler:
         # Since this fires once an hour, every time it fires just add one.
         self.PingTimerHoursReported += 1
 
-        self._sendEvent("timerprogress", { "HoursCount": str(self.PingTimerHoursReported) })
+        self._sendEvent(NotificationSender.EVENT_TIME_PROGRESS, { "HoursCount": str(self.PingTimerHoursReported) })
 
 
     #
@@ -517,11 +501,11 @@ class NotificationsHandler:
             # If we are over the first layer and haven't sent the notification, do it now.
             if currentLayer > 1 and self.HasSendFirstLayerDoneMessage is False:
                 self.HasSendFirstLayerDoneMessage = True
-                self._sendEvent("firstlayerdone")
+                self._sendEvent(NotificationSender.EVENT_FIRST_LAYER_DONE)
             # If we are past the 3rd, layer, do the same.
             if currentLayer > 3 and self.HasSendThirdLayerDoneMessage is False:
                 self.HasSendThirdLayerDoneMessage = True
-                self._sendEvent("thirdlayerdone")
+                self._sendEvent(NotificationSender.EVENT_THIRD_LAYER_DONE)
 
             # If we return true, the time will continue, otherwise it will stop.
             isDone = self.HasSendFirstLayerDoneMessage is True and self.HasSendThirdLayerDoneMessage is True
@@ -536,7 +520,7 @@ class NotificationsHandler:
         # Make sure we know it.
         # If not, return True so we keep checking.
         if currentZOffsetMM == -1:
-            self.Logger.debug("First Layer Logic - Waiting for positive z axis measurement.")
+            Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting for positive z axis measurement.")
             return True
 
         # If the value is 0.0, the printer is still warming up or getting ready. We can't print at 0.0, because that's the nozzle touching the plate.
@@ -544,14 +528,14 @@ class NotificationsHandler:
         # I'm not sure if OctoPrint does this, but moonraker will report the value of 0.0
         # In this case, return True so we keep checking.
         if currentZOffsetMM < 0.0001:
-            self.Logger.debug("First Layer Logic - Waiting for >0 z axis measurement.")
+            Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting for >0 z axis measurement.")
             return True
 
         # Wait to do any zAxis tracking until after we see a positive extrude.
         # This prevents us from tracking the zAxis during some pre-print gcode marcos, like bed level probing and such.
         # The only thing this doesn't really exclude is a purge line.
         if self.zOffsetHasSeenPositiveExtrude is False:
-            self.Logger.debug("First Layer Logic - Waiting for the first extrude.")
+            Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting for the first extrude.")
             return True
 
         # Finally, before tracking the zAxisOffset, we need to wait for a possible purge line.
@@ -563,10 +547,10 @@ class NotificationsHandler:
         # We choose 10 seconds as the time to wait. The trade off is that we want to wait longer than most purge line extrudes, but we don't want to miss the first layer
         # being printed. Since we only start our time after the first extrude, this gives us ~10 seconds after the first extrude for the purge line to be done.
         if self.zOffsetTrackingStartTimeSec < 0.1:
-            self.Logger.debug("First Layer Logic - Starting delay timer.")
+            Sentry.Debug("NOTIFICATION", "First Layer Logic - Starting delay timer.")
             self.zOffsetTrackingStartTimeSec = time.time()
         if time.time() - self.zOffsetTrackingStartTimeSec < 20.0:
-            self.Logger.debug("First Layer Logic - Waiting delay time to expire.")
+            Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting delay time to expire.")
             return True
 
         # The trick here is how we do figure out when the first layer is done with out knowing the print layer height
@@ -587,16 +571,16 @@ class NotificationsHandler:
             if currentZOffsetMM > self.zOffsetLowestSeenMM - 0.01 and currentZOffsetMM < self.zOffsetLowestSeenMM + 0.01:
                 # The zOffset is the same as the previously seen.
                 self.zOffsetNotAtLowestCount = 0
-                self.Logger.debug("First Layer Logic - currentOffset: %.4f; lowestSeen: %.4f; notAtLowestCount: %d - Same as the 'lowest ever seen', resetting the counter.", currentZOffsetMM, self.zOffsetLowestSeenMM, self.zOffsetNotAtLowestCount)
+                Sentry.Debug("NOTIFICATION", "First Layer Logic - currentOffset: %.4f; lowestSeen: %.4f; notAtLowestCount: %d - Same as the 'lowest ever seen', resetting the counter." % (currentZOffsetMM, self.zOffsetLowestSeenMM, self.zOffsetNotAtLowestCount))
             elif currentZOffsetMM < self.zOffsetLowestSeenMM:
                 # We found a new low, record it.
                 self.zOffsetLowestSeenMM = currentZOffsetMM
                 self.zOffsetNotAtLowestCount = 0
-                self.Logger.debug("First Layer Logic - currentOffset: %.4f; lowestSeen: %.4f; notAtLowestCount: %d - New lowest zoffset ever seen.", currentZOffsetMM, self.zOffsetLowestSeenMM, self.zOffsetNotAtLowestCount)
+                Sentry.Debug("NOTIFICATION", "First Layer Logic - currentOffset: %.4f; lowestSeen: %.4f; notAtLowestCount: %d - New lowest zoffset ever seen." % (currentZOffsetMM, self.zOffsetLowestSeenMM, self.zOffsetNotAtLowestCount))
             else:
                 # The zOffset is higher than the lowest we have seen.
                 self.zOffsetNotAtLowestCount += 1
-                self.Logger.debug("First Layer Logic - currentOffset: %.4f; lowestSeen: %.4f; notAtLowestCount: %d - Offset is higher than lowest seen, adding to the count.", currentZOffsetMM, self.zOffsetLowestSeenMM, self.zOffsetNotAtLowestCount)
+                Sentry.Debug("NOTIFICATION", "First Layer Logic - currentOffset: %.4f; lowestSeen: %.4f; notAtLowestCount: %d - Offset is higher than lowest seen, adding to the count." % (currentZOffsetMM, self.zOffsetLowestSeenMM, self.zOffsetNotAtLowestCount))
 
             # Check if we have been above the min layer height for FirstLayerCountAboveLowestBeforeNotify of times in a row.
             # If not, keep waiting, if so, fire the notification.
@@ -609,17 +593,17 @@ class NotificationsHandler:
             self.zOffsetNotAtLowestCount = 0
 
             # Send the message.
-            self._sendEvent("firstlayerdone", {"ZOffsetMM" : str(currentZOffsetMM) })
+            self._sendEvent(NotificationSender.EVENT_FIRST_LAYER_DONE, {"ZOffsetMM" : str(currentZOffsetMM) })
 
         # Next, after we know the first layer is done, do the logic for the third layer notification.
         elif self.HasSendThirdLayerDoneMessage is False:
             # Sanity check we have a valid value for self.zOffsetLowestSeenMM, from the first layer notification.
             if self.zOffsetLowestSeenMM > 50.0:
-                self.Logger.warn("First layer notification has sent but third layer hans't but the zOffsetLowestSeenMM value is really high, seems like it's unset. Value: "+str(self.zOffsetLowestSeenMM))
+                Sentry.Warn("NOTIFICATION", "First layer notification has sent but third layer hans't but the zOffsetLowestSeenMM value is really high, seems like it's unset. Value: "+str(self.zOffsetLowestSeenMM))
                 self.HasSendThirdLayerDoneMessage = True
                 return False
             if self.zOffsetLowestSeenMM <= 0.0001:
-                self.Logger.warn("zOffsetLowestSeenMM is too low for third layer notification. Value: "+str(self.zOffsetLowestSeenMM))
+                Sentry.Warn("NOTIFICATION", "zOffsetLowestSeenMM is too low for third layer notification. Value: "+str(self.zOffsetLowestSeenMM))
                 self.HasSendThirdLayerDoneMessage = True
                 return False
 
@@ -629,12 +613,12 @@ class NotificationsHandler:
             if currentZOffsetMM > thirdLayerHeight + 0.001:
                 # The current offset is larger than the third layer height, count it.
                 self.zOffsetNotAtLowestCount += 1
-                self.Logger.debug("Third Layer Logic - currentOffset: %.4f; thirdLayerHeight: %.4f; notAtLowestCount: %d - Offset is higher than the third layer height, adding to the count.", currentZOffsetMM, thirdLayerHeight, self.zOffsetNotAtLowestCount)
+                Sentry.Debug("NOTIFICATION", "Third Layer Logic - currentOffset: %.4f; thirdLayerHeight: %.4f; notAtLowestCount: %d - Offset is higher than the third layer height, adding to the count." % (currentZOffsetMM, thirdLayerHeight, self.zOffsetNotAtLowestCount))
 
             else:
                 # The current layer height is equal to or at the third layer height, reset the count
                 self.zOffsetNotAtLowestCount = 0
-                self.Logger.debug("Third Layer Logic - currentOffset: %.4f; thirdLayerHeight: %.4f; notAtLowestCount: %d - Offset less than or equal to the third layer height, resetting the count.", currentZOffsetMM, thirdLayerHeight, self.zOffsetNotAtLowestCount)
+                Sentry.Debug("NOTIFICATION", "Third Layer Logic - currentOffset: %.4f; thirdLayerHeight: %.4f; notAtLowestCount: %d - Offset less than or equal to the third layer height, resetting the count." % (currentZOffsetMM, thirdLayerHeight, self.zOffsetNotAtLowestCount))
 
             # Check if we have been above the third layer height for FirstLayerCountAboveLowestBeforeNotify of times in a row.
             # If not, keep waiting, if so, fire the notification.
@@ -646,7 +630,7 @@ class NotificationsHandler:
             self.HasSendThirdLayerDoneMessage = True
 
             # Send the notification.
-            self._sendEvent("thirdlayerdone", {"ZOffsetMM" : str(currentZOffsetMM) })
+            self._sendEvent(NotificationSender.EVENT_THIRD_LAYER_DONE, {"ZOffsetMM" : str(currentZOffsetMM) })
 
         # If we have fired both, we are done.
         # If we are not done, return True, so we keep going.
@@ -681,7 +665,7 @@ class NotificationsHandler:
             # GetSnapshot will always return the full result already read.
             snapshot = octoHttpResponse.FullBodyBuffer
             if snapshot is None:
-                self.Logger.error("WebcamHelper.Get().GetSnapshot() returned a web response but no FullBodyBuffer")
+                Sentry.Error("NOTIFICATION", "WebcamHelper.Get().GetSnapshot() returned a web response but no FullBodyBuffer")
                 return None
 
             # Ensure the snapshot is a reasonable size. If it's not, try to resize it if there's not another resize planned.
@@ -796,7 +780,7 @@ class NotificationsHandler:
 
                                 # Sanity check bounds
                                 if left < 0 or left > right or right > pilImage.width or upper > 0 or upper > lower or lower > pilImage.height:
-                                    self.Logger.error("Failed to crop image. height: "+str(pilImage.height)+", width: "+str(pilImage.width)+", size: "+str(snapshotResizeParams.Size))
+                                    Sentry.Error("NOTIFICATION", "Failed to crop image. height: "+str(pilImage.height)+", width: "+str(pilImage.width)+", size: "+str(snapshotResizeParams.Size))
                                 else:
                                     pilImage = pilImage.crop((left, upper, right, lower))
                                     didWork = True
@@ -811,14 +795,14 @@ class NotificationsHandler:
                             snapshot = buffer.getvalue()
                             buffer.close()
                     else:
-                        self.Logger.warn("Can't manipulate image because the Image rotation lib failed to import.")
+                        Sentry.Warn("NOTIFICATION", "Can't manipulate image because the Image rotation lib failed to import.")
                 except Exception as ex:
                     # Note that in the case of an exception we don't overwrite the original snapshot buffer, so something can still be sent.
                     Sentry.ExceptionNoSend("Failed to manipulate image for notifications", ex)
 
             # Ensure in the end, the snapshot is a reasonable size.
             if len(snapshot) > NotificationsHandler.MaxSnapshotFileSizeBytes:
-                self.Logger.error("Snapshot size if too large to send. Size: "+len(snapshot))
+                Sentry.Error("NOTIFICATION", "Snapshot size if too large to send. Size: "+len(snapshot))
                 return None
 
             # Return the image
@@ -827,7 +811,7 @@ class NotificationsHandler:
         except Exception as _:
             # Don't log here, because for those users with no webcam setup this will fail often.
             # TODO - Ideally we would log, but filter out the expected errors when snapshots are setup by the user.
-            #self.Logger.info("Snapshot http call failed. " + str(e))
+            #Sentry.Info("NOTIFICATION", "Snapshot http call failed. " + str(e))
             pass
 
         # On failure return nothing.
@@ -941,20 +925,17 @@ class NotificationsHandler:
 
             # Handle the result indicating we don't have the proper var to send yet.
             if requestArgs is None:
-                self.Logger.info("NotificationsHandler didn't send the "+str(event)+" event because we don't have the proper id and key yet.")
+                Sentry.Info("NOTIFICATION", "NotificationsHandler didn't send the "+str(event)+" event because we don't have the proper id and key yet.")
                 return False
 
             # Break out the response
             args = requestArgs[0]
             files = requestArgs[1]
 
-            # Setup the url
-            eventApiUrl = self.ProtocolAndDomain + "/api/printernotifications/printerevent"
-
             # Use fairly aggressive retry logic on notifications if they fail to send.
             # This is important because they power some of the other features of OctoEverywhere now, so having them as accurate as possible is ideal.
             attempts = 0
-            while attempts < 6:
+            while attempts < 3:
                 attempts += 1
                 statusCode = 0
                 try:
@@ -962,21 +943,17 @@ class NotificationsHandler:
                     # Thus we must use the data and files fields, the json field will not work.
                     #r = requests.post(eventApiUrl, data=args, files=files, timeout=5*60)
                     Sentry.Info("NOTIFICATIONS", "Sending %s (%s)" % (event, args))
+                    self.NotificationSender.SendNotification(event=event, state=args)
 
-                    # Capture the status code.
-                    statusCode = r.status_code
-
-                    # Check for success.
-                    if statusCode == 200:
-                        self.Logger.info("NotificationsHandler successfully sent '"+event+"'")
-                        return True
+                    # If success
+                    return True
 
                 except Exception as e:
                     # We must try catch the connection because sometimes it will throw for some connection issues, like DNS errors, server not connectable, etc.
-                    self.Logger.warn("Failed to send notification due to a connection error. "+str(e))
+                    Sentry.ExceptionNoSend("Failed to send notification due to a connection error. ", e)
 
                 # On failure, log the issue.
-                self.Logger.warn(f"NotificationsHandler failed to send event {str(event)}. Code:{str(statusCode)}. Waiting and then trying again.")
+                Sentry.Warn("NOTIFICATION", f"NotificationsHandler failed to send event {str(event)}. Code:{str(statusCode)}. Waiting and then trying again.")
 
                 # If the error is in the 400 class, don't retry since these are all indications there's something
                 # wrong with the request, which won't change. But we don't want to include anything above or below that.
@@ -987,13 +964,13 @@ class NotificationsHandler:
                 # We want the first few retires to be quick, so the notifications happens ASAP. This will help in teh case where the server is updating, it should be
                 # back withing 2-4 seconds, but 20 is a good time to wait.
                 # If it's still failing, we want to allow the system some time to do a do a fail over or something, thus we give the retry timer more time.
-                if attempts < 3: # Attempt 1 and 2 will wait 20 seconds.
+                if attempts < 1: # Attempt 1 and 2 will wait 20 seconds.
                     time.sleep(20)
                 else: # Attempt 3, 4, 5 will wait longer.
                     time.sleep(60 * attempts)
 
             # We never sent it successfully.
-            self.Logger.error("NotificationsHandler failed to send event "+str(event)+" due to a network issues after many retries.")
+            Sentry.Error("NOTIFICATION", "NotificationsHandler failed to send event "+str(event)+" due to a network issues after many retries.")
 
         except Exception as e:
             Sentry.Exception("NotificationsHandler failed to send event code "+str(event), e)
@@ -1005,11 +982,6 @@ class NotificationsHandler:
     # Returns an array of [args, files] which are ready to be used in the request.
     # Returns None if the system isn't ready yet.
     def BuildCommonEventArgs(self, event, args=None, progressOverwriteFloat=None, snapshotResizeParams = None, useFinalSnapSnapshot = False):
-
-        # Ensure we have the required var set already. If not, get out of here.
-        if self.PrinterId is None or self.OctoKey is None:
-            return None
-
         # Default args
         if args is None:
             args = {}
@@ -1059,8 +1031,8 @@ class NotificationsHandler:
             snapshot = self._getFinalSnapSnapshotAndStop()
 
         # If we don't have a snapshot, try to get one now.
-        if snapshot is None:
-            snapshot = self.GetNotificationSnapshot(snapshotResizeParams)
+        #if snapshot is None:
+        #    snapshot = self.GetNotificationSnapshot(snapshotResizeParams)
 
         # If we got one, save it to the request.
         if snapshot is not None:
@@ -1081,7 +1053,7 @@ class NotificationsHandler:
         self.StopFirstLayerTimer()
 
         # Stop Gadget From Watching
-        self.Gadget.StopWatching()
+        # self.Gadget.StopWatching()
 
 
     def StopFirstLayerTimer(self):
@@ -1107,18 +1079,18 @@ class NotificationsHandler:
 
         # Setup the progress timer
         intervalSec = 60 * 60 # Fire every hour.
-        timer = RepeatTimer(self.Logger, intervalSec, self.ProgressTimerCallback)
+        timer = RepeatTimer(intervalSec, self.ProgressTimerCallback)
         timer.start()
         self.ProgressTimer = timer
 
         # Setup the first layer watcher - we use a different timer since this timer is really short lived and it fires much more often.
         intervalSec = NotificationsHandler.FirstLayerTimerIntervalSec
-        firstLayerTimer = RepeatTimer(self.Logger, intervalSec, self.FirstLayerTimerCallback)
+        firstLayerTimer = RepeatTimer(intervalSec, self.FirstLayerTimerCallback)
         firstLayerTimer.start()
         self.FirstLayerTimer = firstLayerTimer
 
         # Start Gadget From Watching
-        self.Gadget.StartWatching()
+        # self.Gadget.StartWatching()
 
 
     # Let's the caller know if the ping timer is running, and thus we are tracking a print.
@@ -1137,7 +1109,7 @@ class NotificationsHandler:
         # Double check the state is still printing before we send the notification.
         # Even if the state is paused, we want to stop, since the resume command will restart the timers
         if self.PrinterStateInterface.ShouldPrintingTimersBeRunning() is False:
-            self.Logger.info("Notification progress timer state doesn't seem to be printing, stopping timer.")
+            Sentry.Info("NOTIFICATION", "Notification progress timer state doesn't seem to be printing, stopping timer.")
             self.StopTimers()
             return
 
@@ -1154,7 +1126,7 @@ class NotificationsHandler:
             return
 
         # Stop the timer.
-        self.Logger.info("First layer timer is done. Stopping.")
+        Sentry.Info("NOTIFICATION", "First layer timer is done. Stopping.")
         self.StopFirstLayerTimer()
 
 
@@ -1200,7 +1172,7 @@ class NotificationsHandler:
         # https://github.com/smartin015/continuousprint/blob/bfb2c13da2ebbe0bfbfaa90f62a91db332c43b1b/continuousprint/data/__init__.py#L62
         fileNameLower = fileName.lower()
         if fileNameLower.startswith("continuousprint_"):
-            self.Logger.info("Ignoring notification because it's a continuous print place holder file. "+str(fileName))
+            Sentry.Info("NOTIFICATION", "Ignoring notification because it's a continuous print place holder file. "+str(fileName))
             return True
         return False
 

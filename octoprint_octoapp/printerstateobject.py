@@ -5,8 +5,7 @@ from octoapp.sentry import Sentry
 # Implements a common interface shared by OctoPrint and Moonraker.
 class PrinterStateObject:
 
-    def __init__(self, logger, octoPrintPrinterObject: PrinterInterface):
-        self.Logger = logger
+    def __init__(self, octoPrintPrinterObject: PrinterInterface):
         self.OctoPrintPrinterObject = octoPrintPrinterObject
         self.NotificationHandler = None
 
@@ -15,6 +14,12 @@ class PrinterStateObject:
     def SetNotificationHandler(self, handler):
         self.NotificationHandler = handler
 
+    def GetCurrentProgress(self) :
+        try:
+            return self.currentData.get("progress", -1)
+        except Exception as e:
+            Sentry.Exception("Failed to get current progress ", e)
+            return -1
 
     # ! Interface Function ! The entire interface must change if the function is changed.
     # This function will get the estimated time remaining for the current print.
@@ -106,7 +111,7 @@ class PrinterStateObject:
         if state == "PRINTING" or state == "RESUMING" or state == "FINISHING" or state == "STARTING":
             return True
 
-        self.Logger.warn("ShouldPrintingTimersBeRunning is not in a printing state: "+str(state))
+        Sentry.Warn("PRINTER_STATE", "ShouldPrintingTimersBeRunning is not in a printing state: "+str(state))
         return False
 
 

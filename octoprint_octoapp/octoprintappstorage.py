@@ -15,12 +15,14 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
         super().__init__(parent)
         self.DataFile = None
 
-    def on_after_startup(self):
+
+    def OnAfterStartup(self):
         self.DataFile = os.path.join(self.parent.get_plugin_data_folder(), "apps.json")
         Sentry.Info("NOTIFICATION", "Using config file %s" % self.DataFile)
         self.UpgradeDataStructure()
         self.UpgradeExpirationDate()
         self.SendSettingsPluginMessage(self.GetAllApps())
+
 
     # !! Platform Command Handler Interface Function !!
     #
@@ -39,11 +41,13 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
                 return []
         except Exception as e: 
             Sentry.ExceptionNoSend("Failed to load apps", e)
-            return []
+            raise e
         
-    def on_event(self, event, payload):
+
+    def OnEvent(self, event, payload):
         if event == Events.CLIENT_OPENED and self.DataFile is not None:
             self.SendSettingsPluginMessage(self.GetAllApps())
+
 
     # !! Platform Command Handler Interface Function !!
     #
@@ -57,6 +61,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
 
         self.SendSettingsPluginMessage(apps)
 
+
     # !! Platform Command Handler Interface Function !!
     #
     # This must receive a lsit of AppInstnace
@@ -67,6 +72,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
         for app in apps:
             Sentry.Debug("APPS", "     => %s" % app.FcmToken[0:100])
 
+
     def UpgradeDataStructure(self):
         try:
             if not os.path.isfile(self.DataFile):
@@ -74,6 +80,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
                 self.parent._settings.remove(["registeredApps"])
         except Exception as e:
              Sentry.ExceptionNoSend("Failed to drop old app storage", e)
+
 
     def UpgradeExpirationDate(self):
         try:
@@ -90,6 +97,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
         except Exception as e:
              Sentry.ExceptionNoSend("Failed to upgrade expiration", e)
 
+
     def SendSettingsPluginMessage(self, apps):
         mapped_apps = list(map(lambda x: dict(
             displayName=x.DisplayName,
@@ -102,7 +110,8 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
         mapped_apps = sorted(mapped_apps, key=lambda d: d.get("expireAt", None) or float('inf'))
         self.parent._plugin_manager.send_plugin_message("%s.settings" % self.parent._identifier, {"apps": mapped_apps})
 
-    def on_api_command(self, command, data):
+
+    def OnApiCommand(self, command, data):
         if command == "registerForNotifications":
             if not Permissions.PLUGIN_OCTOAPP_RECEIVE_NOTIFICATIONS.can():
                 return flask.make_response("Insufficient rights", 403)
@@ -112,7 +121,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
             # if this is a temporary app, remove all other temp apps for this instance
             instnace_id = data.get("instanceId", None)
             if fcmToken.startswith("activity:") and instnace_id is not None:
-                self.remove_temporary_apps(for_instance_id=instnace_id)
+                AppStorageHelper.Get().RemoveTemporaryApps()
 
             # load apps and filter the given FCM token out
             apps = self.GetAllApps()
@@ -139,7 +148,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
             )
 
             # save
-            self._logger.info("NOTIFICATION | Registered app %s" % fcmToken)
+            Sentry.Info("NOTIFICATION", "Registered app %s" % fcmToken)
             self.SetAllApps(apps)
             AppStorageHelper.Get().LogApps()
             self.parent._settings.save()

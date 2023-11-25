@@ -9,17 +9,17 @@ class OctoAppPrinterMessageSubPlugin(OctoAppSubPlugin):
         super().__init__(parent)
 
 
-    def on_gcode_queued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+    def OnGcodeQueued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         if gcode == "M117":
             message = cmd.split(' ', 1)[1]
             self.parent.PluginState["m117"] = message
             # This causes blobs in the print when combined with the Dasboard plugin
             #self._logger.debug("MESSAGE      | M117 message changed: %s" % message)
-            self.parent.send_plugin_state_message()
+            self.parent.SendPluginStateMessage()
             return
 
     
-    def on_event(self, event, payload):    
+    def OnEvent(self, event, payload):    
         if event == Events.PRINT_STARTED or event == Events.PRINT_DONE or event == Events.PRINT_FAILED or event == Events.PRINT_CANCELLED:
             self.parent.PluginState["m117"] = None
-            self.parent.send_plugin_state_message()
+            self.parent.SendPluginStateMessage()

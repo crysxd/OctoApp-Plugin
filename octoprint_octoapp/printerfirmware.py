@@ -13,14 +13,14 @@ class OctoAppPrinterFirmwareSubPlugin(OctoAppSubPlugin):
         self.firmware_info = {}
 
 
-    def on_firmware_info_received(
+    def OnFirmwareInfoReceived(
         self, comm_instance, firmware_name, firmware_data, *args, **kwargs
     ):
         Sentry.Debug("FIRMWARE", "Received firmware info")
         self.firmware_info = firmware_data
 
 
-    def on_api_command(self, command, data):
+    def OnApiCommand(self, command, data):
         if command == "getPrinterFirmware":
             if not Permissions.PLUGIN_OCTOAPP_GET_DATA.can():
                 return flask.make_response("Insufficient rights", 403)

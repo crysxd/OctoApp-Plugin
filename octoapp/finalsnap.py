@@ -1,6 +1,5 @@
 import math
 import time
-import logging
 import threading
 
 from .sentry import Sentry
@@ -27,15 +26,14 @@ class FinalSnap:
 
 
     # Creates the object and starts the timer.
-    def __init__(self, logger:logging.Logger, notificationHandler) -> None:
-        self.Logger = logger
+    def __init__(self, notificationHandler) -> None:
         self.LastExtrudeCommandSent:float = 0.0
         self.NotificationHandler = notificationHandler
         self.SnapLock = threading.Lock()
         self.SnapHistory = []
-        self.Timer = RepeatTimer(self.Logger, FinalSnap.c_defaultSnapIntervalSec, self._snapCallback)
+        self.Timer = RepeatTimer(FinalSnap.c_defaultSnapIntervalSec, self._snapCallback)
         self.Timer.start()
-        self.Logger.info("Starting FinalSnap")
+        Sentry.Info("FINAL_SNAP", "Starting FinalSnap")
 
 
     # Called when the system knows an extrude command was sent to the printer.
@@ -74,23 +72,23 @@ class FinalSnap:
                 targetArrayIndex = int(math.ceil(targetTimeDeltaSec / float(FinalSnap.c_defaultSnapIntervalSec)))
 
                 if targetArrayIndex < 0:
-                    self.Logger.error(f"FinalSnap target image index is less than 0? {targetArrayIndex}")
+                    Sentry.Error("FINAL_SNAP", f"Target image index is less than 0? {targetArrayIndex}")
                     # Set something like our default snap interval.
                     targetArrayIndex = 5
                 if targetArrayIndex >= len(self.SnapHistory):
-                    self.Logger.warn(f"FinalSnap target image index is larger than our buffer. {targetArrayIndex} {len(self.SnapHistory)}")
+                    Sentry.Warn("FINAL_SNAP", f"Target image index is larger than our buffer. {targetArrayIndex} {len(self.SnapHistory)}")
                     # Use the oldest image we have.
                     targetArrayIndex = len(self.SnapHistory) - 1
 
                 # Return the image selected.
                 # Clear the array to free up space of stored images, just incase this class leaks.
-                self.Logger.info(f"Stopping final snap and using snapshot from ~{targetTimeDeltaSec} sec ago, index slot {targetArrayIndex} / {len(self.SnapHistory)}")
+                Sentry.Info("FINAL_SNAP", f"Stopping final snap and using snapshot from ~{targetTimeDeltaSec} sec ago, index slot {targetArrayIndex} / {len(self.SnapHistory)}")
                 snap = self.SnapHistory[targetArrayIndex]
                 self.SnapHistory.clear()
                 return snap
 
         # If we don't have an image, just return None.
-        self.Logger.info("Stopping final snap but there's no snapshot to use.")
+        Sentry.Info("FINAL_SNAP", "Stopping final snap but there's no snapshot to use.")
         return None
 
 
@@ -100,7 +98,7 @@ class FinalSnap:
             # Try to get a snapshot.
             snapshot = self.NotificationHandler.GetNotificationSnapshot()
             if snapshot is None:
-                self.Logger.info("FinalSnap failed to get a snapshot")
+                Sentry.Info("FINAL_SNAP", "Failed to get a snapshot")
                 return
 
             with self.SnapLock:
@@ -116,12 +114,12 @@ class FinalSnap:
                 desiredBufferDepth = FinalSnap.c_snapshotBufferDepth
                 minBufferDepthForFixedTime = int(math.ceil(float(FinalSnap.c_onCompleteSnapDelaySec) / float(FinalSnap.c_defaultSnapIntervalSec)))
                 if minBufferDepthForFixedTime > desiredBufferDepth:
-                    self.Logger.warn(f"Final snap had to expand the default buffer size due to the time. {minBufferDepthForFixedTime}")
+                    Sentry.Warn("FINAL_SNAP", f"Final snap had to expand the default buffer size due to the time. {minBufferDepthForFixedTime}")
                     desiredBufferDepth = minBufferDepthForFixedTime
 
                 # Sanity check.
                 if desiredBufferDepth < 1:
-                    self.Logger.error(f"FinalSnap desiredImageHistoryCount is < 1!! {desiredBufferDepth}")
+                    Sentry.Warn("FINAL_SNAP", f"FinalSnap desiredImageHistoryCount is < 1!! {desiredBufferDepth}")
                     desiredBufferDepth = 1
 
                 while len(self.SnapHistory) > desiredBufferDepth:

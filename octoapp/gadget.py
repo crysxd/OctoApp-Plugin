@@ -61,7 +61,7 @@ class Gadget:
 
     def SetServerProtocolAndDomain(self, protocolAndDomain:str):
         # If a custom domain is set, disable host lock, so we don't jump off it.
-        self.Logger.info("Gadget default protocol and hostname set to: "+protocolAndDomain + " Host Lock Is DISABLED")
+        Sentry.Info("GADGET", "Gadget default protocol and hostname set to: "+protocolAndDomain + " Host Lock Is DISABLED")
         self.DefaultProtocolAndDomain = protocolAndDomain
         self.DisableHostLock = True
 
@@ -74,7 +74,7 @@ class Gadget:
             # Reset any per print stats, so they aren't stale
             self._resetPerPrintState()
 
-            self.Logger.info("Gadget is now watching!")
+            Sentry.Info("GADGET", "Gadget is now watching!")
 
             # Start a new timer.
             self.Timer = RepeatTimer(self.Logger, Gadget.c_defaultIntervalSec, self._timerCallback)
@@ -152,7 +152,7 @@ class Gadget:
 
     def _stopTimerUnderLock(self):
         if self.Timer is not None:
-            self.Logger.info("Gadget has stopped watching!")
+            Sentry.Info("GADGET", "Gadget has stopped watching!")
             self.Timer.Stop()
             self.Timer = None
 
@@ -182,7 +182,7 @@ class Gadget:
             # Check to ensure we should still be running. If the state is anything other than printing, we shouldn't be running
             # We will be restarted on a new print starting or when resume is called.
             if self.PrinterStateInterface.ShouldPrintingTimersBeRunning() is False:
-                self.Logger.warn("Gadget timer is running but the print state is not printing, so the timer is topping.")
+                Sentry.Warn("GADGET", "Gadget timer is running but the print state is not printing, so the timer is topping.")
                 self.StopWatching()
                 return
 
@@ -190,7 +190,7 @@ class Gadget:
             # Next check to see if the printer is warming up. If we are warming up, we don't want to let Gadget predict.
             # We do this because during warm-up the printer can ooze some filament out of the hot end, that we don't want to predict on.
             if self.PrinterStateInterface.IsPrintWarmingUp():
-                self.Logger.info("Waiting to predict with Gadget because the printer is warming up.")
+                Sentry.Info("GADGET", "Waiting to predict with Gadget because the printer is warming up.")
                 self._updateTimerInterval(Gadget.c_defaultIntervalSec)
                 return
 
@@ -211,7 +211,7 @@ class Gadget:
 
             # Handle the result indicating we don't have the proper var to send yet.
             if requestData is None:
-                self.Logger.info("Gadget didn't send because we don't have the proper id and key yet.")
+                Sentry.Info("GADGET", "Gadget didn't send because we don't have the proper id and key yet.")
                 self._updateTimerInterval(Gadget.c_defaultIntervalSec)
                 return
 
@@ -228,7 +228,7 @@ class Gadget:
             # Next, check if there's a valid snapshot image.
             if len(files) == 0:
                 # If not, update our interval to be the default no snapshot interval and return.
-                self.Logger.debug("Gadget isn't making a prediction because it failed to get a snapshot.")
+                Sentry.Debug("GADGET", "Gadget isn't making a prediction because it failed to get a snapshot.")
                 self._updateTimerInterval(Gadget.c_defaultIntervalSec_NoSnapshot)
                 return
 
@@ -256,7 +256,7 @@ class Gadget:
                 # We will handle it with out logging too much. This can happen if we need to load shed, so we
                 # dont need to log about it much.
                 if self.FailedConnectionAttempts % 20 == 0:
-                    self.Logger.info("Failed to send gadget inspection due to a connection error. "+str(e))
+                    Sentry.Info("GADGET", "Failed to send gadget inspection due to a connection error. "+str(e))
                 self.FailedConnectionAttempts += 1
 
                 # On any error, clear the HostLock hostname, so we hit the root domain again. This is the recovery system
@@ -274,14 +274,14 @@ class Gadget:
             # Handle the json response. We should find an int telling us how long we should wait before sending the next
             # inspection report.
             if "Result" not in jsonResponse:
-                self.Logger.warn("Gadget inspection result had no Result object")
+                Sentry.Warn("GADGET", "Gadget inspection result had no Result object")
                 self._updateTimerInterval(Gadget.c_defaultIntervalSec)
                 # On any error, clear the HostLock hostname, so we hit the root domain again.
                 self._clearHostLockHostname()
                 return
             resultObj = jsonResponse["Result"]
             if "NextInspectIntervalSec" not in resultObj:
-                self.Logger.warn("Gadget inspection result had no NextInspectIntervalSec field")
+                Sentry.Warn("GADGET", "Gadget inspection result had no NextInspectIntervalSec field")
                 self._updateTimerInterval(Gadget.c_defaultIntervalSec)
                 # On any error, clear the HostLock hostname, so we hit the root domain again.
                 self._clearHostLockHostname()
@@ -314,19 +314,19 @@ class Gadget:
                 try:
                     newValue = int(resultObj["IS_CCSize"])
                     if newValue != self.ImageScaleCenterCropSize:
-                        self.Logger.info("Gadget ImageScaleCenterCropSize set to: "+str(newValue))
+                        Sentry.Info("GADGET", "Gadget ImageScaleCenterCropSize set to: "+str(newValue))
                         self.ImageScaleCenterCropSize = newValue
                 except Exception as e:
-                    self.Logger.warn("Gadget failed to parse IS_CCSize from response. "+str(e))
+                    Sentry.Warn("GADGET", "Gadget failed to parse IS_CCSize from response. "+str(e))
                     self.ImageScaleCenterCropSize = 0
             if "IS_MH" in resultObj:
                 try:
                     newValue = int(resultObj["IS_MH"])
                     if newValue != self.ImageScaleMaxHeight:
-                        self.Logger.info("Gadget ImageScaleMaxHeight set to: "+str(newValue))
+                        Sentry.Info("GADGET", "Gadget ImageScaleMaxHeight set to: "+str(newValue))
                         self.ImageScaleMaxHeight = newValue
                 except Exception as e:
-                    self.Logger.warn("Gadget failed to parse IS_MH from response."+str(e))
+                    Sentry.Warn("GADGET", "Gadget failed to parse IS_MH from response."+str(e))
                     self.ImageScaleMaxHeight = 0
 
             # Check if we have a log object in response. If so, the server wants us to log information into the local log file.
@@ -334,9 +334,9 @@ class Gadget:
                 try:
                     # Stringify the object sent back from the server.
                     logStr = json.dumps(resultObj["Log"])
-                    self.Logger.info("Gadget Server Log - id:"+str(self.NotificationHandler.GetPrintId())+" int:"+str(nextIntervalSec)+" s:"+str(self.MostRecentGadgetScore)+" - "+logStr)
+                    Sentry.Info("GADGET", "Gadget Server Log - id:"+str(self.NotificationHandler.GetPrintId())+" int:"+str(nextIntervalSec)+" s:"+str(self.MostRecentGadgetScore)+" - "+logStr)
                 except Exception as e:
-                    self.Logger.warn("Gadget failed to parse Log from response."+str(e))
+                    Sentry.Warn("GADGET", "Gadget failed to parse Log from response."+str(e))
 
             # Reset the failed attempts counter
             self.FailedConnectionAttempts = 0
@@ -384,7 +384,7 @@ class Gadget:
         # This will disable the current host lock (if there is one)
         if self.HostLockHostname is None:
             return
-        self.Logger.info("Gadget HostLock cleared")
+        Sentry.Info("GADGET", "Gadget HostLock cleared")
         self.HostLockHostname = None
 
 
@@ -394,5 +394,5 @@ class Gadget:
         # with the lowest load. But the entire point of host lock is to try to stay stick on a single host.
         if self.HostLockHostname is not None:
             return
-        self.Logger.info("Gadget HostLock set to: "+hostname)
+        Sentry.Info("GADGET", "Gadget HostLock set to: "+hostname)
         self.HostLockHostname = hostname

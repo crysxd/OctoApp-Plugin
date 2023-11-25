@@ -50,8 +50,8 @@ class CommandHandler:
 
 
     @staticmethod
-    def Init(logger, notificationHandler, platCommandHandler):
-        CommandHandler._Instance = CommandHandler(logger, notificationHandler, platCommandHandler)
+    def Init(notificationHandler, platCommandHandler):
+        CommandHandler._Instance = CommandHandler(notificationHandler, platCommandHandler)
 
 
     @staticmethod
@@ -59,8 +59,7 @@ class CommandHandler:
         return CommandHandler._Instance
 
 
-    def __init__(self, logger, notificationHandler, platCommandHandler):
-        self.Logger = logger
+    def __init__(self, notificationHandler, platCommandHandler):
         self.NotificationHandler = notificationHandler
         self.PlatformCommandHandler = platCommandHandler
 
@@ -77,7 +76,7 @@ class CommandHandler:
         jobStatus = None
         try:
             if self.PlatformCommandHandler is None:
-                self.Logger.warn("GetStatus command has no PlatformCommandHandler")
+                Sentry.Warn("COMMAND", "GetStatus command has no PlatformCommandHandler")
             else:
                 # If the plugin is connected and in a good state, this should return the standard job status.
                 # On error, meaning the plugin isn't connected to the host, this should return None, which then sends back the HostNotConnected error.
@@ -97,7 +96,7 @@ class CommandHandler:
         try:
             if self.NotificationHandler is None:
                 # This shouldn't happen, even debug should have this.
-                self.Logger.warn("API command GetStatus has no notification handler")
+                Sentry.Warn("COMMAND", "API command GetStatus has no notification handler")
             else:
                 gadget = self.NotificationHandler.GetGadget()
                 octoeverywhereStatus = {
@@ -141,7 +140,7 @@ class CommandHandler:
         versionStr = None
         try:
             if self.PlatformCommandHandler is None:
-                self.Logger.warn("GetStatus command has no PlatformCommandHandler")
+                Sentry.Warn("COMMAND", "GetStatus command has no PlatformCommandHandler")
             else:
                 versionStr = self.PlatformCommandHandler.GetPlatformVersionStr()
         except Exception as e:

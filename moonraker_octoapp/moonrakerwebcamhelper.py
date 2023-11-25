@@ -104,7 +104,7 @@ class MoonrakerWebcamHelper():
             # This will either be the default values or a values that the user has set.
             item = WebcamSettingItem("Default", self.SnapshotUrl, self.StreamUrl, self.FlipH, self.FlipV, self.Rotation)
             # Validate the settings, but always return them.
-            item.Validate(self.Logger)
+            item.Validate()
             return [
                 item
             ]
@@ -431,7 +431,7 @@ class MoonrakerWebcamHelper():
                 webcamSettings.Rotation = 0
 
             # Finally, do the standard webcam settings validation.
-            return webcamSettings.Validate(self.Logger)
+            return webcamSettings.Validate()
         except Exception as e:
             Sentry.Exception("Webcam helper _ValidatePossibleWebCamSettings exception. ", e)
         return False
@@ -493,7 +493,7 @@ class MoonrakerWebcamHelper():
         webcamSettings.FlipH = MoonrakerWebcamHelper.c_DefaultFlipH
         webcamSettings.FlipV = MoonrakerWebcamHelper.c_DefaultFlipV
         webcamSettings.Rotation = MoonrakerWebcamHelper.c_DefaultRotation
-        webcamSettings.Validate(self.Logger)
+        webcamSettings.Validate()
         self._SetNewValues([webcamSettings])
 
 
@@ -530,7 +530,7 @@ class MoonrakerWebcamHelper():
         # Print for debugging.
         for i in webcamSettingsItemResults:
             self.Logger.debug(f'Webcam helper found settings. name: {i.Name}, streamUrl: {i.StreamUrl}, snapshotUrl: {i.SnapshotUrl}, flipH: {i.FlipH}, FlipV: {i.FlipV}, rotation: {i.Rotation}')
-            i.Validate(self.Logger)
+            i.Validate()
 
         # We want to use this list of results, so set them now.
         # After these are set, if auto is enabled, these will be used.

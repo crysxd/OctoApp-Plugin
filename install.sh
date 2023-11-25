@@ -277,7 +277,7 @@ cat << EOF
                 "IIIII;:,^`...`,III,.                ."III,`...'`^",::::,"'               
                     ........';II;^.                    ."IIII'...                         
                              '`'                          '``                             
-                                                                                          
+                                   OctoApp For Klipper                                                                                        
                                                                                           
                                                                                           
                                                                                           
@@ -286,7 +286,8 @@ cat << EOF
 
 EOF
 log_blank
-log_header "           OctoApp For Klipper"
+log_header "                                   OctoApp For Klipper "
+log_header "                          Based on the OctoEverywhere Companion"
 log_blank
 log_blank
 

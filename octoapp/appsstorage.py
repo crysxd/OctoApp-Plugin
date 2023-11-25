@@ -122,7 +122,7 @@ class AppStorageHelper:
                         )
 
                     filtered_apps = list(filter(lambda app: any(app.fcmToken != x.fcmToken for x in expired), self.get_apps()))
-                    self.SetApps(filtered_apps)
+                    self.SetAllApps(filtered_apps)
                     self.LogApps()
                     Sentry.Debug("APPS", "Cleaned up expired apps")
 
@@ -132,16 +132,16 @@ class AppStorageHelper:
 
 
     def GetAndroidApps(self, apps):
-        return list(filter(lambda app: not app.fcmToken.startswith("activity:") and not app.fcmToken.startswith("ios:"), apps))
+        return list(filter(lambda app: not app.FcmToken.startswith("activity:") and not app.FcmToken.startswith("ios:"), apps))
 
     def GetExpiredApps(self, apps):
-        return list(filter(lambda app: app.expireAt is not None and time.time() > app.expireAt, apps))
+        return list(filter(lambda app: app.ExpiresAt is not None and time.time() > app.ExpiresAt, apps))
 
     def GetIosApps(self, apps):
-        return list(filter(lambda app: app.fcmToken.startswith("ios:"), apps))
+        return list(filter(lambda app: app.FcmToken.startswith("ios:"), apps))
 
     def GetActivities(self, apps):
-        return list(filter(lambda app: app.fcmToken.startswith("activity:"), apps))
+        return list(filter(lambda app: app.FcmToken.startswith("activity:"), apps))
     
     def GetDefaultExpirationFromNow(self):
         return (time.time() + 2592000)
@@ -150,16 +150,16 @@ class AppStorageHelper:
         self.AppStoragePlatformHelper.LogAllApps()
 
     def RemoveTemporaryApps(self, for_instance_id=None):
-        apps = self.GetApps()
+        apps = self.GetAllApps()
         
         if for_instance_id is None:
-            apps = list(filter(lambda app: not app.fcmToken.startswith("activity:") ,apps))
+            apps = list(filter(lambda app: not app.FcmToken.startswith("activity:") ,apps))
             Sentry.Debug("APPS", "Removed all temporary apps")
         else:
-            apps = list(filter(lambda app: not app.fcmToken.startswith("activity:") or app.instanceId != for_instance_id ,apps))
+            apps = list(filter(lambda app: not app.FcmToken.startswith("activity:") or app.instanceId != for_instance_id ,apps))
             Sentry.Debug("APPS", "Removed all temporary apps for %s" % for_instance_id)
 
-        self.SetApps(apps)
+        self.SetAllApps(apps)
 
     def GetAllApps(self) -> [AppInstance]:
         apps = self.AppStoragePlatformHelper.GetAllApps()

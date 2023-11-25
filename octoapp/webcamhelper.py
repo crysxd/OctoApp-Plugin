@@ -23,22 +23,22 @@ class WebcamSettingItem:
         self.FlipV = flipVBool
         self.Rotation = rotationInt
 
-    def Validate(self, logger:logging.Logger) -> bool:
+    def Validate(self) -> bool:
         if self.Name is None or len(self.Name) == 0:
-            logger.error(f"Name value in WebcamSettingItem is None or empty. {self.StreamUrl}")
+            Sentry.Error("WEBCAM_HELER", f"Name value in WebcamSettingItem is None or empty. {self.StreamUrl}")
             return False
         if self.Rotation is None or (self.Rotation != 0 and self.Rotation != 90 and self.Rotation != 180 and self.Rotation != 270):
-            logger.error(f"Rotation value in WebcamSettingItem is an invalid int. {self.Name} - {self.Rotation}")
+            Sentry.Error("WEBCAM_HELER", f"Rotation value in WebcamSettingItem is an invalid int. {self.Name} - {self.Rotation}")
             return False
         if (self.SnapshotUrl is None or len(self.SnapshotUrl) == 0) and (self.StreamUrl is None or len(self.StreamUrl) == 0):
-            logger.error(f"Snapshot and StreamUrl values in WebcamSettingItem are none or empty {self.Name}")
+            Sentry.Error("WEBCAM_HELER", f"Snapshot and StreamUrl values in WebcamSettingItem are none or empty {self.Name}")
             return False
         if self.FlipH is None:
-            logger.error(f"FlipH value in WebcamSettingItem is None {self.Name}")
+            Sentry.Error("WEBCAM_HELER", f"FlipH value in WebcamSettingItem is None {self.Name}")
             return False
         self.FlipH = bool(self.FlipH)
         if self.FlipV is None:
-            logger.error(f"FlipV value in WebcamSettingItem is None {self.Name}")
+            Sentry.Error("WEBCAM_HELER", f"FlipV value in WebcamSettingItem is None {self.Name}")
             return False
         self.FlipV = bool(self.FlipV)
         return True
