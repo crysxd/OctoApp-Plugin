@@ -151,13 +151,13 @@ class UiInjector():
 
     # Searches the text for our special tag.
     def _FindSpecialJsTagIndex(self, htmlLower) -> int:
-        c_jsTagSearch = "src=\"/oe/ui."
+        c_jsTagSearch = "src=\"/octoapp/ui."
         return htmlLower.find(c_jsTagSearch)
 
 
     # Searches the text for our special tag.
     def _FindSpecialCssTagIndex(self, htmlLower) -> int:
-        c_cssTagSearch = "href=\"/oe/ui."
+        c_cssTagSearch = "href=\"/octoapp/ui."
         return htmlLower.find(c_cssTagSearch)
 
 
@@ -238,10 +238,10 @@ class UiInjector():
             # We add some indents to re-create the about correct whitespace.
             # Note that since the update logic needs to find these file names, they can't change!
             # Especially the parts we search for, or there will be multiple tags showing up.
-            #    "src=\"/oe/ui."
-            #    "href=\"/oe/ui."
-            # The string "oe/ui.js?hash=" and "oe/ui.css?hash=" are important not to change.
-            tags = f"\r\n<!-- OctoApp Injected UI --><script async crossorigin src=\"/oe/ui.{self.StaticFileHash}.js\"></script><link crossorigin rel=\"stylesheet\" href=\"/oe/ui.{self.StaticFileHash}.css\">\r\n"
+            #    "src=\"/octoapp/ui."
+            #    "href=\"/octoapp/ui."
+            # The string "octoapp/ui.js?hash=" and "octoapp/ui.css?hash=" are important not to change.
+            tags = f"\r\n<!-- OctoApp Injected UI --><script async crossorigin src=\"/octoapp/ui.{self.StaticFileHash}.js\"></script><link crossorigin rel=\"stylesheet\" href=\"/octoapp/ui.{self.StaticFileHash}.css\">\r\n"
 
             # Inject the tags into the html
             htmlText = htmlText[:headEndTag] + tags + htmlText[headEndTag:]
@@ -355,7 +355,7 @@ class UiInjector():
     def _UpdateStaticFilesIntoRootIfNeeded(self, staticHtmlRootPath):
         try:
             # Ensure the dir exists.
-            oeStaticFileRoot = os.path.join(staticHtmlRootPath, "oe")
+            oeStaticFileRoot = os.path.join(staticHtmlRootPath, "octoapp")
             if os.path.exists(oeStaticFileRoot) is False:
                 os.makedirs(oeStaticFileRoot)
 

@@ -53,6 +53,10 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
     #
     # This must receive a lsit of AppInstnace
     #
+    def RemoveApps(self, apps:[AppInstance]):
+        filtered_apps = list(filter(lambda app: any(app.FcmToken != x.FcmToken for x in apps), self.GetAllApps()))
+        self.SetAllApps(filtered_apps)
+        
     def SetAllApps(self, apps:[AppInstance]):
         mapped_apps = list(map(lambda x: x.ToDict(), apps))
 
@@ -60,17 +64,6 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
             json.dump(mapped_apps, outfile)
 
         self.SendSettingsPluginMessage(apps)
-
-
-    # !! Platform Command Handler Interface Function !!
-    #
-    # This must receive a lsit of AppInstnace
-    #
-    def LogAllApps(self):
-        apps = self.GetAllApps()
-        Sentry.Debug("APPS", "Now %s apps registered" % len(apps))
-        for app in apps:
-            Sentry.Debug("APPS", "     => %s" % app.FcmToken[0:100])
 
 
     def UpgradeDataStructure(self):
@@ -150,7 +143,6 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
             # save
             Sentry.Info("NOTIFICATION", "Registered app %s" % fcmToken)
             self.SetAllApps(apps)
-            AppStorageHelper.Get().LogApps()
             self.parent._settings.save()
             return flask.jsonify(dict())
         

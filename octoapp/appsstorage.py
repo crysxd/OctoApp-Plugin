@@ -51,16 +51,16 @@ class AppInstance:
     def FromDict(dict:dict):
         return AppInstance(
             fcmToken=dict["fcmToken"],
-            fcmFallbackToken=dict["fcmTokenFallback"],
+            fcmFallbackToken=dict.get("fcmTokenFallback", None),
             instanceId=dict["instanceId"],
-            displayName=dict["displayName"],
-            displayDescription=dict["displayDescription"],
-            model=dict["model"],
-            appVersion=dict["appVersion"],
-            appBuild=dict["appBuild"],
-            appLanguage=dict["appLanguage"],
-            lastSeenAt=dict["lastSeenAt"],
-            expireAt=dict["expireAt"],
+            displayName=dict.get("displayName", "Unknown"),
+            displayDescription=dict.get("displayDescription", ""),
+            model=dict.get("model", "Unknown"),
+            appVersion=dict.get("appVersion", "Unknown"),
+            appBuild=dict.get("appBuild", 1),
+            appLanguage=dict.get("appLanguage", "en"),
+            lastSeenAt=dict.get("lastSeenAt", 0),
+            expireAt=dict.get("expireAt", 0),
         )
 
        
@@ -81,61 +81,11 @@ class AppStorageHelper:
     def __init__(self, appStoragePlatformHelper):
         self.AppStoragePlatformHelper = appStoragePlatformHelper
 
-
-    def continuously_check_activities_expired(self):
-        t = threading.Thread(
-            target=self.do_continuously_check_activities_expired,
-            args=[]
-        )
-        t.daemon = True
-        t.start()
-
-    def do_continuously_check_activities_expired(self):
-         Sentry.Debug("APPS", "Checking for expired apps every 60s")
-         while True:
-            time.sleep(60)
-
-            try:
-                expired = self.get_expired_apps(self.get_activities(self.get_apps()))
-                if len(expired):
-                    Sentry.Debug("APPS", "Found %s expired apps" % len(expired))
-                    self.LogApps()
-
-                    expired_activities = self.GetActivities(expired)
-                    if len(expired_activities):
-                        # This will end the live activity, we currently do not send a notification to inform
-                        # the user, we can do so by setting is_end=False and the apnsData as below
-                        apnsData=self.create_activity_content_state(
-                            is_end=True,
-                            liveActivityState="expired",
-                            state=self.print_state
-                        )
-                        # apnsData["alert"] = {
-                        #     "title": "Updates paused for %s" % self.print_state.get("name", ""),
-                        #     "body": "Live activities expire after 8h, open OctoApp to renew"
-                        # }
-                        self.send_notification_blocking_raw(
-                            targets=expired_activities,
-                            high_priority=True,
-                            apnsData=apnsData,
-                            androidData="none"
-                        )
-
-                    filtered_apps = list(filter(lambda app: any(app.fcmToken != x.fcmToken for x in expired), self.get_apps()))
-                    self.SetAllApps(filtered_apps)
-                    self.LogApps()
-                    Sentry.Debug("APPS", "Cleaned up expired apps")
-
-
-            except Exception as e:
-                Sentry.ExceptionNoSend("Failed to retire expired", e)
-
-
     def GetAndroidApps(self, apps):
         return list(filter(lambda app: not app.FcmToken.startswith("activity:") and not app.FcmToken.startswith("ios:"), apps))
 
     def GetExpiredApps(self, apps):
-        return list(filter(lambda app: app.ExpiresAt is not None and time.time() > app.ExpiresAt, apps))
+        return list(filter(lambda app: app.ExpireAt is not None and time.time() > app.ExpireAt, apps))
 
     def GetIosApps(self, apps):
         return list(filter(lambda app: app.FcmToken.startswith("ios:"), apps))
@@ -147,25 +97,29 @@ class AppStorageHelper:
         return (time.time() + 2592000)
 
     def LogApps(self):
-        self.AppStoragePlatformHelper.LogAllApps()
+        apps = self.GetAllApps()
+        Sentry.Debug("APPS", "Now %s apps registered" % len(apps))
+        for app in apps:
+            Sentry.Debug("APPS", "     => %s" % app.FcmToken[0:100])
 
     def RemoveTemporaryApps(self, for_instance_id=None):
         apps = self.GetAllApps()
         
         if for_instance_id is None:
-            apps = list(filter(lambda app: not app.FcmToken.startswith("activity:") ,apps))
+            apps = list(filter(lambda app: app.FcmToken.startswith("activity:") ,apps))
             Sentry.Debug("APPS", "Removed all temporary apps")
         else:
-            apps = list(filter(lambda app: not app.FcmToken.startswith("activity:") or app.instanceId != for_instance_id ,apps))
+            apps = list(filter(lambda app: app.FcmToken.startswith("activity:") and app.instanceId == for_instance_id , apps))
             Sentry.Debug("APPS", "Removed all temporary apps for %s" % for_instance_id)
 
-        self.SetAllApps(apps)
+        self.RemoveApps(apps)
 
     def GetAllApps(self) -> [AppInstance]:
         apps = self.AppStoragePlatformHelper.GetAllApps()
         Sentry.Debug("APPS", "Loading %s apps" % len(apps))
         return apps
 
-    def SetAllApps(self, apps:[AppInstance]):
-        Sentry.Debug("APPS", "Storing %s apps" % len(apps))
-        self.AppStoragePlatformHelper.SetAllApps(apps)
+    def RemoveApps(self, apps: [AppInstance]):
+        Sentry.Debug("APPS", "Removing %s apps" % len(apps))
+        self.AppStoragePlatformHelper.RemoveApps(apps)
+        self.LogApps()

@@ -11,6 +11,7 @@ from octoapp.octohttprequest import OctoHttpRequest
 from octoapp.Proto.ServerHost import ServerHost
 from octoapp.localip import LocalIpHelper
 from octoapp.compat import Compat
+from octoapp.appsstorage import AppStorageHelper
 
 from .config import Config
 from .secrets import Secrets
@@ -28,6 +29,7 @@ from .moonrakercredentailmanager import MoonrakerCredentialManager
 from .filemetadatacache import FileMetadataCache
 from .uiinjector import UiInjector
 from .observerconfigfile import ObserverConfigFile
+from .moonrakerappstorage import MoonrakerAppStorage
 
 # This file is the main host for the moonraker service.
 class MoonrakerHost:
@@ -114,6 +116,10 @@ class MoonrakerHost:
             # Setup the database helper
             self.MoonrakerDatabase = MoonrakerDatabase(self.Logger, printerId, pluginVersionStr)
 
+            # Setup app storage
+            moonrakerAppStorage = MoonrakerAppStorage(self.MoonrakerDatabase)
+            AppStorageHelper.Init(moonrakerAppStorage)
+
             # Setup the credential manager.
             MoonrakerCredentialManager.Init(self.Logger, moonrakerConfigFilePath, isObserverMode)
 
@@ -146,7 +152,7 @@ class MoonrakerHost:
             # When everything is setup, start the moonraker client object.
             # This also creates the Notifications Handler and Gadget objects.
             # This doesn't start the moon raker connection, we don't do that until OE connects.
-            MoonrakerClient.Init(self.Logger, isObserverMode, moonrakerConfigFilePath, observerConfigFilePath, printerId, self, pluginVersionStr)
+            MoonrakerClient.Init(self.Logger, isObserverMode, moonrakerConfigFilePath, observerConfigFilePath, printerId, self, pluginVersionStr, self.MoonrakerDatabase)
 
             # Init our file meta data cache helper
             FileMetadataCache.Init(self.Logger, MoonrakerClient.Get())
@@ -167,9 +173,6 @@ class MoonrakerHost:
 
             # Now start the main runner!
             MoonrakerClient.Get().RunBlocking()
-
-            while 1:
-                time.sleep(5)
         except Exception as e:
             Sentry.Exception("!! Exception thrown out of main host run function.", e)
 

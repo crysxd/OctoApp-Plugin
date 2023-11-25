@@ -63,8 +63,8 @@ class MoonrakerClient:
 
 
     @staticmethod
-    def Init(logger, isObserverMode:bool, moonrakerConfigFilePath:str, observerConfigPath:str, printerId, connectionStatusHandler, pluginVersionStr):
-        MoonrakerClient._Instance = MoonrakerClient(logger, isObserverMode, moonrakerConfigFilePath, observerConfigPath, printerId, connectionStatusHandler, pluginVersionStr)
+    def Init(logger, isObserverMode:bool, moonrakerConfigFilePath:str, observerConfigPath:str, printerId, connectionStatusHandler, pluginVersionStr, moonrakerDatabase):
+        MoonrakerClient._Instance = MoonrakerClient(logger, isObserverMode, moonrakerConfigFilePath, observerConfigPath, printerId, connectionStatusHandler, pluginVersionStr, moonrakerDatabase)
 
 
     @staticmethod
@@ -72,7 +72,7 @@ class MoonrakerClient:
         return MoonrakerClient._Instance
 
 
-    def __init__(self, logger:logging.Logger, isObserverMode:bool, moonrakerConfigFilePath:str, observerConfigPath:str, printerId:str, connectionStatusHandler, pluginVersionStr:str) -> None:
+    def __init__(self, logger:logging.Logger, isObserverMode:bool, moonrakerConfigFilePath:str, observerConfigPath:str, printerId:str, connectionStatusHandler, pluginVersionStr:str, moonrakerDatabase) -> None:
         self.Logger = logger
         self.IsObserverMode = isObserverMode
         self.MoonrakerConfigFilePath = moonrakerConfigFilePath
@@ -81,6 +81,7 @@ class MoonrakerClient:
         self.PrinterId = printerId
         self.ConnectionStatusHandler = connectionStatusHandler
         self.PluginVersionStr = pluginVersionStr
+        self.MoonrakerDatabase = moonrakerDatabase
 
         # Setup the json-rpc vars
         self.JsonRpcIdLock = threading.Lock()
@@ -799,6 +800,11 @@ class MoonrakerCompat:
         # Only process notifications when ready, aka after state sync.
         if self.IsReadyToProcessNotifications is False:
             return
+        
+        # Get our name
+        name = MoonrakerClient.Get().MoonrakerDatabase.GetPrinterName()
+        self.NotificationHandler.NotificationSender.PrinterName = name
+        self.Logger.info("Printer is called %s" % name)
 
         # Since this is a new print, reset the cache. The file name might be the same as the last, but have
         # different props, so we will always reset. We know when we are printing the same file name will have the same props.

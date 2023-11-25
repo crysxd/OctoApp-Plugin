@@ -158,8 +158,8 @@ class NotificationSender:
             invalid_tokens = r.json()["invalidTokens"]
             for fcmToken in invalid_tokens:
                 Sentry.Info("SENDER", "Removing %s, no longer valid" % fcmToken)
-                apps = [app for app in apps if app.FcmToken != fcmToken]
-            AppStorageHelper.Get().SetAllApps(apps)
+                apps = [app for app in apps if app.FcmToken == fcmToken]
+            AppStorageHelper.Get().RemoveApps(apps)
             AppStorageHelper.Get().LogApps()
 
         except Exception as e:
@@ -282,7 +282,7 @@ class NotificationSender:
 
         # Let's only end the activity on cancel. If we end it on completed the alert isn't shown
         data = self._createActivityContentState(
-            is_end=event == self.EVENT_CANCELLED,
+            isEnd=event == self.EVENT_CANCELLED,
             state=state,
             liveActivityState=liveActivityState
         )
@@ -305,9 +305,9 @@ class NotificationSender:
 
         return data
 
-    def _createActivityContentState(self, is_end, state, liveActivityState):
+    def _createActivityContentState(self, isEnd, state, liveActivityState):
         return {
-            "event": "end" if is_end else "update",
+            "event": "end" if isEnd else "update",
             "content-state": {
                 "fileName": state.get("FileName", None),
                 "progress":state.get("ProgressPercentage", None),
@@ -381,7 +381,7 @@ class NotificationSender:
 
             try:
                 helper = AppStorageHelper.Get()
-                expired = helper.GetExpiredApps(helper.GetActivities(helper.GetAllApps()))
+                expired = helper.GetExpiredApps(helper.GetAllApps())
                 if len(expired):
                     Sentry.Debug("SENDER", "Found %s expired apps" % len(expired))
                     helper.LogApps()
@@ -389,9 +389,9 @@ class NotificationSender:
                     expired_activities = helper.GetActivities(expired)
                     if len(expired_activities):
                         # This will end the live activity, we currently do not send a notification to inform
-                        # the user, we can do so by setting is_end=False and the apnsData as below
+                        # the user, we can do so by setting isEnd=False and the apnsData as below
                         apnsData=self._createActivityContentState(
-                            is_end=True,
+                            isEnd=True,
                             liveActivityState="expired",
                             state=self.LastPrintState
                         )
@@ -406,9 +406,7 @@ class NotificationSender:
                             androidData="none"
                         )
 
-                    filtered_apps = list(filter(lambda app: any(app.FcmToken != x.FcmToken for x in expired), helper.GetAllApps()))
-                    helper.SetAllApps(filtered_apps)
-                    helper.LogApps()
+                    helper.RemoveApps(expired)
                     Sentry.Debug("SENDER", "Cleaned up expired apps")
 
 
