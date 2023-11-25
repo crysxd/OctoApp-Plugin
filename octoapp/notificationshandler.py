@@ -279,17 +279,22 @@ class NotificationsHandler:
         # Always update the file name.
         self._updateCurrentFileName(fileName)
 
+        event = NotificationSender.EVENT_PAUSED
+        if Compat.IsMoonraker():
+            # Because filament runout doesn't work, let's treat every pause as "interaction needed"
+            event = NotificationSender.EVENT_USER_INTERACTION_NEEDED
+
         # See if there is a pause notification suppression set. If this is not null and it was recent enough
         # suppress the notification from firing.
         # If there is no suppression, or the suppression was older than 30 seconds, fire the notification.
         if Compat.HasSmartPauseInterface():
             lastSuppressTimeSec = Compat.GetSmartPauseInterface().GetAndResetLastPauseNotificationSuppressionTimeSec()
             if lastSuppressTimeSec is None or time.time() - lastSuppressTimeSec > 20.0:
-                self._sendEvent(NotificationSender.EVENT_PAUSED)
+                self._sendEvent(event)
             else:
                 Sentry.Info("NOTIFICATION", "Not firing the pause notification due to a Smart Pause suppression.")
         else:
-            self._sendEvent(NotificationSender.EVENT_PAUSED)
+            self._sendEvent(event)
 
         # Stop the ping timer, so we don't report progress while we are paused.
         self.StopTimers()

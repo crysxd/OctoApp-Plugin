@@ -158,9 +158,8 @@ class NotificationSender:
             invalid_tokens = r.json()["invalidTokens"]
             for fcmToken in invalid_tokens:
                 Sentry.Info("SENDER", "Removing %s, no longer valid" % fcmToken)
-                apps = [app for app in apps if app.FcmToken == fcmToken]
-            AppStorageHelper.Get().RemoveApps(apps)
-            AppStorageHelper.Get().LogApps()
+                apps = [app for app in apps if app.FcmToken == fcmToken or app.FcmFallbackToken == fcmToken]
+                AppStorageHelper.Get().RemoveApps(apps)
 
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to send notification %s", e)
@@ -169,14 +168,14 @@ class NotificationSender:
         data = {}
         if event == self.EVENT_BEEP:
             data = { "type": "beep" }
-        elif event == self.EVENT_FIRST_LAYER_DONE:
-            data = { "type": "first_layer_done" }
-        elif event == self.EVENT_THIRD_LAYER_DONE:
-            data = { "type": "third_layer_done" }
         else:
             type = None
             if event == self.EVENT_PROGRESS or event == self.EVENT_STARTED or event == self.EVENT_TIME_PROGRESS or event == self.EVENT_RESUME:
                 type = "printing"
+            elif event == self.EVENT_FIRST_LAYER_DONE:
+                type = "first_layer_done"
+            elif event == self.EVENT_FIRST_LAYER_DONE:
+                type = "third_layer_done"
             elif event == self.EVENT_PAUSED:
                 type = "paused"
             elif event == self.EVENT_DONE:
@@ -258,9 +257,9 @@ class NotificationSender:
             liveActivityState = "filamentRequired"
 
         elif event == self.EVENT_USER_INTERACTION_NEEDED:
-            notificationTitle = "Print paused by Gcode"
+            notificationTitle = "Print paused"
             notificationSound = "notification_filament_change.wav"
-            liveActivityState = "paused_gcode"
+            liveActivityState = "pausedGcode"
 
         elif event == self.EVENT_PAUSED:
             liveActivityState = "paused"
@@ -310,11 +309,11 @@ class NotificationSender:
             "event": "end" if isEnd else "update",
             "content-state": {
                 "fileName": state.get("FileName", None),
-                "progress":state.get("ProgressPercentage", None),
+                "progress": int(float(state.get("ProgressPercentage", None))),
                 "sourceTime": int(time.time() * 1000),
                 "state": liveActivityState,
-                "timeLeft": state.get("TimeRemainingSec", None),
-                "printTime": state.get("DurationSec", None),
+                "timeLeft": int(float(state.get("TimeRemainingSec", None))),
+                "printTime": int(float(state.get("DurationSec", None))),
             }
         }
 
