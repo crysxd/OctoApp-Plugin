@@ -1,14 +1,12 @@
+import time
 import logging
 import traceback
 
 from octoapp.mdns import MDns
 from octoapp.sentry import Sentry
 from octoapp.hostcommon import HostCommon
-from octoapp.telemetry import Telemetry
-from octoapp.octopingpong import OctoPingPong
 from octoapp.webcamhelper import WebcamHelper
 from octoapp.commandhandler import CommandHandler
-# from octoapp.octoeverywhereimpl import OctoApp
 from octoapp.octohttprequest import OctoHttpRequest
 from octoapp.Proto.ServerHost import ServerHost
 from octoapp.localip import LocalIpHelper
@@ -53,9 +51,9 @@ class MoonrakerHost:
             logLevelOverride_CanBeNone = self.GetDevConfigStr(devConfig_CanBeNone, "LogLevel")
             self.Logger = LoggerInit.GetLogger(self.Config, klipperLogDir, logLevelOverride_CanBeNone)
             self.Config.SetLogger(self.Logger)
-
+            
             # Init sentry, since it's needed for Exceptions.
-            Sentry.Init(self.Logger, "klipper", True)
+            Sentry.Init(self.Logger, "klipper", False)
 
         except Exception as e:
             tb = traceback.format_exc()
@@ -70,9 +68,9 @@ class MoonrakerHost:
                     devConfig_CanBeNone):
         # Do all of this in a try catch, so we can log any issues before exiting
         try:
-            self.Logger.info("##################################")
+            self.Logger.info("###########################")
             self.Logger.info("#### OctoApp Starting #####")
-            self.Logger.info("##################################")
+            self.Logger.info("###########################")
 
             # Set observer mode flag as soon as we know it.
             Compat.SetIsObserverMode(isObserverMode)
@@ -107,11 +105,6 @@ class MoonrakerHost:
             if DevLocalServerAddress_CanBeNone is not None:
                 self.Logger.warning("~~~ Using Local Dev Server Address: %s ~~~", DevLocalServerAddress_CanBeNone)
 
-            # Init Sentry, but it won't report since we are in dev mode.
-            Telemetry.Init(self.Logger)
-            if DevLocalServerAddress_CanBeNone is not None:
-                Telemetry.SetServerProtocolAndDomain("http://"+DevLocalServerAddress_CanBeNone)
-
             # Init the mdns client
             MDns.Init(self.Logger, localStorageDir)
 
@@ -143,11 +136,6 @@ class MoonrakerHost:
                 # TODO - this could be an host name, not an IP. That might be a problem?
                 LocalIpHelper.SetLocalIpOverride(ipOrHostnameStr)
 
-            # Init the ping pong helper.
-            OctoPingPong.Init(self.Logger, localStorageDir, printerId)
-            if DevLocalServerAddress_CanBeNone is not None:
-                OctoPingPong.Get().DisablePrimaryOverride()
-
             # Setup the snapshot helper
             self.MoonrakerWebcamHelper = MoonrakerWebcamHelper(self.Logger, self.Config)
             WebcamHelper.Init(self.Logger, self.MoonrakerWebcamHelper)
@@ -164,7 +152,7 @@ class MoonrakerHost:
             FileMetadataCache.Init(self.Logger, MoonrakerClient.Get())
 
             # Setup the command handler
-            CommandHandler.Init(self.Logger, MoonrakerClient.Get().GetNotificationHandler(), MoonrakerCommandHandler(self.Logger))
+            CommandHandler.Init(MoonrakerClient.Get().GetNotificationHandler(), MoonrakerCommandHandler(self.Logger))
 
             # If we have a local dev server, set it in the notification handler.
             if DevLocalServerAddress_CanBeNone is not None:
@@ -178,19 +166,18 @@ class MoonrakerHost:
             # MoonrakerApiRouter.Init(self.Logger)
 
             # Now start the main runner!
-            OctoAppWsUri = HostCommon.c_OctoAppOctoClientWsUri
-            if DevLocalServerAddress_CanBeNone is not None:
-                OctoAppWsUri = "ws://"+DevLocalServerAddress_CanBeNone+"/octoclientws"
-            # oe = OctoApp(OctoAppWsUri, printerId, privateKey, self.Logger, UiPopupInvoker(self.Logger), self, pluginVersionStr, ServerHost.Moonraker, isObserverMode)
-            # oe.RunBlocking()
+            MoonrakerClient.Get().RunBlocking()
+
+            while 1:
+                time.sleep(5)
         except Exception as e:
             Sentry.Exception("!! Exception thrown out of main host run function.", e)
 
         # Allow the loggers to flush before we exit
         try:
-            self.Logger.info("##################################")
+            self.Logger.info("###########################")
             self.Logger.info("#### OctoApp Exiting ######")
-            self.Logger.info("##################################")
+            self.Logger.info("###########################")
             logging.shutdown()
         except Exception as e:
             print("Exception in logging.shutdown "+str(e))

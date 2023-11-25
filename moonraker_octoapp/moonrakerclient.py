@@ -106,9 +106,6 @@ class MoonrakerClient:
         self.WebSocketConnected = False
         self.WebSocketKlippyReady = False
         self.WebSocketLock = threading.Lock()
-        self.WsThread = threading.Thread(target=self._WebSocketWorkerThread)
-        self.WsThreadRunning = False
-        self.WsThread.daemon = True
 
 
     def GetNotificationHandler(self) -> NotificationsHandler:
@@ -121,20 +118,6 @@ class MoonrakerClient:
 
     def GetIsKlippyReady(self):
         return self.WebSocketKlippyReady
-
-
-    # Actually starts the client running, trying to connect the websocket and such.
-    # This is done after the first connection to OctoApp has been established, to ensure
-    # the connection is setup before this, incase something needs to use it.
-    def StartRunningIfNotAlready(self, octoKey:str) -> None:
-        # Always update the octokey, to make sure we are current.
-        self.MoonrakerCompat.SetOctoKey(octoKey)
-
-        # Only start the WS thread if it's not already running
-        if self.WsThreadRunning is False:
-            self.WsThreadRunning = True
-            self.Logger.info("Starting Moonraker connection client.")
-            self.WsThread.start()
 
 
     # Checks to moonraker config for the host and port. We use the moonraker config so we don't duplicate the
@@ -448,7 +431,7 @@ class MoonrakerClient:
         return None
 
 
-    def _WebSocketWorkerThread(self):
+    def RunBlocking(self):
         self.Logger.info("Moonraker client starting websocket connection thread.")
         while True:
             try:
@@ -735,12 +718,8 @@ class MoonrakerCompat:
 
         # This class owns the notification handler.
         # We pass our self as the Printer State Interface
-        self.NotificationHandler = NotificationsHandler(self.Logger, self)
-        self.NotificationHandler.SetPrinterId(printerId)
-
-
-    def SetOctoKey(self, octoKey:str):
-        self.NotificationHandler.SetOctoKey(octoKey)
+        self.NotificationHandler = NotificationsHandler(self)
+        # self.NotificationHandler.SetPrinterId(printerId)
 
 
     def GetNotificationHandler(self):

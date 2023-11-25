@@ -92,7 +92,7 @@ class UiInjector():
 
     # Ensures we can get paths to the static files in our repo and hashes them.
     def _FindStaticFilesAndGetHash(self):
-        expectedRoot = os.path.join(os.path.join(self.OeRepoRoot, "moonraker_octoeverywhere"), "static")
+        expectedRoot = os.path.join(os.path.join(self.OeRepoRoot, "moonraker_octoapp"), "static")
         self.StaticUiJsFilePath = os.path.join(expectedRoot, "oe-ui.js")
         self.StaticUiCssFilePath = os.path.join(expectedRoot, "oe-ui.css")
         if os.path.exists(self.StaticUiJsFilePath) is False:

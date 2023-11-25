@@ -237,54 +237,79 @@ check_for_octoprint()
 log_blank
 log_blank
 log_blank
-cat << EOF
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                          .....                                           
-                                   .'^":IIIIIIIII;,"`'.                                   
-                               .'";IIII;,,""^^"",:IIIII:^.                                
-                             '"III;"`'.............'`^,III;`.                             
-                           ',III"`......................`:III^                            
-                          ^III"'..........................`:II;'                          
-                        .,II:'..............................^III`                         
-                        :II,.................................`III`                        
-                       "II:...................................`III.                       
-                      .III`....................................,II,                       
-                      `II;...........'`'..........'`'..........`III.                      
-                      ^II;.........':IIII`......`;III:'........`III.                      
-                      `III.........`IIIII,......"IIIII`........^II;                       
-                      .III`.........`",,^........`,,"`.........;II^                       
-                       ^II:...................................`III.                       
-                       .III'..................................,II,                        
-                        ;II`..................................;II`                        
-                        :II^..................................III`                        
-                        III`..................................:II^                        
-                       `II;...................................^II;.                       
-         `"^.         .;II^....................................;II^          `"".         
-         "III^.       ,II:....''...........................`'..`III`       ':II;.         
-          ':III"'.  ':II:'..`;II'.........................:II,..`III".  .`:III^           
-            ',IIIIIIIII"...^III^...^^'.....'```'....',,'..';II,'.',IIIIIIII:^.            
-             ..`^,,,"`...':II;`..';II"..`,IIIIII:`..^II;'...,II;`..'`",""`'...            
-             ..........'"III"...`;II".."III^''^;II:'.,II;'...`;II:`...........            
-             .'.....'`,III,'...^III^..,II;.    ."II;`."II;`...."III;^`.....''             
-            :II;:,:IIII;^'...',II;`.."II;.       ^III'.^III,'....`:IIIII;;III`            
-            .`":;I;:"^'.....^III,'.."II;.         "II;'.',III"'....'`^,,:,,^'             
-                 ........`"III;`..',II;.           "II;`..`:III,^'........                
-                `"""",,;IIII,`..'"III".             `III,'..'^:IIII;::::;;^               
-                "IIIII;:,^`...`,III,.                ."III,`...'`^",::::,"'               
-                    ........';II;^.                    ."IIII'...                         
-                             '`'                          '``                             
-                                   OctoApp For Klipper                                                                                        
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-                                                                                          
-
-EOF
+echo "ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAog
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAuLi4uLiAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAuJ14iOklJSUlJSUlJSTssImAnLiAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAuJyI7SUlJSTssLCIiXl4i
+Iiw6SUlJSUk6Xi4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICciSUlJOyJgJy4uLi4uLi4uLi4uLi4nYF4sSUlJO2AuICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgJyxJSUkiYC4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi5gOklJSV4gICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAg
+ICAgICAgICAgICAgICAgICAgICAgICAgXklJSSInLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi5g
+OklJOycgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAu
+LElJOicuLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi5eSUlJYCAgICAgICAgICAgICAgICAg
+ICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgOklJLC4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLmBJSUlgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAg
+ICAgICAgICAgIklJOi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uYElJSS4gICAg
+ICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgLklJSWAuLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4sSUksICAgICAgICAgICAgICAgICAgICAgICAKICAg
+ICAgICAgICAgICAgICAgICAgIGBJSTsuLi4uLi4uLi4uLidgJy4uLi4uLi4uLi4nYCcuLi4uLi4u
+Li4uYElJSS4gICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICBeSUk7
+Li4uLi4uLi4uJzpJSUlJYC4uLi4uLmA7SUlJOicuLi4uLi4uLmBJSUkuICAgICAgICAgICAgICAg
+ICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgYElJSS4uLi4uLi4uLmBJSUlJSSwuLi4uLi4i
+SUlJSUlgLi4uLi4uLi5eSUk7ICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAg
+ICAgICAgIC5JSUlgLi4uLi4uLi4uYCIsLF4uLi4uLi4uLmAsLCJgLi4uLi4uLi4uO0lJXiAgICAg
+ICAgICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgXklJOi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uYElJSS4gICAgICAgICAgICAgICAgICAgICAgIAogICAg
+ICAgICAgICAgICAgICAgICAgIC5JSUknLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+LixJSSwgICAgICAgICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgO0lJ
+YC4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi47SUlgICAgICAgICAgICAgICAgICAg
+ICAgICAgCiAgICAgICAgICAgICAgICAgICAgICAgIDpJSV4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uSUlJYCAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAg
+ICAgICAgICBJSUlgLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLjpJSV4gICAgICAg
+ICAgICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICBgSUk7Li4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi5eSUk7LiAgICAgICAgICAgICAgICAgICAgICAgCiAgICAg
+ICAgIGAiXi4gICAgICAgICAuO0lJXi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+LjtJSV4gICAgICAgICAgYCIiLiAgICAgICAgIAogICAgICAgICAiSUlJXi4gICAgICAgLElJOi4u
+Li4nJy4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLmAnLi5gSUlJYCAgICAgICAnOklJOy4gICAg
+ICAgICAKICAgICAgICAgICc6SUlJIicuICAnOklJOicuLmA7SUknLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLjpJSSwuLmBJSUkiLiAgLmA6SUlJXiAgICAgICAgICAgCiAgICAgICAgICAgICcsSUlJ
+SUlJSUlJIi4uLl5JSUleLi4uXl4nLi4uLi4nYGBgJy4uLi4nLCwnLi4nO0lJLCcuJyxJSUlJSUlJ
+STpeLiAgICAgICAgICAgIAogICAgICAgICAgICAgLi5gXiwsLCJgLi4uJzpJSTtgLi4nO0lJIi4u
+YCxJSUlJSUk6YC4uXklJOycuLi4sSUk7YC4uJ2AiLCIiYCcuLi4gICAgICAgICAgICAKICAgICAg
+ICAgICAgIC4uLi4uLi4uLi4nIklJSSIuLi5gO0lJIi4uIklJSV4nJ147SUk6Jy4sSUk7Jy4uLmA7
+SUk6YC4uLi4uLi4uLi4uICAgICAgICAgICAgCiAgICAgICAgICAgICAuJy4uLi4uJ2AsSUlJLCcu
+Li5eSUlJXi4uLElJOy4gICAgLiJJSTtgLiJJSTtgLi4uLiJJSUk7XmAuLi4uLicnICAgICAgICAg
+ICAgIAogICAgICAgICAgICA6SUk7Oiw6SUlJSTteJy4uLicsSUk7YC4uIklJOy4gICAgICAgXklJ
+SScuXklJSSwnLi4uLmA6SUlJSUk7O0lJSWAgICAgICAgICAgICAKICAgICAgICAgICAgLmAiOjtJ
+OzoiXicuLi4uLl5JSUksJy4uIklJOy4gICAgICAgICAiSUk7Jy4nLElJSSInLi4uLidgXiwsOiws
+XicgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAgLi4uLi4uLi5gIklJSTtgLi4nLElJOy4g
+ICAgICAgICAgICJJSTtgLi5gOklJSSxeJy4uLi4uLi4uICAgICAgICAgICAgICAgIAogICAgICAg
+ICAgICAgICAgYCIiIiIsLDtJSUlJLGAuLiciSUlJIi4gICAgICAgICAgICAgYElJSSwnLi4nXjpJ
+SUlJOzo6Ojo7O14gICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICJJSUlJSTs6LF5gLi4u
+YCxJSUksLiAgICAgICAgICAgICAgICAuIklJSSxgLi4uJ2BeIiw6Ojo6LCInICAgICAgICAgICAg
+ICAgCiAgICAgICAgICAgICAgICAgICAgLi4uLi4uLi4nO0lJO14uICAgICAgICAgICAgICAgICAg
+ICAuIklJSUknLi4uICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICdgJyAgICAgICAgICAgICAgICAgICAgICAgICAgJ2BgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCiAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCg==
+" | base64 -d
 log_blank
 log_header "                                   OctoApp For Klipper "
 log_header "                          Based on the OctoEverywhere Companion"
