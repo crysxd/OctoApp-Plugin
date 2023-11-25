@@ -9,7 +9,7 @@ import configparser
 class Config:
 
     # This can't change or all past plugins will fail. It's also used by the installer.
-    ConfigFileName = "octoeverywhere.conf"
+    ConfigFileName = "octoapp.conf"
 
     ServerSection = "server"
 
@@ -35,16 +35,16 @@ class Config:
     # The objects must have two parts, first, a string they target. If the string is found, the comment will be inserted above the target string. This can be a section or value.
     # A string, which is the comment to be inserted.
     c_ConfigComments = [
-        { "Target": RelayFrontEndPortKey,  "Comment": "The port used for http relay. If your desired frontend runs on a different port, change this value. The OctoEverywhere plugin service needs to be restarted before changes will take effect."},
-        { "Target": RelayFrontEndTypeHintKey,  "Comment": "A string only used by the UI to hint at what web interface this port is."},
+        # { "Target": RelayFrontEndPortKey,  "Comment": "The port used for http relay. If your desired frontend runs on a different port, change this value. The OctoApp plugin service needs to be restarted before changes will take effect."},
+        # { "Target": RelayFrontEndTypeHintKey,  "Comment": "A string only used by the UI to hint at what web interface this port is."},
         { "Target": LogLevelKey,  "Comment": "The active logging level. Valid values include: DEBUG, INFO, WARNING, or ERROR."},
-        { "Target": WebcamNameToUseAsPrimary,  "Comment": "This is the webcam name OctoEverywhere will use for Gadget AI, notifications, and such. This much match the camera 'Name' from your Mainsail of Fluidd webcam settings. The default value of 'Default' will pick whatever camera the system can find."},
-        { "Target": WebcamAutoSettings,  "Comment": "Enables or disables auto webcam setting detection. If enabled, OctoEverywhere will find the webcam settings configured via the frontend (Fluidd, Mainsail, etc) and use them. Disable to manually set the values and have them not be overwritten."},
-        { "Target": WebcamStreamUrl,  "Comment": "Webcam streaming URL. This can be a local relative path (ex: /webcam/?action=stream) or absolute http URL (ex: http://10.0.0.1:8080/webcam/?action=stream or http://webcam.local/webcam/?action=stream)"},
-        { "Target": WebcamSnapshotUrl,  "Comment": "Webcam snapshot URL. This can be a local relative path (ex: /webcam/?action=snapshot) or absolute http URL (ex: http://10.0.0.1:8080/webcam/?action=snapshot or http://webcam.local/webcam/?action=snapshot)"},
-        { "Target": WebcamFlipH,  "Comment": "Flips the webcam image horizontally. Valid values are True or False"},
-        { "Target": WebcamFlipV,  "Comment": "Flips the webcam image vertically. Valid values are True or False"},
-        { "Target": WebcamRotation,  "Comment": "Rotates the webcam image. Valid values are 0, 90, 180, or 270"},
+        # { "Target": WebcamNameToUseAsPrimary,  "Comment": "This is the webcam name OctoApp will use. This much match the camera 'Name' from your Mainsail of Fluidd webcam settings. The default value of 'Default' will pick whatever camera the system can find."},
+        # { "Target": WebcamAutoSettings,  "Comment": "Enables or disables auto webcam setting detection. If enabled, OctoApp will find the webcam settings configured via the frontend (Fluidd, Mainsail, etc) and use them. Disable to manually set the values and have them not be overwritten."},
+        # { "Target": WebcamStreamUrl,  "Comment": "Webcam streaming URL. This can be a local relative path (ex: /webcam/?action=stream) or absolute http URL (ex: http://10.0.0.1:8080/webcam/?action=stream or http://webcam.local/webcam/?action=stream)"},
+        # { "Target": WebcamSnapshotUrl,  "Comment": "Webcam snapshot URL. This can be a local relative path (ex: /webcam/?action=snapshot) or absolute http URL (ex: http://10.0.0.1:8080/webcam/?action=snapshot or http://webcam.local/webcam/?action=snapshot)"},
+        # { "Target": WebcamFlipH,  "Comment": "Flips the webcam image horizontally. Valid values are True or False"},
+        # { "Target": WebcamFlipV,  "Comment": "Flips the webcam image vertically. Valid values are True or False"},
+        # { "Target": WebcamRotation,  "Comment": "Rotates the webcam image. Valid values are 0, 90, 180, or 270"},
     ]
 
     # The config lib we use doesn't support the % sign, even though it's valid .cfg syntax.

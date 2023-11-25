@@ -43,7 +43,7 @@ def _GetConfigVarAndValidate(config, varName:str, dataType:ConfigDataTypes):
 #
 def _PrintErrorAndExit(msg:str):
     print(f"\r\nPlugin Init Error - {msg}", file=sys.stderr)
-    print( "\r\nPlease contact support so we can fix this for you! support@octoeverywhere.com", file=sys.stderr)
+    print( "\r\nPlease contact support so we can fix this for you! hello@octoapp.eu", file=sys.stderr)
     sys.exit(1)
 
 

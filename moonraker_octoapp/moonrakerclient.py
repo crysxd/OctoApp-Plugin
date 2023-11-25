@@ -7,11 +7,11 @@ import logging
 import math
 
 import configparser
-from octoeverywhere.compat import Compat
+from octoapp.compat import Compat
 
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.websocketimpl import Client
-from octoeverywhere.notificationshandler import NotificationsHandler
+from octoapp.sentry import Sentry
+from octoapp.websocketimpl import Client
+from octoapp.notificationshandler import NotificationsHandler
 from .moonrakercredentailmanager import MoonrakerCredentialManager
 from .filemetadatacache import FileMetadataCache
 from .observerconfigfile import ObserverConfigFile
@@ -124,7 +124,7 @@ class MoonrakerClient:
 
 
     # Actually starts the client running, trying to connect the websocket and such.
-    # This is done after the first connection to OctoEverywhere has been established, to ensure
+    # This is done after the first connection to OctoApp has been established, to ensure
     # the connection is setup before this, incase something needs to use it.
     def StartRunningIfNotAlready(self, octoKey:str) -> None:
         # Always update the octokey, to make sure we are current.
@@ -144,11 +144,11 @@ class MoonrakerClient:
         # Ensure we have a file. For now, this is required.
         if self.IsObserverMode:
             if os.path.exists(self.ObserverConfigPath) is False:
-                self.Logger.error("Moonraker client failed to find a observer config. Re-run the ./install.sh script from the OctoEverywhere repo to update the path.")
+                self.Logger.error("Moonraker client failed to find a observer config. Re-run the ./install.sh script from the OctoApp repo to update the path.")
                 raise Exception("No observer config file found")
         else:
             if os.path.exists(self.MoonrakerConfigFilePath) is False:
-                self.Logger.error("Moonraker client failed to find a moonraker config. Re-run the ./install.sh script from the OctoEverywhere repo to update the path.")
+                self.Logger.error("Moonraker client failed to find a moonraker config. Re-run the ./install.sh script from the OctoApp repo to update the path.")
                 raise Exception("No config file found")
 
         # Get the values.
@@ -505,7 +505,7 @@ class MoonrakerClient:
             # https://moonraker.readthedocs.io/en/latest/web_api/#identify-connection
             self.Logger.info("Authenticating with moonraker...")
             params = {
-                "client_name": "OctoEverywhere",
+                "client_name": "OctoApp",
                 "version": self.PluginVersionStr,
                 "type": "agent", # We must be the agent type so that we can send agent-event, aka send messages to the UI.
                 "url": "https://octoeverywhere.com",
@@ -720,7 +720,7 @@ class JsonRpcWaitingContext:
 
 
 # The goal of this class it add any needed compatibility logic to allow the moonraker system plugin into the
-# common OctoEverywhere logic.
+# common OctoApp logic.
 class MoonrakerCompat:
 
     def __init__(self, logger:logging.Logger, printerId:str) -> None:

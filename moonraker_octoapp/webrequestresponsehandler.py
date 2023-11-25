@@ -1,8 +1,8 @@
 import json
 import logging
 
-from octoeverywhere.compat import Compat
-from octoeverywhere.sentry import Sentry
+from octoapp.compat import Compat
+from octoapp.sentry import Sentry
 
 # The context class we return if we want to handle this request.
 class ResponseHandlerContext:
@@ -85,7 +85,7 @@ class MoonrakerWebRequestResponseHandler:
         #
         # Right now we can't do anything else, because moonraker only allows the user to set custom hostname and ports, not paths, to call
         # the different websockets at. But in the future, we could look into redirecting the websocket and known moonraker http api paths to the
-        # known moonraker instance running with this octoeverywhere instance.
+        # known moonraker instance running with this octoapp. instance.
         mainsailConfig = json.loads(bodyBuffer.decode("utf8"))
         if "instancesDB" in mainsailConfig:
             # Set mainsail and be sure to clear our any instances.

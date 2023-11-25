@@ -2,7 +2,7 @@ import logging
 import threading
 import time
 
-from octoeverywhere.sentry import Sentry
+from octoapp.sentry import Sentry
 
 from .moonrakerclient import MoonrakerClient, JsonRpcResponse
 

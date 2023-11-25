@@ -25,17 +25,17 @@ type: git_repo
 # Using `channel: beta` makes moonraker only update to the lasted tagged commit on the branch. Which lets us control releases.
 channel: beta
 path: {RepoRootFolder}
-origin: https://github.com/QuinnDamerell/OctoPrint-OctoEverywhere.git
+origin: https://github.com/QuinnDamerell/OctoPrint-OctoApp.git
 env: {pyVirtEnvRoot}/bin/python
 requirements: requirements.txt
 install_script: install.sh
 managed_services:
   {ServiceName}
 
-# This allows users of OctoEverywhere to get announcements from the system.
+# This allows users of OctoApp to get announcements from the system.
 [announcements]
 subscriptions:
-    octoeverywhere
+    octoapp.
 '''.format(**d)
 
         # Create the expected file path of our update config.

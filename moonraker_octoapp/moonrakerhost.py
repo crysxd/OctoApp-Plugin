@@ -1,18 +1,18 @@
 import logging
 import traceback
 
-from octoeverywhere.mdns import MDns
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.hostcommon import HostCommon
-from octoeverywhere.telemetry import Telemetry
-from octoeverywhere.octopingpong import OctoPingPong
-from octoeverywhere.webcamhelper import WebcamHelper
-from octoeverywhere.commandhandler import CommandHandler
-from octoeverywhere.octoeverywhereimpl import OctoEverywhere
-from octoeverywhere.octohttprequest import OctoHttpRequest
-from octoeverywhere.Proto.ServerHost import ServerHost
-from octoeverywhere.localip import LocalIpHelper
-from octoeverywhere.compat import Compat
+from octoapp.mdns import MDns
+from octoapp.sentry import Sentry
+from octoapp.hostcommon import HostCommon
+from octoapp.telemetry import Telemetry
+from octoapp.octopingpong import OctoPingPong
+from octoapp.webcamhelper import WebcamHelper
+from octoapp.commandhandler import CommandHandler
+# from octoapp.octoeverywhereimpl import OctoApp
+from octoapp.octohttprequest import OctoHttpRequest
+from octoapp.Proto.ServerHost import ServerHost
+from octoapp.localip import LocalIpHelper
+from octoapp.compat import Compat
 
 from .config import Config
 from .secrets import Secrets
@@ -26,7 +26,6 @@ from .moonrakercommandhandler import MoonrakerCommandHandler
 from .moonrakerwebcamhelper import MoonrakerWebcamHelper
 from .moonrakerdatabase import MoonrakerDatabase
 from .webrequestresponsehandler import MoonrakerWebRequestResponseHandler
-from .moonrakerapirouter import MoonrakerApiRouter
 from .moonrakercredentailmanager import MoonrakerCredentialManager
 from .filemetadatacache import FileMetadataCache
 from .uiinjector import UiInjector
@@ -72,7 +71,7 @@ class MoonrakerHost:
         # Do all of this in a try catch, so we can log any issues before exiting
         try:
             self.Logger.info("##################################")
-            self.Logger.info("#### OctoEverywhere Starting #####")
+            self.Logger.info("#### OctoApp Starting #####")
             self.Logger.info("##################################")
 
             # Set observer mode flag as soon as we know it.
@@ -176,21 +175,21 @@ class MoonrakerHost:
             MoonrakerWebRequestResponseHandler.Init(self.Logger)
 
             # Setup the moonraker API router
-            MoonrakerApiRouter.Init(self.Logger)
+            # MoonrakerApiRouter.Init(self.Logger)
 
             # Now start the main runner!
-            OctoEverywhereWsUri = HostCommon.c_OctoEverywhereOctoClientWsUri
+            OctoAppWsUri = HostCommon.c_OctoAppOctoClientWsUri
             if DevLocalServerAddress_CanBeNone is not None:
-                OctoEverywhereWsUri = "ws://"+DevLocalServerAddress_CanBeNone+"/octoclientws"
-            oe = OctoEverywhere(OctoEverywhereWsUri, printerId, privateKey, self.Logger, UiPopupInvoker(self.Logger), self, pluginVersionStr, ServerHost.Moonraker, isObserverMode)
-            oe.RunBlocking()
+                OctoAppWsUri = "ws://"+DevLocalServerAddress_CanBeNone+"/octoclientws"
+            # oe = OctoApp(OctoAppWsUri, printerId, privateKey, self.Logger, UiPopupInvoker(self.Logger), self, pluginVersionStr, ServerHost.Moonraker, isObserverMode)
+            # oe.RunBlocking()
         except Exception as e:
             Sentry.Exception("!! Exception thrown out of main host run function.", e)
 
         # Allow the loggers to flush before we exit
         try:
             self.Logger.info("##################################")
-            self.Logger.info("#### OctoEverywhere Exiting ######")
+            self.Logger.info("#### OctoApp Exiting ######")
             self.Logger.info("##################################")
             logging.shutdown()
         except Exception as e:
@@ -216,20 +215,6 @@ class MoonrakerHost:
             # Save it
             self.Secrets.SetPrinterId(printerId)
             self.Logger.info("New printer id created: %s", printerId)
-
-        privateKey = self.GetPrivateKey()
-        if HostCommon.IsPrivateKeyValid(privateKey) is False:
-            if privateKey is None:
-                self.Logger.info("No private key was found, generating one now!")
-            else:
-                self.Logger.info("An invalid private key was found [%s], regenerating!", str(privateKey))
-
-            # Make a new, valid, key
-            privateKey = HostCommon.GeneratePrivateKey()
-
-            # Save it
-            self.Secrets.SetPrivateKey(privateKey)
-            self.Logger.info("New private key created.")
 
         # If this is the first run, do other stuff as well.
         if isFirstRun:
@@ -258,34 +243,34 @@ class MoonrakerHost:
         return None
 
 
+    # #
+    # # StatusChangeHandler Interface - Called by the OctoApp logic when the server connection has been established.
+    # #
+    # def OnPrimaryConnectionEstablished(self, octoKey, connectedAccounts):
+    #     self.Logger.info("Primary Connection To OctoApp Established - We Are Ready To Go!")
+
+    #     # Check if this printer is unlinked, if so add a message to the log to help the user setup the printer if desired.
+    #     # This would be if the skipped the printer link or missed it in the setup script.
+    #     if connectedAccounts is None or len(connectedAccounts) == 0:
+    #         self.Logger.warning("")
+    #         self.Logger.warning("")
+    #         self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    #         self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    #         self.Logger.warning("          This Plugin Isn't Connected To OctoApp!          ")
+    #         self.Logger.warning(" Use the following link to finish the setup and get remote access:")
+    #         self.Logger.warning(" %s", HostCommon.GetAddPrinterUrl(self.GetPrinterId(), False))
+    #         self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    #         self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    #         self.Logger.warning("")
+    #         self.Logger.warning("")
+
+    #     # Now that we are connected, start the moonraker client.
+    #     # We do this after the connection incase it needs to send any notifications or messages when starting.
+    #     MoonrakerClient.Get().StartRunningIfNotAlready(octoKey)
+
+
     #
-    # StatusChangeHandler Interface - Called by the OctoEverywhere logic when the server connection has been established.
-    #
-    def OnPrimaryConnectionEstablished(self, octoKey, connectedAccounts):
-        self.Logger.info("Primary Connection To OctoEverywhere Established - We Are Ready To Go!")
-
-        # Check if this printer is unlinked, if so add a message to the log to help the user setup the printer if desired.
-        # This would be if the skipped the printer link or missed it in the setup script.
-        if connectedAccounts is None or len(connectedAccounts) == 0:
-            self.Logger.warning("")
-            self.Logger.warning("")
-            self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            self.Logger.warning("          This Plugin Isn't Connected To OctoEverywhere!          ")
-            self.Logger.warning(" Use the following link to finish the setup and get remote access:")
-            self.Logger.warning(" %s", HostCommon.GetAddPrinterUrl(self.GetPrinterId(), False))
-            self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-            self.Logger.warning("")
-            self.Logger.warning("")
-
-        # Now that we are connected, start the moonraker client.
-        # We do this after the connection incase it needs to send any notifications or messages when starting.
-        MoonrakerClient.Get().StartRunningIfNotAlready(octoKey)
-
-
-    #
-    # StatusChangeHandler Interface - Called by the OctoEverywhere logic when a plugin update is required for this client.
+    # StatusChangeHandler Interface - Called by the OctoApp logic when a plugin update is required for this client.
     #
     def OnPluginUpdateRequired(self):
         self.Logger.error("!!! A Plugin Update Is Required -- If This Plugin Isn't Updated It Might Stop Working !!!")
@@ -302,7 +287,7 @@ class MoonrakerHost:
         self.MoonrakerWebcamHelper.KickOffWebcamSettingsUpdate()
 
         # Also allow the database logic to ensure our public keys exist and are updated.
-        self.MoonrakerDatabase.EnsureOctoEverywhereDatabaseEntry()
+        self.MoonrakerDatabase.EnsureOctoAppDatabaseEntry()
 
     #
     # MoonrakerClient ConnectionStatusHandler Interface - Called by the MoonrakerClient when it gets a message that the webcam settings have changed.

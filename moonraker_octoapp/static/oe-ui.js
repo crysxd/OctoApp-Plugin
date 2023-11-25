@@ -96,7 +96,7 @@ oe_do_load = function()
         oe_setup_auto_hide(5);
     });
 
-    // Hides the OctoEverywhere pop-up
+    // Hides the OctoApp pop-up
     function oe_hide_popup()
     {
         oe_log("Hiding popup")
@@ -109,7 +109,7 @@ oe_do_load = function()
         }, 500);
     }
 
-    // Shows the OctoEverywhere popup
+    // Shows the OctoApp popup
     function oe_show_popup(title, messageHtml, typeStr, actionText = null, actionLink = null, showForSec = c_oeAutoTimeHideDurationSec, onlyShowIfLoadedFromOe = true)
     {
         // First, check if we should be showing this notification.
@@ -243,7 +243,7 @@ oe_do_load = function()
                     "jsonrpc": "2.0",
                     "method": "server.connection.identify",
                     "params": {
-                        "client_name": "OctoEverywhere-BrowserAgent",
+                        "client_name": "OctoApp-BrowserAgent",
                         "version": "1.0.0",
                         "type": "web",
                         "url": "https://octoeverywhere.com"
@@ -379,7 +379,7 @@ oe_do_load = function()
     //
     // Plugin Connection Check and Data Tunneling.
     //
-    // This logic determines if the index is being loaded via OctoEverywhere and if so loading
+    // This logic determines if the index is being loaded via OctoApp and if so loading
     // the plugin connection page which assists the plugin in terms of the data tunneling.
     //
     //
@@ -404,7 +404,7 @@ oe_do_load = function()
     }
     function oe_detect_oe_loaded_index_and_inject_helpers()
     {
-        // Only if we are connected via OctoEverywhere, inject the service connection helpers.
+        // Only if we are connected via OctoApp, inject the service connection helpers.
         if(oe_is_connected_via_oe())
         {
             oe_inject_service_helpers();
@@ -412,18 +412,18 @@ oe_do_load = function()
     }
     oe_detect_oe_loaded_index_and_inject_helpers();
     //
-    // This logic is used to ping the octoeverywhere service when the page is loaded to detect if there are any
+    // This logic is used to ping the octoapp. service when the page is loaded to detect if there are any
     // notifications for this user.
     //
     // This is fired by the websocket on connect, if it can query the printer id.
-    function oe_do_notification_check_in(printerId, pluginVersion, isConnectedViaOctoEverywhere)
+    function oe_do_notification_check_in(printerId, pluginVersion, isConnectedViaOctoApp)
     {
         // Create the payload
         var payload = {
             "PrinterId": printerId,
             "PluginVersion": pluginVersion,
             "ClientType" : 3, // Matches our server OctoClientTypes
-            "IsConnectedViaOctoEverywhere" : isConnectedViaOctoEverywhere
+            "IsConnectedViaOctoApp" : isConnectedViaOctoApp
         };
 
         // Make the JS request to allow the service to be aware of us and connect up.

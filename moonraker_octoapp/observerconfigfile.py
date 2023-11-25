@@ -3,7 +3,7 @@ import configparser
 import logging
 import os
 
-from octoeverywhere.compat import Compat
+from octoapp.compat import Compat
 
 class ObserverConfigFile:
 

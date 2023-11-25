@@ -21,7 +21,7 @@
             "name": "Moonraker Dev Module",
             "type": "python",
             "request": "launch",
-            "module": "moonraker_octoeverywhere",
+            "module": "moonraker_octoapp",
             "justMyCode": false,
             "args": [
                 // The module requires these aregs to be passed. These are examples of a typical default setup.
@@ -41,7 +41,7 @@
             "name": "Moonraker Dev Module - Observer Mode",
             "type": "python",
             "request": "launch",
-            "module": "moonraker_octoeverywhere",
+            "module": "moonraker_octoapp",
             "justMyCode": false,
             "args": [
                 // The module requires these aregs to be passed. These are examples of a typical default setup.
@@ -67,7 +67,7 @@
                 // The module requires this json object to be passed.
                 // Normally the install.sh script runs, ensure everything is installed, creates a virtural env, and then runs this modlue giving it these args.
                 // But for debugging, we can skip that assuming it's already been ran.
-                "{\"OE_REPO_DIR\":\"/home/pi/octoeverywhere\",\"OE_ENV\":\"/home/pi/octoeverywhere-env\",\"USERNAME\":\"pi\",\"USER_HOME\":\"/home/pi\",\"CMD_LINE_ARGS\":\"-debug -skipsudoactions -noatuoselect\"}"
+                "{\"OCTOAPP_REPO_DIR\":\"/home/pi/octoeverywhere\",\"OCTOAPP_ENV\":\"/home/pi/octoeverywhere-env\",\"USERNAME\":\"pi\",\"USER_HOME\":\"/home/pi\",\"CMD_LINE_ARGS\":\"-debug -skipsudoactions -noatuoselect\"}"
             ]
         },
         {
@@ -80,14 +80,14 @@
                 // The module requires this json object to be passed.
                 // Normally the install.sh script runs, ensure everything is installed, creates a virtural env, and then runs this modlue giving it these args.
                 // But for debugging, we can skip that assuming it's already been ran.
-                "{\"OE_REPO_DIR\":\"/home/pi/octoeverywhere\",\"OE_ENV\":\"/home/pi/octoeverywhere-env\",\"USERNAME\":\"pi\",\"USER_HOME\":\"/home/pi\",\"CMD_LINE_ARGS\":\"-debug -skipsudoactions -observer\"}"
+                "{\"OCTOAPP_REPO_DIR\":\"/home/pi/octoeverywhere\",\"OCTOAPP_ENV\":\"/home/pi/octoeverywhere-env\",\"USERNAME\":\"pi\",\"USER_HOME\":\"/home/pi\",\"CMD_LINE_ARGS\":\"-debug -skipsudoactions -observer\"}"
             ]
         },
         {
             "name": "OctoPrint Dev Module",
             "type": "python",
             "request": "launch",
-            "module": "octoprint_octoeverywhere",
+            "module": "octoprint_octoapp",
             "justMyCode": true
         }
     ]

@@ -1,7 +1,7 @@
 import json
 import logging
 
-from octoeverywhere.sentry import Sentry
+from octoapp.sentry import Sentry
 
 from .moonrakerclient import MoonrakerClient
 
@@ -14,7 +14,7 @@ class MoonrakerDatabase:
         self.PluginVersion = pluginVersion
 
 
-    def EnsureOctoEverywhereDatabaseEntry(self):
+    def EnsureOctoAppDatabaseEntry(self):
         # Useful for debugging.
         # self._Debug_EnumerateDataBase()
 
@@ -22,7 +22,7 @@ class MoonrakerDatabase:
         # Note that since these are used by 3rd party systems, they must never change. We also use this for our frontend.
         result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.post_item",
         {
-            "namespace": "octoeverywhere",
+            "namespace": "octoapp",
             "key": "public.printerId",
             "value": self.PrinterId
         })
@@ -31,7 +31,7 @@ class MoonrakerDatabase:
             return
         result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.post_item",
         {
-            "namespace": "octoeverywhere",
+            "namespace": "octoapp",
             "key": "public.pluginVersion",
             "value": self.PluginVersion
         })

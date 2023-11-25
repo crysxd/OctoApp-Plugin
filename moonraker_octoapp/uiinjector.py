@@ -5,10 +5,10 @@ import hashlib
 import random
 import string
 
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.ostypeidentifier import OsTypeIdentifier
+from octoapp.sentry import Sentry
+from octoapp.ostypeidentifier import OsTypeIdentifier
 
-from octoeverywhere.Proto import OsType
+from octoapp.Proto import OsType
 
 # A class to handle getting our UI into common front ends.
 class UiInjector():
@@ -241,7 +241,7 @@ class UiInjector():
             #    "src=\"/oe/ui."
             #    "href=\"/oe/ui."
             # The string "oe/ui.js?hash=" and "oe/ui.css?hash=" are important not to change.
-            tags = f"\r\n<!-- OctoEverywhere Injected UI --><script async crossorigin src=\"/oe/ui.{self.StaticFileHash}.js\"></script><link crossorigin rel=\"stylesheet\" href=\"/oe/ui.{self.StaticFileHash}.css\">\r\n"
+            tags = f"\r\n<!-- OctoApp Injected UI --><script async crossorigin src=\"/oe/ui.{self.StaticFileHash}.js\"></script><link crossorigin rel=\"stylesheet\" href=\"/oe/ui.{self.StaticFileHash}.css\">\r\n"
 
             # Inject the tags into the html
             htmlText = htmlText[:headEndTag] + tags + htmlText[headEndTag:]

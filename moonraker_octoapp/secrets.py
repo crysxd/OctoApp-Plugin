@@ -25,11 +25,11 @@ class Secrets:
     ]
 
 
-    def __init__(self, logger:logging.Logger, octoeverywhereStoragePath:str, config:Config) -> None:
+    def __init__(self, logger:logging.Logger, octoAppStoragePath:str, config:Config) -> None:
         self.Logger = logger
 
         # Note this path and name MUST STAY THE SAME because the installer PY script looks for this file.
-        self.SecretFilePath = os.path.join(octoeverywhereStoragePath, "octoeverywhere.secrets")
+        self.SecretFilePath = os.path.join(octoAppStoragePath, "octoapp.secrets")
 
         # A lock to keep file access super safe
         self.ConfigLock = threading.Lock()

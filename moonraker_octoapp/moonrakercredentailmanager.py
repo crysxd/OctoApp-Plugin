@@ -7,7 +7,7 @@ import time
 
 import configparser
 
-from octoeverywhere.sentry import Sentry
+from octoapp.sentry import Sentry
 
 # A class that handles trying to get user credentials from Moonraker if needed.
 #
@@ -49,7 +49,7 @@ class MoonrakerCredentialManager:
     def TryToGetApiKey(self) -> str or None:
         # If this is an observer plugin, we dont' have the moonraker config file nor can we access the UNIX socket.
         if self.IsObserverMode:
-            self.Logger.info("OctoEverywhere Companion Plugins dont' support Moonraker setups with auth.")
+            self.Logger.info("OctoApp Companion Plugins dont' support Moonraker setups with auth.")
             return None
 
         # First, we need to find the unix socket to connect to

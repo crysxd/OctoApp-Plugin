@@ -43,7 +43,7 @@ class LoggerInit:
         maxFileSizeBytes = config.GetIntIfInRange(Config.LoggingSection, Config.LogFileMaxSizeMbKey, 5, 1, 5000) * 1024 * 1024
         maxFileCount = config.GetIntIfInRange(Config.LoggingSection, Config.LogFileMaxCountKey, 3, 1, 50)
         file = logging.handlers.RotatingFileHandler(
-            os.path.join(klipperLogDir, "octoeverywhere.log"),
+            os.path.join(klipperLogDir, "octoapp.log"),
             maxBytes=maxFileSizeBytes, backupCount=maxFileCount)
         file.setFormatter(formatter)
         logger.addHandler(file)

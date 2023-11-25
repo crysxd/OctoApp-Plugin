@@ -5,8 +5,8 @@ import json
 
 import requests
 
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.webcamhelper import WebcamSettingItem, WebcamHelper
+from octoapp.sentry import Sentry
+from octoapp.webcamhelper import WebcamSettingItem, WebcamHelper
 
 from .config import Config
 from .moonrakerclient import MoonrakerClient

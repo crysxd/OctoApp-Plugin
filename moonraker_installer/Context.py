@@ -131,8 +131,8 @@ class Context:
         try:
             argObj = json.loads(argString)
             context = Context()
-            context.RepoRootFolder = argObj["OE_REPO_DIR"]
-            context.VirtualEnvPath = argObj["OE_ENV"]
+            context.RepoRootFolder = argObj["OCTOAPP_REPO_DIR"]
+            context.VirtualEnvPath = argObj["OCTOAPP_ENV"]
             context.UserName = argObj["USERNAME"]
             context.UserHomePath = argObj["USER_HOME"]
             context.CmdLineArgs = argObj["CMD_LINE_ARGS"]
@@ -143,8 +143,8 @@ class Context:
 
 
     def Validate(self, generation = 1) -> None:
-        self._ValidatePathAndExists(self.RepoRootFolder, "Required Env Var OE_REPO_DIR was not found; make sure to run the install.sh script to begin the installation process")
-        self._ValidatePathAndExists(self.VirtualEnvPath, "Required Env Var OE_ENV was not found; make sure to run the install.sh script to begin the installation process")
+        self._ValidatePathAndExists(self.RepoRootFolder, "Required Env Var OCTOAPP_REPO_DIR was not found; make sure to run the install.sh script to begin the installation process")
+        self._ValidatePathAndExists(self.VirtualEnvPath, "Required Env Var OCTOAPP_ENV was not found; make sure to run the install.sh script to begin the installation process")
         self._ValidatePathAndExists(self.UserHomePath, "Required Env Var USER_HOME was not found; make sure to run the install.sh script to begin the installation process")
         self._ValidateString(self.UserName, "Required Env Var USERNAME was not found; make sure to run the install.sh script to begin the installation process")
         # Can be an empty string, but not None.

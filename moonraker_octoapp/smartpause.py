@@ -1,8 +1,8 @@
 import time
 import json
 
-from octoeverywhere.compat import Compat
-from octoeverywhere.commandhandler import CommandResponse
+from octoapp.compat import Compat
+from octoapp.commandhandler import CommandResponse
 
 from .moonrakerclient import MoonrakerClient
 

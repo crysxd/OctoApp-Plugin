@@ -1,6 +1,6 @@
 import json
 
-from octoeverywhere.commandhandler import CommandHandler, CommandResponse
+from octoapp.commandhandler import CommandHandler, CommandResponse
 
 from .moonrakerclient import MoonrakerClient, JsonRpcResponse
 from .smartpause import SmartPause
