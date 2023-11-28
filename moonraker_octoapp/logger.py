@@ -32,7 +32,7 @@ class LoggerInit:
         logger.setLevel(logLevel)
 
         # Define our format
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter("%(levelname)-8s | %(asctime)s | %(message)s")
 
         # Setup logging to standard out.
         std = logging.StreamHandler(sys.stdout)

@@ -1,4 +1,4 @@
-import logging
+from octoapp.sentry import Sentry
 
 # A helper class that caches known file metadata info, so we don't have to pull it often.
 class FileMetadataCache:
