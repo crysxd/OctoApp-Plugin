@@ -128,7 +128,9 @@ class NotificationSender:
 
     def _doSendNotification(self, targets, highProiroty, apnsData, androidData):
         try:
-            if not len(targets): return
+            if not len(targets): 
+                Sentry.Info("SENDER", "No targets, skipping send")
+                return
 
             # Base priority on onlyActivities. If the flag is set this is a low
             # priority status update
@@ -154,7 +156,7 @@ class NotificationSender:
             if r.status_code != requests.codes.ok:
                 raise Exception("Unexpected response code %d: %s" % (r.status_code, r.text))
             else:
-                Sentry.Info("SENDER", "Send was success %s" % r.json())
+                Sentry.Info("SENDER", "Send to %s was success %s" % (len(targets), r.json()))
 
             # Delete invalid tokens
             apps = AppStorageHelper.Get().GetAllApps()

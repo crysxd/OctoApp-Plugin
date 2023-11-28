@@ -91,7 +91,7 @@ class AppStorageHelper:
         return list(filter(lambda app: app.FcmToken.startswith("ios:"), apps))
 
     def GetActivities(self, apps):
-        return list(filter(lambda app: app.FcmToken.startswith("activity:"), apps))
+        return list(sorted(filter(lambda app: app.FcmToken.startswith("activity:"), apps), key=lambda app: app.LastSeenAt, reverse=True))
     
     def GetDefaultExpirationFromNow(self):
         return (time.time() + 2592000)
