@@ -25,15 +25,36 @@
 # Set this to terminate on error.
 set -e
 
-# Set if we are running the Creality OS or not.
-# We use the presence of opkg as they key
-IS_CREALITY_OS=false
-if command -v opkg &> /dev/null
+
+#
+# First things first, we need to detect what kind of OS we are running on. The script works by default with all
+# Debian OSs, but some printers with embedded computers run strange embedded OSs, that have a lot of restrictions.
+# These must stay in sync with update.sh and uninstall.sh!
+#
+
+# The K1 and K1 Max run an OS called Buildroot. We detect that by looking at the os-release file.
+# Quick note about bash vars, to support all OSs, we use the most compilable var version. This means we use ints
+# where 1 is true and 0 is false, and we use comparisons like this [[ $IS_K1_OS -eq 1 ]]
+IS_K1_OS=0
+if grep -Fqs "ID=buildroot" /etc/os-release
 then
-    IS_CREALITY_OS=true
-    # We install everything at this path, which is a fixed path where moonraker and klipper are also installed.
+    IS_K1_OS=1
+    # On the K1, we always want the path to be /usr/data
+    # /usr/share has very limited space, so we don't want to use it.
+    # This is also where the github script installs moonraker and everything.
+    HOME="/usr/data"
+fi
+
+# Next, we try to detect if this OS is the Sonic Pad OS.
+# The Sonic Pad runs openwrt. We detect that by looking at the os-release file.
+IS_SONIC_PAD_OS=0
+if grep -Fqs "sonic" /etc/openwrt_release
+then
+    IS_SONIC_PAD_OS=1
+    # On the K1, we always want the path to be /usr/share, this is where the rest of the klipper stuff is.
     HOME="/usr/share"
 fi
+
 
 # Get the root path of the repo, aka, where this script is executing
 OCTOAPP_REPO_DIR=$(readlink -f $(dirname "$0"))
@@ -54,7 +75,8 @@ OCTOAPP_ENV="${HOME}/octoapp-env"
 PKGLIST="python3 python3-pip virtualenv curl"
 # For the Creality OS, we only need to install these.
 # We don't override the default name, since that's used by the Moonraker installer
-CREALITY_PKGLIST="python3 python3-pip"
+# Note that we DON'T want to use the same name as above (not even in this comment) because some parsers might find it.
+SONIC_PAD_DEP_LIST="python3 python3-pip"
 
 
 #
@@ -89,38 +111,52 @@ log_info()
     echo -e "${c_green}$1${c_default}"
 }
 
+log_blue()
+{
+    echo -e "${c_cyan}$1${c_default}"
+}
+
 log_blank()
 {
     echo ""
 }
 
 #
-# It's important for consistency that the repo root is in /usr/share on Creality OS.
+# It's important for consistency that the repo root is in set $HOME for the K1 and Sonic Pad
 # To enforce that, we will move the repo where it should be.
-#
 ensure_creality_os_right_repo_path()
 {
-    if $IS_CREALITY_OS
+    # TODO - re-enable this for the  || [[ $IS_K1_OS -eq 1 ]] after the github script updates.
+    if [[ $IS_SONIC_PAD_OS -eq 1 ]]
     then
-        EXPECT='/usr/share/'
-        if [[ "$OCTOAPP_REPO_DIR" != *"$EXPECT"* ]]; then
-            log_error "For the Creality OS this repo must be cloned into /usr/share/octoapp."
+        # Due to the K1 shell, we have to use grep rather than any bash string contains syntax.
+        if echo $OCTOAPP_REPO_DIR |grep "$HOME" - > /dev/null
+        then
+            return
+        else
+            log_info "Current path $OCTOAPP_REPO_DIR"
+            log_error "For the Creality devices the OctoEverywhere repo must be cloned into $HOME/octoapp"
             log_important "Moving the repo and running the install again..."
-            cd /usr/share
+            cd $HOME
             # Send errors to null, if the folder already exists this will fail.
-            git clone https://github.com/QuinnDamerell/OctoPrint-OctoApp octoapp 2>/dev/null || true
-            cd /usr/share/octoapp
+            git clone https://github.com/crysxd/OctoApp-Plugin octoapp 2>/dev/null || true
+            cd $HOME/octoapp
             # Ensure state
             git reset --hard
             git checkout master
             git pull
             # Run the install, if it fails, still do the clean-up of this repo.
-            ./install.sh "$@" || true
+            if [[ $IS_K1_OS -eq 1 ]]
+            then
+                sh ./install.sh "$@" || true
+            else
+                ./install.sh "$@" || true
+            fi
             installExit=$?
             # Delete this folder.
             rm -fr $OCTOAPP_REPO_DIR
             # Take the user back to the new install folder.
-            cd /usr/share/
+            cd $HOME
             # Exit.
             exit $installExit
         fi
@@ -133,9 +169,10 @@ ensure_creality_os_right_repo_path()
 ensure_py_venv()
 {
     log_header "Checking Python Virtual Environment For OctoApp..."
-    # If the service is already running, we can't recreate the virtual env
-    # so if it exists, don't try to create it.
-    if [ -d $OCTOAPP_ENV ]; then
+    # If the service is already running, we can't recreate the virtual env so if it exists, don't try to create it.
+    # Note that we check the bin folder exists in the path, since we mkdir the folder below but virtualenv might fail and leave it empty.
+    OCTOAPP_BIN_PATH="$OCTOAPP_ENV/bin"
+    if [ -d $OCTOAPP_BIN_PATH ]; then
         # This virtual env refresh fails on some devices when the service is already running, so skip it for now.
         # This only refreshes the virtual environment package anyways, so it's not super needed.
         #log_info "Virtual environment found, updating to the latest version of python."
@@ -145,7 +182,14 @@ ensure_py_venv()
 
     log_info "No virtual environment found, creating one now."
     mkdir -p "${OCTOAPP_ENV}"
-    virtualenv -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
+    if [[ $IS_K1_OS -eq 1 ]]
+    then
+        # The K1 requires we setup the virtualenv like this.
+        python3 /usr/lib/python3.8/site-packages/virtualenv.py -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
+    else
+        # Everything else can use this more modern style command.
+        virtualenv -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
+    fi
 }
 
 #
@@ -155,10 +199,17 @@ install_or_update_system_dependencies()
 {
     log_header "Checking required system packages are installed..."
 
-    if $IS_CREALITY_OS
+    if [[ $IS_K1_OS -eq 1 ]]
     then
-        # On the Creality OS, we only need to run these installers
-        opkg install ${CREALITY_PKGLIST}
+        # The K1 by default doesn't have any package manager. In some cases
+        # the user might install opkg via the 3rd party moonraker installer script.
+        # But in general, PY will already be installed, so there's no need to try.
+        # On the K1, the only we thing we ensure is that virtualenv is installed via pip.
+        pip3 install virtualenv
+    elif [[ $IS_SONIC_PAD_OS -eq 1 ]]
+    then
+        # The sonic pad always has opkg installed, so we can make sure these packages are installed.
+        opkg install ${SONIC_PAD_DEP_LIST}
         pip3 install virtualenv
     else
         log_important "You might be asked for your system password - this is required to install the required system packages."
@@ -211,7 +262,7 @@ install_or_update_python_env()
 #
 check_for_octoprint()
 {
-    if $IS_CREALITY_OS
+    if [[ $IS_SONIC_PAD_OS -eq 1 ]] || [[ $IS_K1_OS -eq 1 ]]
     then
         # Skip, there's no need and we don't have curl.
         return
@@ -316,9 +367,14 @@ log_header "                          Based on the OctoEverywhere Companion"
 log_blank
 log_blank
 
-if $IS_CREALITY_OS
+# These are helpful for debugging.
+if [[ $IS_SONIC_PAD_OS -eq 1 ]]
 then
-    echo "Running in Creality OS mode"
+    echo "Running in Sonic Pad OS mode"
+fi
+if [[ $IS_K1_OS -eq 1 ]]
+then
+    echo "Running in K1 and K1 Max OS mode"
 fi
 
 # Before anything, make sure this repo is cloned into the correct path on Creality OS devices.
@@ -357,7 +413,7 @@ cd ${OCTOAPP_REPO_DIR} > /dev/null
 # Disable the PY cache files (-B), since they will be written as sudo, since that's what we launch the PY
 # installer as. The PY installer must be sudo to write the service files, but we don't want the
 # complied files to stay in the repo with sudo permissions.
-if $IS_CREALITY_OS
+if [[ $IS_SONIC_PAD_OS -eq 1 ]] || [[ $IS_K1_OS -eq 1 ]]
 then
     # Creality OS only has a root user and we can't use sudo.
     ${OCTOAPP_ENV}/bin/python3 -B -m moonraker_installer ${PY_LAUNCH_JSON}

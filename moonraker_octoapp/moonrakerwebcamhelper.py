@@ -398,11 +398,11 @@ class MoonrakerWebcamHelper():
             # This is a fix for a Fluidd bug or something a user might do. The Fluidd UI defaults to /webcam?action... which results in nginx redirecting to /webcam/?action...
             # That's ok, but it makes us take an entire extra trip for webcam calls. So if we see it, we will correct it.
             # It also can break our local snapshot getting, if we don't follow redirects. (we didn't in the past but we do now.)
-            fixedStreamUrl = WebcamHelper.FixMissingSlashInWebcamUrlIfNeeded(self.Logger, webcamSettings.StreamUrl)
+            fixedStreamUrl = WebcamHelper.FixMissingSlashInWebcamUrlIfNeeded(webcamSettings.StreamUrl)
             if fixedStreamUrl is not None:
                 webcamSettings.StreamUrl = fixedStreamUrl
             if webcamSettings.SnapshotUrl is not None:
-                fixedSnapshotUrl = WebcamHelper.FixMissingSlashInWebcamUrlIfNeeded(self.Logger, webcamSettings.SnapshotUrl)
+                fixedSnapshotUrl = WebcamHelper.FixMissingSlashInWebcamUrlIfNeeded(webcamSettings.SnapshotUrl)
                 if fixedSnapshotUrl is not None:
                     webcamSettings.SnapshotUrl = fixedSnapshotUrl
 
