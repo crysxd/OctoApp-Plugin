@@ -18,7 +18,7 @@ class Sentry:
     @staticmethod
     def Init(logger, versionString, isDevMode):
         # Capture the logger for future use.
-        Sentry.logger = logger
+        Sentry.Logger = logger
 
         # Set the dev mode flag.
         Sentry.isDevMode = isDevMode
@@ -84,7 +84,7 @@ class Sentry:
                     # If found, return the event so it's reported.
                     return event
         except Exception as e:
-            Sentry.logger.error("Failed to extract exception stack in sentry before send. "+str(e))
+            Sentry.Logger.error("Failed to extract exception stack in sentry before send. "+str(e))
 
         # Return none to prevent sending.
         return None
@@ -92,22 +92,22 @@ class Sentry:
     @staticmethod
     def Info(tag, msg):
         paddedTag = "{:<15}".format(" " + tag).upper()
-        Sentry.logger.info(paddedTag + " | " + msg)
+        Sentry.Logger.info(paddedTag + " | " + msg)
 
     @staticmethod
     def Debug(tag, msg):
         paddedTag = "{:<14}".format(tag).upper()
-        Sentry.logger.debug(paddedTag + " | " + msg)
+        Sentry.Logger.debug(paddedTag + " | " + msg)
 
     @staticmethod
     def Warn(tag, msg):
         paddedTag = "{:<15}".format(" " + tag).upper()
-        Sentry.logger.warning(paddedTag + " | " + msg)
+        Sentry.Logger.warning(paddedTag + " | " + msg)
 
     @staticmethod
     def Error(tag, msg):
         paddedTag = "{:<14}".format(tag).upper()
-        Sentry.logger.error(paddedTag + " | " + msg)
+        Sentry.Logger.error(paddedTag + " | " + msg)
 
 
     # Logs and reports an exception.
@@ -127,14 +127,14 @@ class Sentry:
     def _handleException(msg, exception, sendException):
 
         # This could be called before the class has been inited, in such a case just return.
-        if Sentry.logger is None:
+        if Sentry.Logger is None:
             return
 
         tb = traceback.format_exc()
         exceptionClassType = "unknown_type"
         if exception is not None:
             exceptionClassType = exception.__class__.__name__
-        Sentry.logger.error(msg + "; "+str(exceptionClassType)+" Exception: " + str(exception) + "; "+str(tb))
+        Sentry.Logger.error(msg + "; "+str(exceptionClassType)+" Exception: " + str(exception) + "; "+str(tb))
 
         # Sentry is disabled for now.
         # Never send in dev mode, as Sentry will not be setup.

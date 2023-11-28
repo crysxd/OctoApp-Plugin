@@ -6,8 +6,8 @@ class FileMetadataCache:
     _Instance = None
 
     @staticmethod
-    def Init(logger:logging.Logger, moonrakerClient):
-        FileMetadataCache._Instance = FileMetadataCache(logger, moonrakerClient)
+    def Init(moonrakerClient):
+        FileMetadataCache._Instance = FileMetadataCache(moonrakerClient)
 
 
     @staticmethod
@@ -15,8 +15,7 @@ class FileMetadataCache:
         return FileMetadataCache._Instance
 
 
-    def __init__(self, logger:logging.Logger, moonrakerClient) -> None:
-        self.Logger = logger
+    def __init__(self, moonrakerClient) -> None:
         self.MoonrakerClient = moonrakerClient
         self.FileName:str = None
         self.EstimatedPrintTimeSec:float = -1.0
@@ -123,7 +122,7 @@ class FileMetadataCache:
 
         # If we fail this call, just return, which will keep the cache invalid.
         if result.HasError():
-            self.Logger.error("_RefreshFileMetaDataCache failed to get file meta. "+result.GetLoggingErrorStr())
+            Sentry.Error("Metadata Cache", "_RefreshFileMetaDataCache failed to get file meta. "+result.GetLoggingErrorStr())
             return
 
         # If we got here, we know we got a good result.
@@ -161,4 +160,4 @@ class FileMetadataCache:
             if value > 0:
                 self.ObjectHeight = value
 
-        self.Logger.info(f"FileMetadataCache updated for file [{filename}]; est time: {str(self.EstimatedPrintTimeSec)}, size: {str(self.FileSizeKBytes)}, filament usage: {str(self.EstimatedFilamentUsageMm)}")
+        Sentry.Info("Metadata Cache", f"FileMetadataCache updated for file [{filename}]; est time: {str(self.EstimatedPrintTimeSec)}, size: {str(self.FileSizeKBytes)}, filament usage: {str(self.EstimatedFilamentUsageMm)}")

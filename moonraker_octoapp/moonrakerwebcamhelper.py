@@ -43,8 +43,7 @@ class MoonrakerWebcamHelper():
     c_DefaultRotation = 0
 
 
-    def __init__(self, logger:logging.Logger, config : Config) -> None:
-        self.Logger = logger
+    def __init__(self, config : Config) -> None:
         self.Config = config
 
         # Locks the cached results and local settings.
@@ -154,7 +153,7 @@ class MoonrakerWebcamHelper():
 
                 # Log if the value changed.
                 if self.EnableAutoSettings != newAutoSettings:
-                    self.Logger.info("Webcam auto settings detection value updated: "+str(newAutoSettings))
+                    Sentry.Info("Webcam Helper", "Webcam auto settings detection value updated: "+str(newAutoSettings))
                     self.EnableAutoSettings = newAutoSettings
 
                 # Do an update if we should.
@@ -179,7 +178,7 @@ class MoonrakerWebcamHelper():
             self.FlipV = self.Config.GetBool(Config.WebcamSection, Config.WebcamFlipV, MoonrakerWebcamHelper.c_DefaultFlipV)
             self.Rotation = self.Config.GetInt(Config.WebcamSection, Config.WebcamRotation, MoonrakerWebcamHelper.c_DefaultRotation)
             if self.Rotation != 0 and self.Rotation != 180 and self.Rotation != 270:
-                self.Logger.error("MoonrakerWebcamHelper has an invalid rotation value "+str(self.Rotation)+", resetting the default.")
+                Sentry.Error("Webcam Helper", "MoonrakerWebcamHelper has an invalid rotation value "+str(self.Rotation)+" resetting the default.")
                 self.Config.SetStr(Config.WebcamSection, Config.WebcamRotation, 0)
                 self.Rotation = 0
 
@@ -187,7 +186,7 @@ class MoonrakerWebcamHelper():
     # Does the settings update.
     def _DoAutoSettingsUpdate(self):
         try:
-            self.Logger.debug("Starting auto webcam settings update...")
+            Sentry.Debug("Webcam Helper", "Starting auto webcam settings update...")
 
             # First, try to use the newer webcam API.
             # It seems that even if the frontend still uses the older DB based entry, it will still showup in this new API.
@@ -209,17 +208,17 @@ class MoonrakerWebcamHelper():
                     # This happens if there are no webcams configured at all.
                     self._ResetValuesToDefaults()
                     return
-                self.Logger.warn("Moonraker webcam helper failed to query for webcams. "+result.GetLoggingErrorStr())
+                Sentry.Warn("Webcam Helper", "Moonraker webcam helper failed to query for webcams. "+result.GetLoggingErrorStr())
                 return
 
             res = result.GetResult()
             if "value" not in res:
-                self.Logger.warn("Moonraker webcam helper failed to find value in result.")
+                Sentry.Warn("Webcam Helper", "Moonraker webcam helper failed to find value in result.")
                 return
 
             # To help debugging, log the result.
-            if self.Logger.isEnabledFor(logging.DEBUG):
-                self.Logger.debug("Returned webcam database data: %s", json.dumps(res, indent=4, separators=(", ", ": ")))
+            if Sentry.Logger.isEnabledFor(logging.DEBUG):
+                Sentry.Debug("Webcam Helper", "Returned webcam database data: %s", json.dumps(res, indent=4, separators=(", ", ": ")))
 
             value = res["value"]
             if len(value) > 0:
@@ -255,19 +254,19 @@ class MoonrakerWebcamHelper():
             # We have logic in KickOffWebcamSettingsUpdate that will always kick an update if there are no auto results and auto is enabled.
             # So when the websocket connects, KickOffWebcamSettingsUpdate will be called, and we will run again.
             if result.ErrorCode == JsonRpcResponse.OE_ERROR_WS_NOT_CONNECTED:
-                self.Logger.info("Moonraker webcam helper failed to query for webcams from API, no websocket is connected.")
+                Sentry.Info("Webcam Helper", "Moonraker webcam helper failed to query for webcams from API, no websocket is connected.")
                 return True
-            self.Logger.warn("Moonraker webcam helper failed to query for webcams from API. "+result.GetLoggingErrorStr())
+            Sentry.Warn("Webcam Helper", "Moonraker webcam helper failed to query for webcams from API. "+result.GetLoggingErrorStr())
             return False
 
         res = result.GetResult()
         if "webcams" not in res:
-            self.Logger.warn("Moonraker webcam helper failed to find webcams value in API result.")
+            Sentry.Warn("Webcam Helper", "Moonraker webcam helper failed to find webcams value in API result.")
             return False
 
         # To help debugging, log the result.
-        if self.Logger.isEnabledFor(logging.DEBUG):
-            self.Logger.debug("Moonraker WebCam API Result: %s", json.dumps(res, indent=4, separators=(", ", ": ")))
+        if Sentry.Logger.isEnabledFor(logging.DEBUG):
+            Sentry.Debug("Webcam Helper", "Moonraker WebCam API Result: %s" % (json.dumps(res, indent=4, separators=(", ", ": "))))
 
         webcamList = res["webcams"]
         if len(webcamList) == 0:
@@ -427,7 +426,7 @@ class MoonrakerWebcamHelper():
             webcamSettings.FlipV = bool(webcamSettings.FlipV)
             webcamSettings.Rotation = int(webcamSettings.Rotation)
             if webcamSettings.Rotation != 0 and webcamSettings.Rotation != 90 and webcamSettings.Rotation != 180 and webcamSettings.Rotation != 270:
-                self.Logger.warn("Webcam helper found an invalid rotation, resetting to 0")
+                Sentry.Warn("Webcam Helper", "Webcam helper found an invalid rotation, resetting to 0")
                 webcamSettings.Rotation = 0
 
             # Finally, do the standard webcam settings validation.
@@ -460,7 +459,7 @@ class MoonrakerWebcamHelper():
                     if testSnapshotUrl.startswith("/") is False:
                         testSnapshotUrl = "/"+testSnapshotUrl
                     testSnapshotUrl = "http://127.0.0.1"+testSnapshotUrl
-                self.Logger.debug("Trying to find a snapshot url, testing: %s - from stream URL: %s", testSnapshotUrl, streamUrl)
+                Sentry.Debug("Webcam Helper", "Trying to find a snapshot url, testing: %s - from stream URL: %s" % (testSnapshotUrl, streamUrl))
 
                 # We can't use .head because that only pulls the headers from nginx, it doesn't get the full headers.
                 # So we use .get with a timeout.
@@ -474,19 +473,19 @@ class MoonrakerWebcamHelper():
                     if contentTypeHeaderKey in response.headers:
                         if "image" in response.headers[contentTypeHeaderKey].lower():
                             # Success!
-                            self.Logger.debug("Found a valid snapshot URL! Url: %s, Content-Type: %s", testSnapshotUrl, response.headers[contentTypeHeaderKey])
+                            Sentry.Debug("Webcam Helper", "Found a valid snapshot URL! Url: %s, Content-Type: %s" % (testSnapshotUrl, response.headers[contentTypeHeaderKey]))
                             return possibleSnapshotUrl
 
             except Exception:
                 pass
         # On any failure, return None
-        self.Logger.debug("FAILED to find a snapshot url from stream URL")
+        Sentry.Debug("Webcam Helper", "FAILED to find a snapshot url from stream URL")
         return None
 
 
     # If called, this should force the settings to the defaults, if auto settings are on.
     def _ResetValuesToDefaults(self):
-        self.Logger.debug("Resetting the webcam settings to the defaults.")
+        Sentry.Debug("Webcam Helper", "Resetting the webcam settings to the defaults.")
         webcamSettings = WebcamSettingItem("Default")
         webcamSettings.StreamUrl = MoonrakerWebcamHelper.c_DefaultStreamUrl
         webcamSettings.SnapshotUrl = MoonrakerWebcamHelper.c_DefaultSnapshotUrl
@@ -506,7 +505,7 @@ class MoonrakerWebcamHelper():
 
         # Ensure we got something, this shouldn't happen.
         if len(webcamSettingsItemResults) == 0:
-            self.Logger.error("Webcam helper _SetNewValues got an empty list. Resetting to defaults.")
+            Sentry.Error("Webcam Helper", "Webcam helper _SetNewValues got an empty list. Resetting to defaults.")
             self._ResetValuesToDefaults()
             return
 
@@ -525,11 +524,11 @@ class MoonrakerWebcamHelper():
                     break
                 i += 1
             if i == len(webcamSettingsItemResults):
-                self.Logger.warn(f"A non-default primary webcam name was set, but we didn't find a matching webcam config. name:{webcamNameToSelectLower}")
+                Sentry.Warn("Webcam Helper", f"A non-default primary webcam name was set, but we didn't find a matching webcam config. name:{webcamNameToSelectLower}")
 
         # Print for debugging.
         for i in webcamSettingsItemResults:
-            self.Logger.debug(f'Webcam helper found settings. name: {i.Name}, streamUrl: {i.StreamUrl}, snapshotUrl: {i.SnapshotUrl}, flipH: {i.FlipH}, FlipV: {i.FlipV}, rotation: {i.Rotation}')
+            Sentry.Debug("Webcam Helper", f'Webcam helper found settings. name: {i.Name}, streamUrl: {i.StreamUrl}, snapshotUrl: {i.SnapshotUrl}, flipH: {i.FlipH}, FlipV: {i.FlipV}, rotation: {i.Rotation}')
             i.Validate()
 
         # We want to use this list of results, so set them now.
@@ -555,4 +554,4 @@ class MoonrakerWebcamHelper():
         self.Config.SetStr(Config.WebcamSection, Config.WebcamFlipV, self.FlipV)
         self.Config.SetStr(Config.WebcamSection, Config.WebcamRotation, self.Rotation)
 
-        self.Logger.info(f'Webcam helper updated webcam settings. streamUrl: {self.StreamUrl}, snapshotUrl: {self.SnapshotUrl}, flipH: {self.FlipH}, FlipV: {self.FlipV}, rotation: {self.Rotation}')
+        Sentry.Info("Webcam Helper", f'Webcam helper updated webcam settings. streamUrl: {self.StreamUrl}, snapshotUrl: {self.SnapshotUrl}, flipH: {self.FlipH}, FlipV: {self.FlipV}, rotation: {self.Rotation}')

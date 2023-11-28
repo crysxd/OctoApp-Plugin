@@ -31,8 +31,8 @@ class MoonrakerCredentialManager:
 
 
     @staticmethod
-    def Init(logger, moonrakerConfigFilePath:str, isObserverMode:bool):
-        MoonrakerCredentialManager._Instance = MoonrakerCredentialManager(logger, moonrakerConfigFilePath, isObserverMode)
+    def Init(moonrakerConfigFilePath:str, isObserverMode:bool):
+        MoonrakerCredentialManager._Instance = MoonrakerCredentialManager(moonrakerConfigFilePath, isObserverMode)
 
 
     @staticmethod
@@ -40,8 +40,7 @@ class MoonrakerCredentialManager:
         return MoonrakerCredentialManager._Instance
 
 
-    def __init__(self, logger:logging.Logger, moonrakerConfigFilePath:str, isObserverMode:bool):
-        self.Logger = logger
+    def __init__(self, moonrakerConfigFilePath:str, isObserverMode:bool):
         self.MoonrakerConfigFilePath = moonrakerConfigFilePath
         self.IsObserverMode = isObserverMode
 
@@ -49,13 +48,13 @@ class MoonrakerCredentialManager:
     def TryToGetApiKey(self) -> str or None:
         # If this is an observer plugin, we dont' have the moonraker config file nor can we access the UNIX socket.
         if self.IsObserverMode:
-            self.Logger.info("OctoApp Companion Plugins dont' support Moonraker setups with auth.")
+            Sentry.Info("Credetials", "OctoApp Companion Plugins dont' support Moonraker setups with auth.")
             return None
 
         # First, we need to find the unix socket to connect to
         moonrakerSocketFilePath = self._TryToFindUnixSocket()
         if moonrakerSocketFilePath is None:
-            self.Logger.Warn("No moonraker unix socket file could be found.")
+            Sentry.Warn("Credetials", "No moonraker unix socket file could be found.")
             return None
 
         try:
@@ -91,30 +90,30 @@ class MoonrakerCredentialManager:
                 # Only messages with the ID field are responses, so we don't care about the others.
                 if "id" not in jsonRpcResponse:
                     if time.time() - startTime > 20.0:
-                        self.Logger.warn("TryToGetCredentials timeout waiting for db query response after "+str(msgCount)+" messages.")
+                        Sentry.Warn("Credetials", "TryToGetCredentials timeout waiting for db query response after "+str(msgCount)+" messages.")
                         return None
                     continue
 
                 # Make sure this is us.
                 if jsonRpcResponse["id"] != msgId:
-                    self.Logger.info("TryToGetCredentials got a response for a different id? got:"+str(jsonRpcResponse["id"]) + " expected:"+str(msgId))
+                    Sentry.Info("Credetials", "TryToGetCredentials got a response for a different id? got:"+str(jsonRpcResponse["id"]) + " expected:"+str(msgId))
                     continue
                 # Check for error.
                 if "error" in jsonRpcResponse:
-                    self.Logger.warn("TryToGetCredentials got a response but it had an error. "+str(jsonRpcResponse["error"]))
+                    Sentry.Warn("Credetials", "TryToGetCredentials got a response but it had an error. "+str(jsonRpcResponse["error"]))
                     return None
 
                 # Look for the result string.
                 if "result" not in jsonRpcResponse:
-                    self.Logger.warn("TryToGetCredentials got a response but with no result object.")
+                    Sentry.Warn("Credetials", "TryToGetCredentials got a response but with no result object.")
                     return None
                 result  = jsonRpcResponse["result"]
                 if isinstance(result, str) is False:
-                    self.Logger.warn("TryToGetCredentials got a response but result is not a str. "+str(result))
+                    Sentry.Warn("Credetials", "TryToGetCredentials got a response but result is not a str. "+str(result))
                     return None
 
                 # We got it!
-                self.Logger.info("MoonrakerCredentialManager successfully found the API key.")
+                Sentry.Info("Credetials", "MoonrakerCredentialManager successfully found the API key.")
                 return result
 
         except Exception as e:
@@ -132,18 +131,18 @@ class MoonrakerCredentialManager:
             moonrakerConfig = configparser.ConfigParser(allow_no_value=True, strict=False)
             moonrakerConfig.read(self.MoonrakerConfigFilePath)
             if "server" not in moonrakerConfig:
-                self.Logger.info("_TryToFindUnixSocket - No server block found in moonraker config.")
+                Sentry.Info("Credetials", "_TryToFindUnixSocket - No server block found in moonraker config.")
             else:
                 if "klippy_uds_address" not in moonrakerConfig["server"]:
-                    self.Logger.info("_TryToFindUnixSocket - klippy_uds_address found in moonraker config.")
+                    Sentry.Info("Credetials", "_TryToFindUnixSocket - klippy_uds_address found in moonraker config.")
                 else:
                     # In most installs, this will be something like `~/printer_data/comms/klippy.sock`
                     klippySocketFilePath = moonrakerConfig["server"]["klippy_uds_address"]
-                    self.Logger.info("Moonraker klippy unix socket path found in config: "+klippySocketFilePath)
+                    Sentry.Info("Credetials", "Moonraker klippy unix socket path found in config: "+klippySocketFilePath)
                     possibleComFolderPath = self._GetParentDirectory(klippySocketFilePath)
                     possibleMoonrakerSocketFilePath = os.path.join(possibleComFolderPath, MoonrakerCredentialManager.c_MoonrakerUnixSocketFileName)
                     if os.path.exists(possibleMoonrakerSocketFilePath):
-                        self.Logger.info("Moonraker socket path found from moonraker config klippy socket path. :"+possibleMoonrakerSocketFilePath)
+                        Sentry.Info("Credetials", "Moonraker socket path found from moonraker config klippy socket path. :"+possibleMoonrakerSocketFilePath)
                         return possibleMoonrakerSocketFilePath
         except Exception as e:
             Sentry.Exception("_TryToFindUnixSocket failed to handle moonraker config.", e)
@@ -155,22 +154,22 @@ class MoonrakerCredentialManager:
         # This isn't likely, but we might as well try.
         testPath = os.path.join(moonrakerConfigFolderPath, MoonrakerCredentialManager.c_MoonrakerUnixSocketFileName)
         if os.path.exists(testPath):
-            self.Logger.info("Moonraker unix socket path found from moonraker config path. :"+testPath)
+            Sentry.Info("Credetials", "Moonraker unix socket path found from moonraker config path. :"+testPath)
             return testPath
         testPath = os.path.join(moonrakerConfigFolderPath, MoonrakerCredentialManager.c_MoonrakerUnixSocketFileNameWithCommsFolder)
         if os.path.exists(testPath):
-            self.Logger.info("Moonraker unix socket path found from moonraker config path. :"+testPath)
+            Sentry.Info("Credetials", "Moonraker unix socket path found from moonraker config path. :"+testPath)
             return testPath
 
         # Move a folder up and try again. This is where we expect the comms folder to be located, next to the config folder
         moonrakerPrinterFolderPath = self._GetParentDirectory(moonrakerConfigFolderPath)
         testPath = os.path.join(moonrakerPrinterFolderPath, MoonrakerCredentialManager.c_MoonrakerUnixSocketFileName)
         if os.path.exists(testPath):
-            self.Logger.info("Moonraker unix socket path found from moonraker printer folder path. :"+testPath)
+            Sentry.Info("Credetials", "Moonraker unix socket path found from moonraker printer folder path. :"+testPath)
             return testPath
         testPath = os.path.join(moonrakerPrinterFolderPath, MoonrakerCredentialManager.c_MoonrakerUnixSocketFileNameWithCommsFolder)
         if os.path.exists(testPath):
-            self.Logger.info("Moonraker unix socket path found from moonraker printer folder path. :"+testPath)
+            Sentry.Info("Credetials", "Moonraker unix socket path found from moonraker printer folder path. :"+testPath)
             return testPath
         return None
 
@@ -187,7 +186,7 @@ class MoonrakerCredentialManager:
         while True:
             # Sanity check so we don't spin for ever.
             if len(message) > 10000:
-                self.Logger.error("_ReadSingleJsonObject failed to read message, it was too long. "+message.decode(encoding="utf=8"))
+                Sentry.Error("Credetials", "_ReadSingleJsonObject failed to read message, it was too long. "+message.decode(encoding="utf=8"))
                 return None
 
             # Read one, add it to the buffer, and see if we are done.

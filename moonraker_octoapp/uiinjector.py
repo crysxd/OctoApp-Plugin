@@ -1,5 +1,4 @@
 import os
-import logging
 import threading
 import hashlib
 import random
@@ -23,8 +22,8 @@ class UiInjector():
 
 
     @staticmethod
-    def Init(logger:logging.Logger, repoRoot:str):
-        UiInjector._Instance = UiInjector(logger, repoRoot)
+    def Init(repoRoot:str):
+        UiInjector._Instance = UiInjector(repoRoot)
 
 
     @staticmethod
@@ -32,8 +31,7 @@ class UiInjector():
         return UiInjector._Instance
 
 
-    def __init__(self, logger:logging.Logger, oeRepoRoot:str):
-        self.Logger = logger
+    def __init__(self, oeRepoRoot:str):
         self.OeRepoRoot = oeRepoRoot
         self.StaticUiJsFilePath = None
         self.StaticUiCssFilePath = None
@@ -117,7 +115,7 @@ class UiInjector():
         #pylint: disable=consider-using-f-string
         self.StaticFileHash = "{0}".format(sha1.hexdigest())
         self.StaticFileHash = self.StaticFileHash[:10]
-        self.Logger.debug("Static UI Files Hash: "+self.StaticFileHash)
+        Sentry.Debug("UI Injector", "Static UI Files Hash: "+self.StaticFileHash)
 
 
     # Given a known static path, try to inject our UI files.
@@ -125,7 +123,7 @@ class UiInjector():
     def _DoInject(self, staticHtmlRootPath) -> bool:
         indexFilePath = os.path.join(staticHtmlRootPath, "index.html")
         if os.path.exists(indexFilePath) is False:
-            self.Logger.info(f"Failed to find index.html at {indexFilePath}")
+            Sentry.Info("UI Injector", f"Failed to find index.html at {indexFilePath}")
             return False
 
         # First, see if the inject already exists, and if so, if it needed updating.
@@ -179,9 +177,9 @@ class UiInjector():
             if jsTagLocation == -1 or cssTagLocation == -1:
                 # Not found, make sure they both aren't there, which is expected.
                 if jsTagLocation != -1:
-                    self.Logger.error(f"A js tag was found but not a css tag in {indexHtmlFilePath}?")
+                    Sentry.Error("UI Injector", f"A js tag was found but not a css tag in {indexHtmlFilePath}?")
                 if cssTagLocation != -1:
-                    self.Logger.error(f"A css tag was found but not a js tag in {indexHtmlFilePath}?")
+                    Sentry.Error("UI Injector", f"A css tag was found but not a js tag in {indexHtmlFilePath}?")
                 return False, False
 
             # Parse out the hash value.
@@ -202,7 +200,7 @@ class UiInjector():
 
             # Ensure they are up-to-date
             if self.StaticFileHash == currentJsHash and self.StaticFileHash == currentCssHash:
-                self.Logger.debug("Found existing ui tags and the hash matches the current files.")
+                Sentry.Debug("UI Injector", "Found existing ui tags and the hash matches the current files.")
                 return True, False
 
             # We need to update the hash tags.
@@ -213,7 +211,7 @@ class UiInjector():
             with open(indexHtmlFilePath, 'w', encoding="utf-8") as f:
                 f.write(htmlText)
 
-            self.Logger.info("Found existing ui tags but the hash didn't match, so we updated the hash.")
+            Sentry.Info("UI Injector", "Found existing ui tags but the hash didn't match, so we updated the hash.")
             return True, True
         except Exception as e:
             Sentry.Exception("_InjectIntoHtml failed for "+indexHtmlFilePath, e)
@@ -231,7 +229,7 @@ class UiInjector():
             htmlTextLower = htmlText.lower()
             headEndTag = htmlTextLower.find("</head>")
             if headEndTag == -1:
-                self.Logger.error("Failed to find head tag end in "+indexHtmlFilePath)
+                Sentry.Error("UI Injector", "Failed to find head tag end in "+indexHtmlFilePath)
                 return False
 
             # Build the tag script.
@@ -250,14 +248,14 @@ class UiInjector():
             jsIndex = self._FindSpecialJsTagIndex(htmlText)
             cssIndex = self._FindSpecialCssTagIndex(htmlText)
             if jsIndex == -1 or cssIndex == -1:
-                self.Logger.error("Ui injector created new html but the tags weren't found?")
+                Sentry.Error("UI Injector", "Ui injector created new html but the tags weren't found?")
                 return False
 
             # Write the file back.
             with open(indexHtmlFilePath, 'w', encoding="utf-8") as f:
                 f.write(htmlText)
 
-            self.Logger.info("No existing ui tags found, so we added them")
+            Sentry.Info("UI Injector", "No existing ui tags found, so we added them")
             return True
         except Exception as e:
             Sentry.Exception("_InjectIntoHtml failed for "+indexHtmlFilePath, e)
@@ -276,7 +274,7 @@ class UiInjector():
         # to anything new, makes the service worker update the index, and will make it pull again.
         swJsFilePath = os.path.join(staticHtmlRootPath, "sw.js")
         if os.path.exists(swJsFilePath) is False:
-            self.Logger.warn(f"Failed to find sw.js at {swJsFilePath}")
+            Sentry.Warn("UI Injector", f"Failed to find sw.js at {swJsFilePath}")
             return
         try:
             # Read the entire file.
@@ -302,7 +300,7 @@ class UiInjector():
                     # Check without quotes.
                     indexHtmlStrPos = swTextLower.rfind("url:\"index.html\"", 0, indexHtmlStrPos)
                     if indexHtmlStrPos == -1:
-                        self.Logger.warn("_UpdateSwHash failed to find the right index.html")
+                        Sentry.Warn("UI Injector", "_UpdateSwHash failed to find the right index.html")
                         return
                 # The url can be first or last in the json object, so we need to find the object.
                 jsonObjectStart = swTextLower.rfind('{', 0, indexHtmlStrPos)
@@ -324,20 +322,20 @@ class UiInjector():
                 revisionEnd = swTextLower.find('"', revisionStart)
                 if revisionEnd == -1:
                     # Try to find a different index.html string.
-                    self.Logger.warn("_UpdateSwHash failed to find revisionEnd json object.")
+                    Sentry.Warn("UI Injector", "_UpdateSwHash failed to find revisionEnd json object.")
                     continue
                 # Success!
                 break
 
             # Sanity check we found something
             if revisionStart is None or revisionEnd is None:
-                self.Logger.warn("_UpdateSwHash broke the while loop with no revision start or end?")
+                Sentry.Warn("UI Injector", "_UpdateSwHash broke the while loop with no revision start or end?")
                 return
 
             # Parse the current revision.
             currentRevision = swText[revisionStart:revisionEnd]
             newRevision = ''.join(random.choices(string.ascii_lowercase + string.digits, k=len(currentRevision)))
-            self.Logger.info(f"Updating the sw.js index.html revision [{currentRevision}] -> [{newRevision}]")
+            Sentry.Info("UI Injector", f"Updating the sw.js index.html revision [{currentRevision}] -> [{newRevision}]")
 
             # Update it
             swText = swText[:revisionStart] + newRevision + swText[revisionEnd:]
@@ -346,7 +344,7 @@ class UiInjector():
             with open(swJsFilePath, 'w', encoding="utf-8") as f:
                 f.write(swText)
 
-            self.Logger.info(f"Sw.js [{swJsFilePath}] updated.")
+            Sentry.Info("UI Injector", f"Sw.js [{swJsFilePath}] updated.")
         except Exception as e:
             Sentry.Exception("_UpdateSwHash failed for "+staticHtmlRootPath, e)
 

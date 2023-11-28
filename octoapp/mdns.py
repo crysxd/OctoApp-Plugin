@@ -5,6 +5,7 @@ import json
 
 import dns.resolver
 
+from octoapp.sentry import Sentry
 from .localip import LocalIpHelper
 
 # A helper class to resolve mdns domain names to IP addresses, since the request lib doesn't support
@@ -26,8 +27,8 @@ class MDns:
     _Debug = False
 
     @staticmethod
-    def Init(logger, pluginDataFolderPath):
-        MDns._Instance = MDns(logger, pluginDataFolderPath)
+    def Init(pluginDataFolderPath):
+        MDns._Instance = MDns(pluginDataFolderPath)
 
 
     @staticmethod
@@ -35,9 +36,7 @@ class MDns:
         return MDns._Instance
 
 
-    def __init__(self, logger, pluginDataFolderPath):
-        self.Logger = logger
-
+    def __init__(self, pluginDataFolderPath):
         # Init our DNS name cache.
         self.Lock = threading.Lock()
         self.CacheFilePath = os.path.join(pluginDataFolderPath, "mDnsCache.json")
@@ -58,7 +57,7 @@ class MDns:
             self.dnsResolver.port = 5353
         except Exception as e:
             self.dnsResolver = None
-            self.Logger.warn("Failed to create DNS class, local dns resolve is disabled. "+str(e))
+            Sentry.Warn("mDNS", "Failed to create DNS class, local dns resolve is disabled. "+str(e))
 
 
     # Given a full url with protocol, hostname, and path, this will look for a local mdns hostname, try to resolve it, and return the full URL again with
@@ -68,7 +67,7 @@ class MDns:
         # Parse the hostname out, be it an IP address, domain name, or other.
         protocolEnd = url.find("://")
         if protocolEnd == -1:
-            self.Logger.warn("No protocol found for url "+str(url))
+            Sentry.Warn("mDNS", "No protocol found for url "+str(url))
             return None
         protocolEnd += len("://")
 
@@ -95,7 +94,7 @@ class MDns:
 
         # If we don't get something back, we failed to resolve.
         if resolveResult is None:
-            self.Logger.info("mDNS found a .local domain to resolve, but it failed to resolve. hostname: "+str(hostname) + ", url: "+str(url))
+            Sentry.Info("mDNS", "mDNS found a .local domain to resolve, but it failed to resolve. hostname: "+str(hostname) + ", url: "+str(url))
             return None
 
         # Inject the IP resolved into the url.
@@ -154,7 +153,7 @@ class MDns:
             # Only allow 3 attempts to successfully resolve.
             attempt += 1
             if attempt > 3:
-                self.Logger.info("Failed to resolve mdns for domain "+str(domain))
+                Sentry.Info("mDNS", "Failed to resolve mdns for domain "+str(domain))
                 # Return none to indicate a failure.
                 return None
 
@@ -182,7 +181,7 @@ class MDns:
                     for data in answers:
                         # Validate.
                         if data is None or data.address is None or len(data.address) == 0:
-                            self.Logger.warn("Dns result had data, but there was no IP address")
+                            Sentry.Warn("mDNS", "Dns result had data, but there was no IP address")
                             continue
 
                         self.LogDebug("Resolver found ip "+data.address+" for local hostname "+domain)
@@ -210,7 +209,7 @@ class MDns:
                 # This happens if no one responds, which is expected if the domain has no one listening.
                 pass
             except Exception as e:
-                self.Logger.error("Failed to resolve mdns for domain "+str(domain)+" e:"+str(e))
+                Sentry.Error("mDNS", "Failed to resolve mdns for domain "+str(domain)+" e:"+str(e))
 
             # If we failed to find anything or it threw, don't return so we try again.
 
@@ -285,12 +284,12 @@ class MDns:
         c = 0
         for ip in ipList:
             if matches[c] is True:
-                self.Logger.info("MDNS got to end of of the IP string with multiple matches, so we will just return this: "+str(ip))
+                Sentry.Info("mDNS", "MDNS got to end of of the IP string with multiple matches, so we will just return this: "+str(ip))
                 return ip
             c += 1
 
         # If we totally fail, just return the first.
-        self.Logger.warn("MDNS got to end of GetSameLanIp without selecting an ip.")
+        Sentry.Warn("mDNS", "MDNS got to end of GetSameLanIp without selecting an ip.")
         return ipList[0]
 
 
@@ -305,13 +304,13 @@ class MDns:
         # Just use _TryToResolve, which will try to resolve and will update the IP on success.
         self.LogDebug("Starting async update for domain "+domain)
         if self._TryToResolve(domain) is None:
-            self.Logger.error("Failed to update mdns cache for domain "+str(domain))
+            Sentry.Error("mDNS", "Failed to update mdns cache for domain "+str(domain))
 
 
     # Logs if the debug flag is set.
     def LogDebug(self, msg):
         if MDns._Debug:
-            self.Logger.info(msg)
+            Sentry.Info("mDNS", msg)
 
     # Note, we have to use a dict instead of a class here so that it serializes correctly with
     # the normal json serializer.
@@ -326,7 +325,7 @@ class MDns:
         try:
             return d["UpdateTimeSec"]
         except Exception as e:
-            self.Logger.error("Failed to get UpdateTimeSec from cache entry dict. "+str(e))
+            Sentry.Error("mDNS", "Failed to get UpdateTimeSec from cache entry dict. "+str(e))
             self._ResetCacheFile()
             return 0
 
@@ -336,12 +335,12 @@ class MDns:
         try:
             return d["IpAddress"]
         except Exception as e:
-            self.Logger.error("Failed to get IpAddress from cache entry dict. "+str(e))
+            Sentry.Error("mDNS", "Failed to get IpAddress from cache entry dict. "+str(e))
             self._ResetCacheFile()
             return "127.0.0.1"
 
     def _ResetCacheFile(self):
-        self.Logger.info("MDns cache file reset")
+        Sentry.Info("mDNS", "MDns cache file reset")
         self.Cache = {}
 
     # Blocks to write the current stats to a file.
@@ -357,7 +356,7 @@ class MDns:
         except Exception as e:
             # On any failure, reset the stats.
             self._ResetCacheFile()
-            self.Logger.error("_SaveCacheFile failed "+str(e))
+            Sentry.Error("mDNS", "_SaveCacheFile failed "+str(e))
 
 
     # Does a blocking call to load any current stats from the file.
@@ -376,11 +375,11 @@ class MDns:
             with open(self.CacheFilePath) as f:
                 data = json.load(f)
             self.Cache = data["Cache"]
-            self.Logger.info("mDns Cache file loaded. Cached Entries Found: "+str(len(self.Cache)))
+            Sentry.Info("mDNS", "mDns Cache file loaded. Cached Entries Found: "+str(len(self.Cache)))
 
         except Exception as e:
             self._ResetCacheFile()
-            self.Logger.error("_LoadCacheFile failed "+str(e))
+            Sentry.Error("mDNS", "_LoadCacheFile failed "+str(e))
 
     # Used for testing new logic.
     def Test(self):
@@ -397,8 +396,8 @@ class MDns:
         self.DoTest("http://localhost:80/hello", None)
 
     def DoTest(self, i, expectedOutput):
-        self.Logger.info("~~~~ Starting Test For "+i)
+        Sentry.Info("mDNS", "~~~~ Starting Test For "+i)
         result = MDns.Get().TryToResolveIfLocalHostnameFound(i)
         if result != expectedOutput:
             raise Exception("Failed mdns test for "+i)
-        self.Logger.info("~~~~ Finished Test For "+i)
+        Sentry.Info("mDNS", "~~~~ Finished Test For "+i)

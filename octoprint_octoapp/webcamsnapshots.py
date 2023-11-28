@@ -122,7 +122,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                 ["webcam", "snapshotTimeout"]
             )
             if log:
-                Sentry.Debug("SNAPSHOT", "Failed to get webcam snapshot", e)
+                Sentry.Debug("SNAPSHOT", "Failed to get webcam snapshot: %s" % e)
             imageBytes = BytesIO()
             raw = requests.get(
                 snapshotUrl, timeout=float(timeout), stream=True)

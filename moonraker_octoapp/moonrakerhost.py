@@ -6,7 +6,6 @@ from octoapp.mdns import MDns
 from octoapp.sentry import Sentry
 from octoapp.hostcommon import HostCommon
 from octoapp.webcamhelper import WebcamHelper
-from octoapp.commandhandler import CommandHandler
 from octoapp.octohttprequest import OctoHttpRequest
 from octoapp.Proto.ServerHost import ServerHost
 from octoapp.localip import LocalIpHelper
@@ -18,10 +17,8 @@ from .secrets import Secrets
 from .version import Version
 from .logger import LoggerInit
 from .smartpause import SmartPause
-from .uipopupinvoker import UiPopupInvoker
 from .systemconfigmanager import SystemConfigManager
 from .moonrakerclient import MoonrakerClient
-from .moonrakercommandhandler import MoonrakerCommandHandler
 from .moonrakerwebcamhelper import MoonrakerWebcamHelper
 from .moonrakerdatabase import MoonrakerDatabase
 from .webrequestresponsehandler import MoonrakerWebRequestResponseHandler
@@ -70,30 +67,30 @@ class MoonrakerHost:
                     devConfig_CanBeNone):
         # Do all of this in a try catch, so we can log any issues before exiting
         try:
-            self.Logger.info("###########################")
-            self.Logger.info("#### OctoApp Starting #####")
-            self.Logger.info("###########################")
+            Sentry.Info("Host", "###########################")
+            Sentry.Info("Host", "#### OctoApp Starting #####")
+            Sentry.Info("Host", "###########################")
 
             # Set observer mode flag as soon as we know it.
             Compat.SetIsObserverMode(isObserverMode)
 
             # Find the version of the plugin, this is required and it will throw if it fails.
             pluginVersionStr = Version.GetPluginVersion(repoRoot)
-            self.Logger.info("Plugin Version: %s", pluginVersionStr)
+            Sentry.Info("Host", "Plugin Version: %s" % pluginVersionStr)
 
             # This logic only works if running locally.
             if not isObserverMode:
                 # Before we do this first time setup, make sure our config files are in place. This is important
                 # because if this fails it will throw. We don't want to let the user complete the install setup if things
                 # with the update aren't working.
-                SystemConfigManager.EnsureUpdateManagerFilesSetup(self.Logger, klipperConfigDir, serviceName, pyVirtEnvRoot, repoRoot)
+                SystemConfigManager.EnsureUpdateManagerFilesSetup(klipperConfigDir, serviceName, pyVirtEnvRoot, repoRoot)
 
             # Before the first time setup, we must also init the Secrets class and do the migration for the printer id and private key, if needed.
             # As of 8/15/2023, we don't store any sensitive things in teh config file, since all config files are sometimes backed up publicly.
-            self.Secrets = Secrets(self.Logger, localStorageDir, self.Config)
+            self.Secrets = Secrets(localStorageDir, self.Config)
 
             # Always init the observer config file class, even if we aren't in observer mode, it handles denying requests.
-            ObserverConfigFile.Init(self.Logger, observerConfigFilePath)
+            ObserverConfigFile.Init(observerConfigFilePath)
 
             # Now, detect if this is a new instance and we need to init our global vars. If so, the setup script will be waiting on this.
             self.DoFirstTimeSetupIfNeeded(klipperConfigDir, serviceName)
@@ -105,29 +102,29 @@ class MoonrakerHost:
             # Unpack any dev vars that might exist
             DevLocalServerAddress_CanBeNone = self.GetDevConfigStr(devConfig_CanBeNone, "LocalServerAddress")
             if DevLocalServerAddress_CanBeNone is not None:
-                self.Logger.warning("~~~ Using Local Dev Server Address: %s ~~~", DevLocalServerAddress_CanBeNone)
+                Sentry.Warn("Host", "~~~ Using Local Dev Server Address: %s ~~~" % DevLocalServerAddress_CanBeNone)
 
             # Init the mdns client
-            MDns.Init(self.Logger, localStorageDir)
+            MDns.Init(localStorageDir)
 
             # Allow the UI injector to run and do it's thing.
-            UiInjector.Init(self.Logger, repoRoot)
+            UiInjector.Init(repoRoot)
 
             # Setup the database helper
-            self.MoonrakerDatabase = MoonrakerDatabase(self.Logger, printerId, pluginVersionStr)
+            self.MoonrakerDatabase = MoonrakerDatabase(printerId, pluginVersionStr)
 
             # Setup app storage
             moonrakerAppStorage = MoonrakerAppStorage(self.MoonrakerDatabase)
             AppStorageHelper.Init(moonrakerAppStorage)
 
             # Setup the credential manager.
-            MoonrakerCredentialManager.Init(self.Logger, moonrakerConfigFilePath, isObserverMode)
+            MoonrakerCredentialManager.Init(moonrakerConfigFilePath, isObserverMode)
 
             # Setup the http requester. We default to port 80 and assume the frontend can be found there.
             # TODO - parse nginx to see what front ends exist and make them switchable
             # TODO - detect HTTPS port if 80 is not bound.
             frontendPort = self.Config.GetInt(Config.RelaySection, Config.RelayFrontEndPortKey, 80)
-            self.Logger.info("Setting up relay with frontend port %s", str(frontendPort))
+            Sentry.Info("Host", "Setting up relay with frontend port %s" % str(frontendPort))
             OctoHttpRequest.SetLocalHttpProxyPort(frontendPort)
             OctoHttpRequest.SetLocalHttpProxyIsHttps(False)
             OctoHttpRequest.SetLocalOctoPrintPort(frontendPort)
@@ -136,29 +133,26 @@ class MoonrakerHost:
             if isObserverMode:
                 (ipOrHostnameStr, portStr) = ObserverConfigFile.Get().TryToGetIpAndPortStr()
                 if ipOrHostnameStr is None or portStr is None:
-                    self.Logger.error("We are in observer mode but we can't get the ip and port from the observer config file.")
+                    Sentry.Error("Host", "We are in observer mode but we can't get the ip and port from the observer config file.")
                     raise Exception("Failed to read observer config file.")
                 OctoHttpRequest.SetLocalHostAddress(ipOrHostnameStr)
                 # TODO - this could be an host name, not an IP. That might be a problem?
                 LocalIpHelper.SetLocalIpOverride(ipOrHostnameStr)
 
             # Setup the snapshot helper
-            self.MoonrakerWebcamHelper = MoonrakerWebcamHelper(self.Logger, self.Config)
-            WebcamHelper.Init(self.Logger, self.MoonrakerWebcamHelper)
+            self.MoonrakerWebcamHelper = MoonrakerWebcamHelper(self.Config)
+            WebcamHelper.Init(self.MoonrakerWebcamHelper)
 
             # Setup our smart pause helper
-            SmartPause.Init(self.Logger)
+            SmartPause.Init()
 
             # When everything is setup, start the moonraker client object.
             # This also creates the Notifications Handler and Gadget objects.
             # This doesn't start the moon raker connection, we don't do that until OE connects.
-            MoonrakerClient.Init(self.Logger, isObserverMode, moonrakerConfigFilePath, observerConfigFilePath, printerId, self, pluginVersionStr, self.MoonrakerDatabase)
+            MoonrakerClient.Init(isObserverMode, moonrakerConfigFilePath, observerConfigFilePath, printerId, self, pluginVersionStr, self.MoonrakerDatabase)
 
             # Init our file meta data cache helper
-            FileMetadataCache.Init(self.Logger, MoonrakerClient.Get())
-
-            # Setup the command handler
-            CommandHandler.Init(MoonrakerClient.Get().GetNotificationHandler(), MoonrakerCommandHandler(self.Logger))
+            FileMetadataCache.Init(MoonrakerClient.Get())
 
             # If we have a local dev server, set it in the notification handler.
             if DevLocalServerAddress_CanBeNone is not None:
@@ -166,7 +160,7 @@ class MoonrakerHost:
                 MoonrakerClient.Get().GetNotificationHandler().SetGadgetServerProtocolAndDomain("http://"+DevLocalServerAddress_CanBeNone)
 
             # Setup the moonraker config handler
-            MoonrakerWebRequestResponseHandler.Init(self.Logger)
+            MoonrakerWebRequestResponseHandler.Init()
 
             # Setup the moonraker API router
             # MoonrakerApiRouter.Init(self.Logger)
@@ -178,9 +172,9 @@ class MoonrakerHost:
 
         # Allow the loggers to flush before we exit
         try:
-            self.Logger.info("###########################")
-            self.Logger.info("#### OctoApp Exiting ######")
-            self.Logger.info("###########################")
+            Sentry.Info("Host", "###########################")
+            Sentry.Info("Host", "#### OctoApp Exiting ######")
+            Sentry.Info("Host", "###########################")
             logging.shutdown()
         except Exception as e:
             print("Exception in logging.shutdown "+str(e))
@@ -193,22 +187,22 @@ class MoonrakerHost:
         printerId = self.GetPrinterId()
         if HostCommon.IsPrinterIdValid(printerId) is False:
             if printerId is None:
-                self.Logger.info("No printer id was found, generating one now!")
+                Sentry.Info("Host", "No printer id was found, generating one now!")
                 # If there is no printer id, we consider this the first run.
                 isFirstRun = True
             else:
-                self.Logger.info("An invalid printer id was found [%s], regenerating!", str(printerId))
+                Sentry.Info("Host", "An invalid printer id was found [%s], regenerating!" % str(printerId))
 
             # Make a new, valid, key
             printerId = HostCommon.GeneratePrinterId()
 
             # Save it
             self.Secrets.SetPrinterId(printerId)
-            self.Logger.info("New printer id created: %s", printerId)
+            Sentry.Info("Host", "New printer id created: %s" % printerId)
 
         # If this is the first run, do other stuff as well.
         if isFirstRun:
-            SystemConfigManager.EnsureAllowedServicesFile(self.Logger, klipperConfigDir, serviceName)
+            SystemConfigManager.EnsureAllowedServicesFile(klipperConfigDir, serviceName)
 
 
     # Returns None if no printer id has been set.
@@ -237,22 +231,22 @@ class MoonrakerHost:
     # # StatusChangeHandler Interface - Called by the OctoApp logic when the server connection has been established.
     # #
     # def OnPrimaryConnectionEstablished(self, octoKey, connectedAccounts):
-    #     self.Logger.info("Primary Connection To OctoApp Established - We Are Ready To Go!")
+    #     Sentry.Info("Host", "Primary Connection To OctoApp Established - We Are Ready To Go!")
 
     #     # Check if this printer is unlinked, if so add a message to the log to help the user setup the printer if desired.
     #     # This would be if the skipped the printer link or missed it in the setup script.
     #     if connectedAccounts is None or len(connectedAccounts) == 0:
-    #         self.Logger.warning("")
-    #         self.Logger.warning("")
-    #         self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-    #         self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-    #         self.Logger.warning("          This Plugin Isn't Connected To OctoApp!          ")
-    #         self.Logger.warning(" Use the following link to finish the setup and get remote access:")
-    #         self.Logger.warning(" %s", HostCommon.GetAddPrinterUrl(self.GetPrinterId(), False))
-    #         self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-    #         self.Logger.warning("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-    #         self.Logger.warning("")
-    #         self.Logger.warning("")
+    #         Sentry.Warn("Host", "")
+    #         Sentry.Warn("Host", "")
+    #         Sentry.Warn("Host", "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    #         Sentry.Warn("Host", "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    #         Sentry.Warn("Host", "          This Plugin Isn't Connected To OctoApp!          ")
+    #         Sentry.Warn("Host", " Use the following link to finish the setup and get remote access:")
+    #         Sentry.Warn("Host", " %s", HostCommon.GetAddPrinterUrl(self.GetPrinterId(), False))
+    #         Sentry.Warn("Host", "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    #         Sentry.Warn("Host", "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    #         Sentry.Warn("Host", "")
+    #         Sentry.Warn("Host", "")
 
     #     # Now that we are connected, start the moonraker client.
     #     # We do this after the connection incase it needs to send any notifications or messages when starting.
@@ -263,8 +257,8 @@ class MoonrakerHost:
     # StatusChangeHandler Interface - Called by the OctoApp logic when a plugin update is required for this client.
     #
     def OnPluginUpdateRequired(self):
-        self.Logger.error("!!! A Plugin Update Is Required -- If This Plugin Isn't Updated It Might Stop Working !!!")
-        self.Logger.error("!!! Please use the update manager in Mainsail of Fluidd to update this plugin         !!!")
+        Sentry.Error("Host", "!!! A Plugin Update Is Required -- If This Plugin Isn't Updated It Might Stop Working !!!")
+        Sentry.Error("Host", "!!! Please use the update manager in Mainsail of Fluidd to update this plugin         !!!")
 
 
     #

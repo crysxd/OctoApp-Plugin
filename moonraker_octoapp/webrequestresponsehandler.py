@@ -24,18 +24,14 @@ class MoonrakerWebRequestResponseHandler:
 
 
     @staticmethod
-    def Init(logger:logging.Logger):
-        MoonrakerWebRequestResponseHandler._Instance = MoonrakerWebRequestResponseHandler(logger)
+    def Init():
+        MoonrakerWebRequestResponseHandler._Instance = MoonrakerWebRequestResponseHandler()
         Compat.SetWebRequestResponseHandler(MoonrakerWebRequestResponseHandler._Instance)
 
 
     @staticmethod
     def Get():
         return MoonrakerWebRequestResponseHandler._Instance
-
-
-    def __init__(self, logger:logging.Logger):
-        self.Logger = logger
 
 
     # !! Interface Function !! This implementation must not change!
@@ -68,7 +64,7 @@ class MoonrakerWebRequestResponseHandler:
             elif contextObject.Type == ResponseHandlerContext.CameraStreamerWebRTCSdp:
                 return self._HandleWebRtcSdpResponse(bodyBuffer)
             else:
-                self.Logger.Error("MoonrakerWebRequestResponseHandler tired to handle a context with an unknown Type? "+str(contextObject.Type))
+                Sentry.Error("Web request", "MoonrakerWebRequestResponseHandler tired to handle a context with an unknown Type? "+str(contextObject.Type))
         except Exception as e:
             Sentry.Exception("MainsailConfigHandler exception while handling mainsail config.", e)
         return bodyBuffer

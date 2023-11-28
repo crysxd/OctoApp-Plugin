@@ -57,8 +57,8 @@ class WebcamHelper:
 
 
     @staticmethod
-    def Init(logger:logging.Logger, webcamPlatformHelperInterface):
-        WebcamHelper._Instance = WebcamHelper(logger, webcamPlatformHelperInterface)
+    def Init(webcamPlatformHelperInterface):
+        WebcamHelper._Instance = WebcamHelper(webcamPlatformHelperInterface)
 
 
     @staticmethod
@@ -66,8 +66,7 @@ class WebcamHelper:
         return WebcamHelper._Instance
 
 
-    def __init__(self, logger:logging.Logger, webcamPlatformHelperInterface):
-        self.Logger = logger
+    def __init__(self, webcamPlatformHelperInterface):
         self.WebcamPlatformHelperInterface = webcamPlatformHelperInterface
 
 
@@ -193,7 +192,7 @@ class WebcamHelper:
             # Use use this HTTP call helper system because it might be somewhat tricky to know
             # Where to actually make the webcam request in terms of IP and port.
             # We use the allow redirects flag to make the API more robust, since some webcam images might need that.
-            self.Logger.debug("Trying to get a snapshot using url: %s", snapshotUrl)
+            Sentry.Debug("Webcam Helper", "Trying to get a snapshot using url: %s" % snapshotUrl)
             octoHttpResult = OctoHttpRequest.MakeHttpCall(self.Logger, snapshotUrl, OctoHttpRequest.GetPathType(snapshotUrl), "GET", {}, allowRedirects=True)
             # If the result was successful, we are done.
             if octoHttpResult is not None and octoHttpResult.Result is not None and octoHttpResult.Result.status_code == 200:
@@ -202,7 +201,7 @@ class WebcamHelper:
         # If getting the snapshot from the snapshot URL fails, try getting a single frame from the mjpeg stream
         streamUrl = self.GetWebcamStreamUrl()
         if streamUrl is None:
-            self.Logger.debug("Snapshot helper failed to get a snapshot from the snapshot URL, but we also don't have a stream URL.")
+            Sentry.Debug("Webcam Helper", "Snapshot helper failed to get a snapshot from the snapshot URL, but we also don't have a stream URL.")
             return None
         return self._GetSnapshotFromStream(streamUrl)
 
@@ -212,19 +211,19 @@ class WebcamHelper:
             # Try to connect the the mjpeg stream using the http helper class.
             # This is required because knowing the port to connect to might be tricky.
             # We use the allow redirects flag to make the API more robust, since some webcam images might need that.
-            self.Logger.debug("_GetSnapshotFromStream - Trying to get a snapshot using THE STREAM URL: %s", url)
+            Sentry.Debug("Webcam Helper", "_GetSnapshotFromStream - Trying to get a snapshot using THE STREAM URL: %s" % url)
             octoHttpResult = OctoHttpRequest.MakeHttpCall(self.Logger, url, OctoHttpRequest.GetPathType(url), "GET", {}, allowRedirects=True)
             if octoHttpResult is None or octoHttpResult.Result is None:
-                self.Logger.debug("_GetSnapshotFromStream - Failed to make web request.")
+                Sentry.Debug("Webcam Helper", "_GetSnapshotFromStream - Failed to make web request.")
                 return None
 
             # Check for success.
             response = octoHttpResult.Result
             if response is None or response.status_code != 200:
                 if response is None:
-                    self.Logger.info("Snapshot fallback failed due to the http call having no response object.")
+                    Sentry.Info("Webcam Helper", "Snapshot fallback failed due to the http call having no response object.")
                 else:
-                    self.Logger.info("Snapshot fallback failed due to the http call having a bad status: "+str(response.status_code))
+                    Sentry.Info("Webcam Helper", "Snapshot fallback failed due to the http call having a bad status: "+str(response.status_code))
                 return None
 
             # Hold the entire response in a with block, so that we we leave it will be cleaned up, since it's most likely a streaming stream.
@@ -242,14 +241,14 @@ class WebcamHelper:
 
                 # If this isn't a multipart stream, get out of here.
                 if isMultipartStream is False:
-                    self.Logger.info("Snapshot fallback failed not correct content type: "+str(contentTypeLower))
+                    Sentry.Info("Webcam Helper", "Snapshot fallback failed not correct content type: "+str(contentTypeLower))
                     return None
 
                 # Try to read some of the stream, so we can find the content type and the size of this first frame.
                 # We use the raw response, so we can control directly how much we read.
                 dataBuffer = response.raw.read(300)
                 if dataBuffer is None:
-                    self.Logger.info("Snapshot fallback failed no data returned.")
+                    Sentry.Info("Webcam Helper", "Snapshot fallback failed no data returned.")
                     return None
 
                 # Decode the headers
@@ -263,7 +262,7 @@ class WebcamHelper:
                 endOfHeaderMatch = "\r\n"
                 headerStrSize = headerStr.find(endOfAllHeadersMatch)
                 if headerStrSize == -1:
-                    self.Logger.info("Snapshot fallback failed no end of headers found.")
+                    Sentry.Info("Webcam Helper", "Snapshot fallback failed no end of headers found.")
                     return None
 
                 # Add 4 bytes for the \r\n\r\n end of header sequence.
@@ -289,11 +288,11 @@ class WebcamHelper:
 
                 if frameSizeInt == 0 or contentType is None:
                     if frameSizeInt == 0:
-                        self.Logger.info("Snapshot fallback failed to find frame size.")
+                        Sentry.Info("Webcam Helper", "Snapshot fallback failed to find frame size.")
                     if contentType is None:
-                        self.Logger.info("Snapshot fallback failed to find the content type.")
+                        Sentry.Info("Webcam Helper", "Snapshot fallback failed to find the content type.")
                     return None
-                self.Logger.debug("Image found in webcam stream. Size: %s, Type: %s", str(frameSizeInt), str(contentType))
+                Sentry.Debug("Webcam Helper", "Image found in webcam stream. Size: %s, Type: %s" % (str(frameSizeInt), str(contentType)))
 
                 # Read the entire first image into the buffer.
                 totalDesiredBufferSize = frameSizeInt + headerStrSize
@@ -301,7 +300,7 @@ class WebcamHelper:
                 if toRead > 0:
                     data = response.raw.read(toRead)
                     if data is None:
-                        self.Logger.error("_GetSnapshotFromStream failed to read the rest of the image buffer.")
+                        Sentry.Error("Webcam Helper", "_GetSnapshotFromStream failed to read the rest of the image buffer.")
                         return None
                     dataBuffer += data
 
@@ -319,13 +318,13 @@ class WebcamHelper:
 
                 # Check we got what we wanted.
                 if len(dataBuffer) != totalDesiredBufferSize:
-                    self.Logger.warn("Snapshot callback failed, the data read loop didn't produce the expected data size. desired: "+str(totalDesiredBufferSize)+", got: "+str(len(dataBuffer)))
+                    Sentry.Error("Webcam Helper", "Snapshot callback failed, the data read loop didn't produce the expected data size. desired: "+str(totalDesiredBufferSize)+", got: "+str(len(dataBuffer)))
                     return None
 
                 # Get only the jpeg buffer
                 imageBuffer = dataBuffer[headerStrSize:]
                 if len(imageBuffer) != frameSizeInt:
-                    self.Logger.warn("Snapshot callback final image size was not the frame size. expected: "+str(frameSizeInt)+", got: "+str(len(imageBuffer)))
+                    Sentry.Error("Webcam Helper", "Snapshot callback final image size was not the frame size. expected: "+str(frameSizeInt)+", got: "+str(len(imageBuffer)))
 
                 # If successful, we will use the already existing response object but update the values to match the fixed size body and content type.
                 response.status_code = 200
@@ -336,13 +335,13 @@ class WebcamHelper:
                 # It's very important this size matches the body buffer we give OctoHttpRequest, or the logic in the http loop will fail because it will keep trying to read more.
                 response.headers["content-length"] = str(len(imageBuffer))
                 # Return a result. Return the full image buffer which will be used as the response body.
-                self.Logger.debug("Successfully got image from stream URL. Size: %s, Format: %s", str(len(imageBuffer)), contentType)
+                Sentry.Debug("Webcam Helper", "Successfully got image from stream URL. Size: %s, Format: %s" % (str(len(imageBuffer)), contentType))
                 return OctoHttpRequest.Result(response, url, True, imageBuffer)
         except ConnectionError as e:
             # We have a lot of telemetry indicating a read timeout can happen while trying to read from the stream
             # in that case we should just get out of here.
             if "Read timed out" in str(e):
-                self.Logger.debug("_GetSnapshotFromStream got a timeout while reading the stream.")
+                Sentry.Debug("Webcam Helper", "_GetSnapshotFromStream got a timeout while reading the stream.")
                 return None
             else:
                 Sentry.Exception("Failed to get fallback snapshot due to ConnectionError", e)
@@ -364,7 +363,7 @@ class WebcamHelper:
                 for i in a:
                     if i.Name.lower() == cameraNameLower:
                         return i
-                self.Logger.warn(f"_GetWebcamSettingObj asked for {cameraName} but we didn't find it.")
+                Sentry.Error("Webcam Helper", f"_GetWebcamSettingObj asked for {cameraName} but we didn't find it.")
             return a[0]
         except Exception as e:
             Sentry.Exception("WebcamHelper _GetWebcamSettingObj exception.", e)
@@ -424,7 +423,7 @@ class WebcamHelper:
         # The GetSnapshot API will always return the fully buffered snapshot.
         buf = RequestsUtils.ReadAllContentFromStreamResponse(octoHttpResult.Result)
         if buf is None:
-            self.Logger.error("_EnsureJpegHeaderInfo got a null body read from ReadAllContentFromStreamResponse")
+            Sentry.Error("Webcam Helper", "_EnsureJpegHeaderInfo got a null body read from ReadAllContentFromStreamResponse")
             return None
         # Set the buffer now, incase of early returns.
         octoHttpResult.SetFullBodyBuffer(buf)
@@ -447,17 +446,17 @@ class WebcamHelper:
             while pos < bufLen:
                 # Ensure we have room and sanity check the buffer headers.
                 if pos + 1 >= bufLen:
-                    self.Logger.warn("Ran out of buffer before we found a jpeg APP0 header")
+                    Sentry.Error("Webcam Helper", "Ran out of buffer before we found a jpeg APP0 header")
                     return octoHttpResult
                 if buf[pos] != 0xFF:
-                    self.Logger.error("jpeg segment header didn't start with 0xff")
+                    Sentry.Error("Webcam Helper", "jpeg segment header didn't start with 0xff")
                     return octoHttpResult
 
                 # The first byte is always FF, so we only care about the second.
                 segmentType = buf[pos+1]
                 if segmentType == 0xDA:
                     # This is the start of the image, the headers are over.
-                    self.Logger.debug("We found the start of the jpeg image before we found the APP0 header.")
+                    Sentry.Debug("Webcam Helper", "We found the start of the jpeg image before we found the APP0 header.")
                     return octoHttpResult
                 elif segmentType == 0xE0:
                     # This is the APP0 header.
@@ -513,7 +512,7 @@ class WebcamHelper:
             return octoHttpResult
 
         # If we fall out of the while loop,
-        self.Logger.debug("_EnsureJpegHeaderInfo excited the while loop without finding the app0 header.")
+        Sentry.Debug("Webcam Helper", "_EnsureJpegHeaderInfo excited the while loop without finding the app0 header.")
         return octoHttpResult
 
 

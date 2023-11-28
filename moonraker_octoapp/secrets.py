@@ -3,7 +3,7 @@ import threading
 import logging
 
 import configparser
-
+from octoapp.sentry import Sentry
 from .config import Config
 
 # This class is very similar to the config class, but since the klipper config files are often backup
@@ -25,8 +25,7 @@ class Secrets:
     ]
 
 
-    def __init__(self, logger:logging.Logger, octoAppStoragePath:str, config:Config) -> None:
-        self.Logger = logger
+    def __init__(self, octoAppStoragePath:str, config:Config) -> None:
 
         # Note this path and name MUST STAY THE SAME because the installer PY script looks for this file.
         self.SecretFilePath = os.path.join(octoAppStoragePath, "octoapp.secrets")
@@ -77,9 +76,9 @@ class Secrets:
         if configPrinterId is not None:
             currentPrinterId = self.GetPrinterId()
             if currentPrinterId is not None:
-                self.Logger.error(f"!! A printer ID was found in the config file but there's already one set in the secrets file? config:{configPrinterId}, secrets:{currentPrinterId}")
+                Sentry.Error("Secrets", f"!! A printer ID was found in the config file but there's already one set in the secrets file? config:{configPrinterId}, secrets:{currentPrinterId}")
             else:
-                self.Logger.info("Old printer id found in config file, moving to the secrets file.")
+                Sentry.Info("Secrets", "Old printer id found in config file, moving to the secrets file.")
                 # Save into our file first, this will throw if there's a problem
                 self.SetPrinterId(configPrinterId)
                 # Setting the value to None will delete the key.
@@ -87,9 +86,9 @@ class Secrets:
         if configPrivateKey is not None:
             currentPrivateKey = self.GetPrivateKey()
             if currentPrivateKey is not None:
-                self.Logger.error("!! A private key was found in the config file but there's already one set in the secrets file?")
+                Sentry.Error("Secrets", "!! A private key was found in the config file but there's already one set in the secrets file?")
             else:
-                self.Logger.info("Old private key found in config file, moving to the secrets file.")
+                Sentry.Info("Secrets", "Old private key found in config file, moving to the secrets file.")
                 # Save into our file first, this will throw if there's a problem
                 self.SetPrivateKey(configPrivateKey)
                 # Setting the value to None will delete the key.

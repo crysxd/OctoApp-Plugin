@@ -1,5 +1,4 @@
 import json
-import logging
 
 from octoapp.sentry import Sentry
 from octoapp.appsstorage import AppInstance
@@ -9,24 +8,23 @@ from .moonrakerclient import MoonrakerClient
 # Implements logic that deals with the moonraker database.
 class MoonrakerDatabase:
 
-    def __init__(self, logger:logging.Logger, printerId:str, pluginVersion:str) -> None:
-        self.Logger = logger
+    def __init__(self, printerId:str, pluginVersion:str) -> None:
         self.PrinterId = printerId
         self.PluginVersion = pluginVersion
 
     def GetAppsEntry(self):
-        self.Logger.info("Getting apps")
+        Sentry.Info("Database", "Getting apps")
         result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.get_item",
         {
             "namespace": "octoapp",
             "key": "apps",
         })
         if result.GetErrorCode() == 404 or result.GetErrorCode() == -32601:
-            self.Logger.error("No apps set")
+            Sentry.Error("Database", "No apps set")
             return []
 
         if result.HasError():
-            self.Logger.error("Ensure database entry item post failed. "+result.GetLoggingErrorStr())
+            Sentry.Error("Database", "Ensure database entry item post failed. "+result.GetLoggingErrorStr())
             raise Exception("Unable to fetch apps: %s" % result.GetLoggingErrorStr())
 
         out = []
@@ -52,15 +50,15 @@ class MoonrakerDatabase:
             return mainsailResult.GetResult()["value"]
 
         if mainsailResult.HasError() is False & mainsailResult.GetErrorCode() != 404 or mainsailResult.GetErrorCode() != -3260:
-            self.Logger.error("Failed to load Mainsail printer name"+mainsailResult.GetLoggingErrorStr())
+            Sentry.Error("Database", "Failed to load Mainsail printer name"+mainsailResult.GetLoggingErrorStr())
 
         if fluiddResult.HasError() is False & fluiddResult.GetErrorCode() != 404 or fluiddResult.GetErrorCode() != -3260:
-            self.Logger.error("Failed to load Fluidd printer name"+fluiddResult.GetLoggingErrorStr())
+            Sentry.Error("Database", "Failed to load Fluidd printer name"+fluiddResult.GetLoggingErrorStr())
 
         return "Klipper"
 
     def RemoveAppEntries(self, apps: []):
-        self.Logger.info("Removing apps: %s" % apps)
+        Sentry.Info("Database", "Removing apps: %s" % apps)
 
         for appId in apps:
             result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.delete_item",
@@ -69,7 +67,7 @@ class MoonrakerDatabase:
                 "key": "apps.%s" % appId,
             })
             if result.HasError():
-                self.Logger.error("Unable to remove app %s: %s" % (appId, result.GetLoggingErrorStr()))
+                Sentry.Error("Database", "Unable to remove app %s: %s" % (appId, result.GetLoggingErrorStr()))
 
 
     def EnsureOctoAppDatabaseEntry(self):
@@ -85,16 +83,16 @@ class MoonrakerDatabase:
             "value": self.PluginVersion
         })
         if result.HasError():
-            self.Logger.error("Ensure database entry item plugin version failed. "+result.GetLoggingErrorStr())
+            Sentry.Error("Database", "Ensure database entry item plugin version failed. "+result.GetLoggingErrorStr())
             return
-        self.Logger.debug("Ensure database items posted successfully.")
+        Sentry.Debug("Database", "Ensure database items posted successfully.")
 
 
     def _Debug_EnumerateDataBase(self):
         try:
             result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.list")
             if result.HasError():
-                self.Logger.error("_Debug_EnumerateDataBase failed to list. "+result.GetLoggingErrorStr())
+                Sentry.Error("Database", "_Debug_EnumerateDataBase failed to list. "+result.GetLoggingErrorStr())
                 return
             nsList = result.GetResult()["namespaces"]
             for n in nsList:
@@ -103,8 +101,8 @@ class MoonrakerDatabase:
                         "namespace": n
                     })
                 if result.HasError():
-                    self.Logger.error("_Debug_EnumerateDataBase failed to get items for "+n+". "+result.GetLoggingErrorStr())
+                    Sentry.Error("Database", "_Debug_EnumerateDataBase failed to get items for "+n+". "+result.GetLoggingErrorStr())
                     return
-                self.Logger.debug("Database namespace "+n+" : "+json.dumps(result.GetResult(), indent=4, separators=(", ", ": ")))
+                Sentry.Debug("Database", "Database namespace "+n+" : "+json.dumps(result.GetResult(), indent=4, separators=(", ", ": ")))
         except Exception as e:
             Sentry.Exception("_Debug_EnumerateDataBase exception.", e)

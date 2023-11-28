@@ -63,8 +63,8 @@ class MoonrakerClient:
 
 
     @staticmethod
-    def Init(logger, isObserverMode:bool, moonrakerConfigFilePath:str, observerConfigPath:str, printerId, connectionStatusHandler, pluginVersionStr, moonrakerDatabase):
-        MoonrakerClient._Instance = MoonrakerClient(logger, isObserverMode, moonrakerConfigFilePath, observerConfigPath, printerId, connectionStatusHandler, pluginVersionStr, moonrakerDatabase)
+    def Init(isObserverMode:bool, moonrakerConfigFilePath:str, observerConfigPath:str, printerId, connectionStatusHandler, pluginVersionStr, moonrakerDatabase):
+        MoonrakerClient._Instance = MoonrakerClient(isObserverMode, moonrakerConfigFilePath, observerConfigPath, printerId, connectionStatusHandler, pluginVersionStr, moonrakerDatabase)
 
 
     @staticmethod
@@ -72,8 +72,7 @@ class MoonrakerClient:
         return MoonrakerClient._Instance
 
 
-    def __init__(self, logger:logging.Logger, isObserverMode:bool, moonrakerConfigFilePath:str, observerConfigPath:str, printerId:str, connectionStatusHandler, pluginVersionStr:str, moonrakerDatabase) -> None:
-        self.Logger = logger
+    def __init__(self, isObserverMode:bool, moonrakerConfigFilePath:str, observerConfigPath:str, printerId:str, connectionStatusHandler, pluginVersionStr:str, moonrakerDatabase) -> None:
         self.IsObserverMode = isObserverMode
         self.MoonrakerConfigFilePath = moonrakerConfigFilePath
         self.ObserverConfigPath = observerConfigPath
@@ -89,7 +88,7 @@ class MoonrakerClient:
         self.JsonRpcWaitingContexts = {}
 
         # Setup the Moonraker compat helper object.
-        self.MoonrakerCompat = MoonrakerCompat(self.Logger, printerId)
+        self.MoonrakerCompat = MoonrakerCompat(printerId)
 
         # Setup the non response message thread
         # See _NonResponseMsgQueueWorker to why this is needed.
@@ -128,11 +127,11 @@ class MoonrakerClient:
         # Ensure we have a file. For now, this is required.
         if self.IsObserverMode:
             if os.path.exists(self.ObserverConfigPath) is False:
-                self.Logger.error("Moonraker client failed to find a observer config. Re-run the ./install.sh script from the OctoApp repo to update the path.")
+                Sentry.Error("Client", "Moonraker client failed to find a observer config. Re-run the ./install.sh script from the OctoApp repo to update the path.")
                 raise Exception("No observer config file found")
         else:
             if os.path.exists(self.MoonrakerConfigFilePath) is False:
-                self.Logger.error("Moonraker client failed to find a moonraker config. Re-run the ./install.sh script from the OctoApp repo to update the path.")
+                Sentry.Error("Client", "Moonraker client failed to find a moonraker config. Re-run the ./install.sh script from the OctoApp repo to update the path.")
                 raise Exception("No config file found")
 
         # Get the values.
@@ -153,13 +152,13 @@ class MoonrakerClient:
             if Compat.IsObserverMode():
                 ip, portStr = ObserverConfigFile.Get().TryToGetIpAndPortStr()
                 if ip is None or portStr is None:
-                    self.Logger.error("Failed to get observer moonraker details from observer config.")
+                    Sentry.Error("Client", "Failed to get observer moonraker details from observer config.")
                     return (currentHostStr, currentPortInt)
                 return (ip, int(portStr))
 
             # Ensure we have a file.
             if os.path.exists(self.MoonrakerConfigFilePath) is False:
-                self.Logger.error("GetMoonrakerHostAndPortFromConfig failed to find moonraker config file.")
+                Sentry.Error("Client", "GetMoonrakerHostAndPortFromConfig failed to find moonraker config file.")
                 return (currentHostStr, currentPortInt)
 
             # Open and read the config.
@@ -168,7 +167,7 @@ class MoonrakerClient:
 
             # We have found that some users don't have a [server] block, so if they don't, return the defaults.
             if "server" not in moonrakerConfig:
-                self.Logger.info("No server block found in the moonraker config, so we are returning the defaults. Host:"+currentHostStr+" Port:"+str(currentPortInt))
+                Sentry.Info("Client", "No server block found in the moonraker config, so we are returning the defaults. Host:"+currentHostStr+" Port:"+str(currentPortInt))
                 return (currentHostStr, currentPortInt)
 
             # Otherwise, parse the host and port, if they exist.
@@ -223,9 +222,9 @@ class MoonrakerClient:
 
             # Try to send. default=str makes the json dump use the str function if it fails to serialize something.
             jsonStr = json.dumps(obj, default=str)
-            self.Logger.debug("Moonraker RPC Request - "+str(msgId)+" : "+method+" "+jsonStr)
+            Sentry.Debug("Client", "Moonraker RPC Request - "+str(msgId)+" : "+method+" "+jsonStr)
             if self._WebSocketSend(jsonStr) is False:
-                self.Logger.info("Moonraker client failed to send JsonRPC request "+method)
+                Sentry.Info("Client", "Moonraker client failed to send JsonRPC request "+method)
                 return JsonRpcResponse(None, JsonRpcResponse.OE_ERROR_WS_NOT_CONNECTED)
 
             # Wait for a response
@@ -234,7 +233,7 @@ class MoonrakerClient:
             # Check if we got a result.
             result = waitContext.GetResult()
             if result is None:
-                self.Logger.info("Moonraker client timeout while waiting for request. "+str(id)+" "+method)
+                Sentry.Info("Client", "Moonraker client timeout while waiting for request. "+str(id)+" "+method)
                 return JsonRpcResponse(None, JsonRpcResponse.OE_ERROR_TIMEOUT)
 
             # Check for an error if found, return the error state.
@@ -253,7 +252,7 @@ class MoonrakerClient:
                 return JsonRpcResponse(result["result"])
 
             # Finally, both are missing?
-            self.Logger.error("Moonraker client json rpc got a response that didn't have an error or result object? "+json.dumps(result))
+            Sentry.Error("Client", "Moonraker client json rpc got a response that didn't have an error or result object? "+json.dumps(result))
             return JsonRpcResponse(None, JsonRpcResponse.OE_ERROR_EXCEPTION, "No result or error object")
 
         except Exception as e:
@@ -275,15 +274,15 @@ class MoonrakerClient:
             # Note that in the past we waited for klippy ready, but that doesn't really make sense because a lot of apis like db and such don't care.
             # Any api that needs klippy to be ready will fail with an error anyways.
             if self.WebSocketConnected is False:
-                self.Logger.info("Moonraker client - tired to send a websocket message when the socket wasn't open.")
+                Sentry.Info("Client", "Moonraker client - tired to send a websocket message when the socket wasn't open.")
                 return False
             localWs = self.WebSocket
             if localWs is None:
-                self.Logger.info("Moonraker client - tired to send a websocket message before the websocket was created.")
+                Sentry.Info("Client", "Moonraker client - tired to send a websocket message before the websocket was created.")
                 return False
 
             # Print for debugging.
-            self.Logger.debug("Ws ->: "+jsonStr)
+            Sentry.Debug("Client WS", "-> %s" % jsonStr)
 
             # Send under lock.
             try:
@@ -298,7 +297,7 @@ class MoonrakerClient:
     # At this point, we should setup anything we need to do and sync any state required.
     # This is called on a background thread, so we can block this.
     def _OnWsOpenAndKlippyReady(self):
-        self.Logger.info("Moonraker client setting up default notification hooks")
+        Sentry.Info("Client", "Moonraker client setting up default notification hooks")
         # First, we need to setup our notification subs
         # https://moonraker.readthedocs.io/en/latest/web_api/#subscribe-to-printer-object-status
         # https://moonraker.readthedocs.io/en/latest/printer_objects/
@@ -318,7 +317,7 @@ class MoonrakerClient:
 
         # Verify success.
         if result.HasError():
-            self.Logger.error("Failed to setup moonraker notification subs. "+result.GetLoggingErrorStr())
+            Sentry.Error("Client", "Failed to setup moonraker notification subs. "+result.GetLoggingErrorStr())
             self._RestartWebsocket()
             return
 
@@ -334,7 +333,7 @@ class MoonrakerClient:
     def _OnWsNonResponseMessage(self, msg:str):
         # Get the common method string
         if "method" not in msg:
-            self.Logger.warn("Moonraker WS message received with no method "+json.dumps(msg))
+            Sentry.Warn("Client", "Moonraker WS message received with no method "+json.dumps(msg))
             return
         method = msg["method"].lower()
 
@@ -433,7 +432,7 @@ class MoonrakerClient:
 
 
     def RunBlocking(self):
-        self.Logger.info("Moonraker client starting websocket connection thread.")
+        Sentry.Info("Client", "Moonraker client starting websocket connection thread.")
         while True:
             try:
                 # Every time we connect, call the function to update the host and port if required.
@@ -443,7 +442,7 @@ class MoonrakerClient:
 
                 # Create a websocket client and start it connecting.
                 url = "ws://"+self.MoonrakerHostAndPort+"/websocket"
-                self.Logger.info("Connecting to moonraker: "+url)
+                Sentry.Info("Client", "Connecting to moonraker: "+url)
                 with self.WebSocketLock:
                     self.WebSocket = Client(url,
                                     self._OnWsOpened,
@@ -460,7 +459,7 @@ class MoonrakerClient:
                 Sentry.Exception("Moonraker client exception in main WS loop.", e)
 
             # Inform that we lost the connection.
-            self.Logger.info("Moonraker client websocket connection lost. We will try to restart it soon.")
+            Sentry.Info("Client", "Moonraker client websocket connection lost. We will try to restart it soon.")
 
             # Set that the websocket is disconnected.
             with self.WebSocketLock:
@@ -482,12 +481,12 @@ class MoonrakerClient:
     def _AfterOpenReadyWaiter(self, targetWsObjRef):
 
         logCounter = 0
-        self.Logger.info("Moonraker client waiting for klippy ready...")
+        Sentry.Info("Client", "Moonraker client waiting for klippy ready...")
         try:
             # Before we do anything, we need to identify ourselves.
             # This is also how we authorize ourself with the API key, if needed.
             # https://moonraker.readthedocs.io/en/latest/web_api/#identify-connection
-            self.Logger.info("Authenticating with moonraker...")
+            Sentry.Info("Client", "Authenticating with moonraker...")
             params = {
                 "client_name": "OctoApp",
                 "version": self.PluginVersionStr,
@@ -495,7 +494,7 @@ class MoonrakerClient:
                 "url": "https://octoeverywhere.com",
             }
             if self.MoonrakerApiKey is not None:
-                self.Logger.info("API key added to websocket identify message.")
+                Sentry.Info("Client", "API key added to websocket identify message.")
                 params["api_key"] =  self.MoonrakerApiKey
             # Since "server.info" already handles all of the error logic, we don't bother here,
             # since server.info will get the same error anyways. (timeouts, unauthorized, etc.)
@@ -505,13 +504,13 @@ class MoonrakerClient:
             # When the websocket is established and we are authed, so they can use it.
             self.ConnectionStatusHandler.OnMoonrakerWsOpenAndAuthed()
 
-            self.Logger.info("Moonraker client waiting for klippy ready...")
+            Sentry.Info("Client", "Moonraker client waiting for klippy ready...")
             while True:
                 # Ensure we are still using the active websocket. We use this to know if the websocket we are
                 # trying to monitor is gone and the system has started a new one.
                 testWs = self.WebSocket
                 if testWs is None or testWs is not targetWsObjRef:
-                    self.Logger.warn("The target websocket changed while waiting on klippy ready.")
+                    Sentry.Warn("Client", "The target websocket changed while waiting on klippy ready.")
                     return
 
                 # Query the state, use the force flag to make sure we send even though klippy ready is not set.
@@ -521,36 +520,36 @@ class MoonrakerClient:
                 if result.HasError():
                     # Check if the error is Unauthorized, in which case we need to try to get credentials.
                     if result.ErrorCode == -32602 or result.ErrorStr == "Unauthorized":
-                        self.Logger.info("Our websocket connection to moonraker needs auth, trying to get the API key...")
+                        Sentry.Info("Client", "Our websocket connection to moonraker needs auth, trying to get the API key...")
                         self.MoonrakerApiKey = MoonrakerCredentialManager.Get().TryToGetApiKey()
                         if self.MoonrakerApiKey is None:
-                            self.Logger.error("Our websocket connection to moonraker needs auth and we failed to get the API key.")
+                            Sentry.Error("Client", "Our websocket connection to moonraker needs auth and we failed to get the API key.")
                             raise Exception("Websocket unauthorized.")
                         else:
-                            self.Logger.info("Successfully got the API key, restarting the websocket to try again using it.")
+                            Sentry.Info("Client", "Successfully got the API key, restarting the websocket to try again using it.")
                             # Shut down the websocket so we do the reconnect logic.
                             self._RestartWebsocket()
                             return
 
                     # Handle the timeout without throwing, since this happens sometimes when the system is down.
                     if result.ErrorCode == JsonRpcResponse.OE_ERROR_TIMEOUT:
-                        self.Logger.info("Moonraker client failed to send klippy ready query message, it hit a timeout.")
+                        Sentry.Info("Client", "Moonraker client failed to send klippy ready query message, it hit a timeout.")
                         self._RestartWebsocket()
                         return
-                    self.Logger.error("Moonraker client failed to send klippy ready query message. "+result.GetLoggingErrorStr())
+                    Sentry.Error("Client", "Moonraker client failed to send klippy ready query message. "+result.GetLoggingErrorStr())
                     raise Exception("Error returned from klippy state query. "+ str(result.GetLoggingErrorStr()))
 
                 # Check for klippy state
                 resultObj = result.GetResult()
                 if "klippy_state" not in resultObj:
-                    self.Logger.error("Moonraker client got a klippy ready query response, but there was no klippy_state? "+json.dumps(resultObj))
+                    Sentry.Error("Client", "Moonraker client got a klippy ready query response, but there was no klippy_state? "+json.dumps(resultObj))
                     raise Exception("No klippy_state found in result object. "+ str(result.GetLoggingErrorStr()))
 
                 # Handle klippy state
                 state = resultObj["klippy_state"]
                 if state == "ready":
                     # Ready
-                    self.Logger.info("Moonraker client klippy state is ready. Moonraker connection is ready and stable.")
+                    Sentry.Info("Client", "Moonraker client klippy state is ready. Moonraker connection is ready and stable.")
                     with self.WebSocketLock:
                         self.WebSocketKlippyReady = True
                     # Call the connected and ready function, to let anything else do a new connection setup.
@@ -562,13 +561,13 @@ class MoonrakerClient:
                     logCounter += 1
                     # 2 seconds * 150 = one log every 5 minutes. We don't want to log a ton if the printer is offline for a long time.
                     if logCounter % 150 == 1:
-                        self.Logger.info("Moonraker client got klippy state '"+state+"', waiting for ready...")
+                        Sentry.Info("Client", "Moonraker client got klippy state '"+state+"', waiting for ready...")
                     # We need to wait until ready. The doc suggest we wait 2 seconds.
                     time.sleep(2.0)
                     continue
 
                 # Unknown state
-                self.Logger.error(f"Moonraker client is in an unknown klippy waiting state. state '{state}'")
+                Sentry.Error("Client", f"Moonraker client is in an unknown klippy waiting state. state '{state}'")
                 raise Exception(f"Unknown klippy waiting state. {state}")
 
         except Exception as e:
@@ -582,14 +581,14 @@ class MoonrakerClient:
         with self.WebSocketLock:
             if self.WebSocket is None:
                 return
-            self.Logger.info("Moonraker client websocket shutdown called.")
+            Sentry.Info("Client", "Moonraker client websocket shutdown called.")
             self.WebSocket.Close()
-            self.Logger.info("Moonraker client websocket shutdown complete.")
+            Sentry.Info("Client", "Moonraker client websocket shutdown complete.")
 
 
     # Called when the websocket is opened.
     def _OnWsOpened(self, ws):
-        self.Logger.info("Moonraker client websocket opened.")
+        Sentry.Info("Client", "Moonraker client websocket opened.")
 
         # Set that the websocket is open.
         with self.WebSocketLock:
@@ -612,11 +611,11 @@ class MoonrakerClient:
                 method_CanBeNone = msgObj["method"]
 
             # Print for debugging
-            if self.Logger.isEnabledFor(logging.DEBUG):
+            if Sentry.Logger.isEnabledFor(logging.DEBUG):
                 # Exclude this really chatty message.
                 msgStr = msgBytes.decode(encoding="utf-8")
                 if "moonraker_stats" not in msgStr:
-                    self.Logger.debug("Ws <-: %s", msgStr)
+                    Sentry.Debug("Client WS", "<- %s" % msgStr)
 
             # Check if this is a response to a request
             # info: https://moonraker.readthedocs.io/en/latest/web_api/#json-rpc-api-overview
@@ -626,7 +625,7 @@ class MoonrakerClient:
                     if idInt in self.JsonRpcWaitingContexts:
                         self.JsonRpcWaitingContexts[idInt].SetResultAndEvent(msgObj)
                     else:
-                        self.Logger.warn("Moonraker RPC response received for request "+str(idInt) + ", but there is no waiting context.")
+                        Sentry.Warn("Client", "Moonraker RPC response received for request "+str(idInt) + ", but there is no waiting context.")
                     # If once the response is handled, we are done.
                     return
 
@@ -636,7 +635,7 @@ class MoonrakerClient:
             # The system seems to use both of these at different times. If there's a print running it uses notify_klippy_shutdown, where as if there's not
             # it seems to use notify_klippy_disconnected. We handle them both as the same.
             if method_CanBeNone is not None and (method_CanBeNone == "notify_klippy_disconnected" or method_CanBeNone == "notify_klippy_shutdown"):
-                self.Logger.info("Moonraker client received %s notification, so we will restart our client connection.", method_CanBeNone)
+                Sentry.Info("Client", "Moonraker client received %s notification, so we will restart our client connection." % method_CanBeNone)
                 self._RestartWebsocket()
                 self.MoonrakerCompat.KlippyDisconnectedOrShutdown()
                 return
@@ -668,7 +667,7 @@ class MoonrakerClient:
 
     # Called when the websocket is closed for any reason, connection loss or exception
     def _onWsClose(self, ws):
-        self.Logger.info("Moonraker websocket connection closed.")
+        Sentry.Info("Client", "Moonraker websocket connection closed.")
 
 
     # Called if the websocket hits an error and is closing.
@@ -707,8 +706,7 @@ class JsonRpcWaitingContext:
 # common OctoApp logic.
 class MoonrakerCompat:
 
-    def __init__(self, logger:logging.Logger, printerId:str) -> None:
-        self.Logger = logger
+    def __init__(self, printerId:str) -> None:
 
         # This indicates if we are ready to process notifications, so we don't
         # fire any notifications before we run the print state sync logic.
@@ -777,7 +775,7 @@ class MoonrakerCompat:
         # to do after a print. This notification is good if it happens while a print is running, because that would be bad. Otherwise, ignore it
         # so it doesn't spam the user.
         if self.NotificationHandler.IsTrackingPrint() is False:
-            self.Logger.info("Ignoring KlippyDisconnectedOrShutdown notification because we aren't tracking a print.")
+            Sentry.Info("Client", "Ignoring KlippyDisconnectedOrShutdown notification because we aren't tracking a print.")
             return
 
         # Since we will get this disconnected error for anything, including intentional restarts,
@@ -804,7 +802,7 @@ class MoonrakerCompat:
         # Get our name
         name = MoonrakerClient.Get().MoonrakerDatabase.GetPrinterName()
         self.NotificationHandler.NotificationSender.PrinterName = name
-        self.Logger.info("Printer is called %s" % name)
+        Sentry.Info("Client", "Printer is called %s" % name)
 
         # Since this is a new print, reset the cache. The file name might be the same as the last, but have
         # different props, so we will always reset. We know when we are printing the same file name will have the same props.
@@ -922,7 +920,7 @@ class MoonrakerCompat:
             }
         })
         if result.HasError():
-            self.Logger.error("GetCurrentZOffset failed to query toolhead objects: "+result.GetLoggingErrorStr())
+            Sentry.Error("Client", "GetCurrentZOffset failed to query toolhead objects: "+result.GetLoggingErrorStr())
             return False
 
         # If we are warming up, don't return a value, since the z-axis could be at any level before the print starts.
@@ -955,7 +953,7 @@ class MoonrakerCompat:
                 }
             })
             if result.HasError():
-                self.Logger.error("GetCurrentLayerInfo failed to query toolhead objects: "+result.GetLoggingErrorStr())
+                Sentry.Error("Client", "GetCurrentLayerInfo failed to query toolhead objects: "+result.GetLoggingErrorStr())
                 return (0,0)
 
             res = result.GetResult()
@@ -987,7 +985,7 @@ class MoonrakerCompat:
                     (objectHeight - firstLayerHeight) / layerHeight + 1)
                 )
             if totalLayers == 0:
-                self.Logger.error("GetCurrentLayerInfo failed to get a total layer count.")
+                Sentry.Error("Client", "GetCurrentLayerInfo failed to get a total layer count.")
                 return (0,0)
 
             # Next, try to get the current layer.
@@ -998,7 +996,7 @@ class MoonrakerCompat:
                 # Note that we need to check print_duration before checking this, because print duration will only start going after the hotend is in print position.
                 # If we take the zAxisPosition before that, the z axis might be up in a pre-print position, and we will get the wrong value.
                 if "print_duration" not in printStats:
-                    self.Logger.error("GetCurrentLayerInfo print_duration not found in print stats.")
+                    Sentry.Error("Client", "GetCurrentLayerInfo print_duration not found in print stats.")
                     return (0,0)
                 if float(printStats["print_duration"]) > 0.0:
                     zAxisPosition = gcodeMove["gcode_position"][2]
@@ -1009,7 +1007,7 @@ class MoonrakerCompat:
                     # If the print hasn't started yet, the layer height is 0.
                     currentLayer = 0
             if currentLayer == -1:
-                self.Logger.error("GetCurrentLayerInfo failed to get a current layer count.")
+                Sentry.Error("Client", "GetCurrentLayerInfo failed to get a current layer count.")
                 return (0,0)
 
             # Sanity check.
@@ -1027,7 +1025,7 @@ class MoonrakerCompat:
     def ShouldPrintingTimersBeRunning(self):
         stats = self._GetCurrentPrintStats()
         if stats is None:
-            self.Logger.warn("ShouldPrintingTimersBeRunning failed to get current state.")
+            Sentry.Warn("Client", "ShouldPrintingTimersBeRunning failed to get current state.")
             return True
         # For moonraker, printing is the only state we want to allow the timers to run in.
         # All other states will resume them when moved out of.
@@ -1058,7 +1056,7 @@ class MoonrakerCompat:
         # Get the current state
         stats = self._GetCurrentPrintStats()
         if stats is None:
-            self.Logger.error("Moonraker client init sync failed to get the printer state.")
+            Sentry.Error("Client", "Moonraker client init sync failed to get the printer state.")
             return
 
         # What this logic is trying to do is re-sync the notification handler with the current state.
@@ -1067,7 +1065,7 @@ class MoonrakerCompat:
         state = stats["state"]
         fileName_CanBeNone = stats["filename"]
         totalDurationFloatSec_CanBeNone = stats["total_duration"] # Use the total duration
-        self.Logger.info("Printer state at socket connect is: "+state)
+        Sentry.Info("Client", "Printer state at socket connect is: "+state)
         self.NotificationHandler.OnRestorePrintIfNeeded(state, fileName_CanBeNone, totalDurationFloatSec_CanBeNone)
 
 
@@ -1082,15 +1080,15 @@ class MoonrakerCompat:
         })
         # Validate
         if result.HasError():
-            self.Logger.error("Moonraker client failed _GetCurrentPrintStats. "+result.GetLoggingErrorStr())
+            Sentry.Error("Client", "Moonraker client failed _GetCurrentPrintStats. "+result.GetLoggingErrorStr())
             return None
         res = result.GetResult()
         if "status" not in res or "print_stats" not in res["status"]:
-            self.Logger.error("Moonraker client didn't find status in _GetCurrentPrintStats.")
+            Sentry.Error("Client", "Moonraker client didn't find status in _GetCurrentPrintStats.")
             return None
         printStats = res["status"]["print_stats"]
         if "state" not in printStats or "filename" not in printStats or "total_duration" not in printStats or "print_duration" not in printStats:
-            self.Logger.error("Moonraker client didn't find required field in _GetCurrentPrintStats. "+json.dumps(printStats))
+            Sentry.Error("Client", "Moonraker client didn't find required field in _GetCurrentPrintStats. "+json.dumps(printStats))
             return None
         return printStats
 
@@ -1100,7 +1098,7 @@ class MoonrakerCompat:
     def CheckIfPrinterIsWarmingUp_WithPrintStats(self, result):
         # Check the result.
         if result.HasError():
-            self.Logger.error("CheckIfPrinterIsWarmingUp_WithPrintStats failed to query print objects: "+result.GetLoggingErrorStr())
+            Sentry.Error("Client", "CheckIfPrinterIsWarmingUp_WithPrintStats failed to query print objects: "+result.GetLoggingErrorStr())
             return False
 
         try:
@@ -1142,7 +1140,7 @@ class MoonrakerCompat:
             # Validate we have what we need.
             res = result.GetResult()["status"]
             if "print_stats" not in res or "virtual_sdcard" not in res or "gcode_move" not in res:
-                self.Logger.error("GetPrintTimeRemainingEstimateInSeconds_WithPrintStatsAndVirtualSdCardResult passed a result with missing objects")
+                Sentry.Error("Client", "GetPrintTimeRemainingEstimateInSeconds_WithPrintStatsAndVirtualSdCardResult passed a result with missing objects")
                 return -1
 
             # If nothing is printing or in the queue, sometimes these values won't be there.
