@@ -60,7 +60,7 @@ plugin_license = "AGPLv3"
 #   urllib3 - There is a bug with parsing headers in versions older than 1.26.? (https://github.com/diyan/pywinrm/issues/269). At least 1.26.6 fixes it, ubt we decide to just stick with a newer version.
 #
 # Note! These also need to stay in sync with requirements.txt, for the most part they should be the exact same!
-plugin_requires = ["pycryptodome>=3.15.0", "pillow", "websocket_client>=1.6.0,<1.6.99", "requests>=2.24.0", "octoflatbuffers==2.0.5", "certifi>=2023.7.22", "rsa>=4.9", "dnspython>=2.3.0", "httpx==0.24.0", "urllib3>=1.26.15,<1.27.0"]
+plugin_requires = ["pillow", "dnspython>=2.3.0"]
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point
@@ -74,7 +74,7 @@ plugin_additional_data = []
 
 # Any additional python packages you need to install with your plugin that are not contained in <plugin_package>.*
 # For OctoEverywhere, we need to include or common packages shared between hosts, so OctoPrint copies them into the package folder as well.
-plugin_additional_packages = [ "octoapp", "octoapp.Proto", "octoapp.WebStream" ]
+plugin_additional_packages = [ "octoapp", "octoapp.Proto" ]
 
 # Any python packages within <plugin_package>.* you do NOT want to install with your plugin
 plugin_ignored_packages = []
