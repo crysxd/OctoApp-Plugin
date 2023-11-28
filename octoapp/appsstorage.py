@@ -106,7 +106,7 @@ class AppStorageHelper:
         apps = self.GetAllApps()
         
         if for_instance_id is None:
-            apps = list(filter(lambda app: app.FcmToken.startswith("activity:") ,apps))
+            apps = list(filter(lambda app: app.FcmToken.startswith("activity:"), apps))
             Sentry.Debug("APPS", "Removed all temporary apps")
         else:
             apps = list(filter(lambda app: app.FcmToken.startswith("activity:") and app.instanceId == for_instance_id , apps))

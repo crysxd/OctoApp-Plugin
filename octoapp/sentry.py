@@ -91,22 +91,22 @@ class Sentry:
     
     @staticmethod
     def Info(tag, msg):
-        paddedTag = "{:<15}".format(tag).upper()
+        paddedTag = "{:<15}".format(" " + tag).upper()
         Sentry.logger.info(paddedTag + " | " + msg)
 
     @staticmethod
     def Debug(tag, msg):
-        paddedTag = "{:<15}".format(tag).upper()
+        paddedTag = "{:<14}".format(tag).upper()
         Sentry.logger.debug(paddedTag + " | " + msg)
 
     @staticmethod
     def Warn(tag, msg):
-        paddedTag = "{:<15}".format(tag).upper()
+        paddedTag = "{:<15}".format(" " + tag).upper()
         Sentry.logger.warning(paddedTag + " | " + msg)
 
     @staticmethod
     def Error(tag, msg):
-        paddedTag = "{:<15}".format(tag).upper()
+        paddedTag = "{:<14}".format(tag).upper()
         Sentry.logger.error(paddedTag + " | " + msg)
 
 

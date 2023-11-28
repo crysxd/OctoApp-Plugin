@@ -3,6 +3,7 @@ import os
 import json
 import time
 import flask
+import threading
 from .subplugin import OctoAppSubPlugin
 from octoprint.access.permissions import Permissions
 from octoprint.events import Events
@@ -14,14 +15,15 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
     def __init__(self, parent):
         super().__init__(parent)
         self.DataFile = None
-
-
-    def OnAfterStartup(self):
+        self.Lock = threading.Lock()
         self.DataFile = os.path.join(self.parent.get_plugin_data_folder(), "apps.json")
-        Sentry.Info("NOTIFICATION", "Using config file %s" % self.DataFile)
-        self.UpgradeDataStructure()
-        self.UpgradeExpirationDate()
-        self.SendSettingsPluginMessage(self.GetAllApps())
+        Sentry.Info("OCTO STORAGE", "Using config file %s" % self.DataFile)
+        Sentry.Debug("OCTO STORAGE", "-> __init__")
+        with self.Lock:
+            Sentry.Debug("OCTO STORAGE", "<- __init__")
+            self._upgradeDataStructure()
+            self._upgradeExpirationDate()
+            self._sendSettingsPluginMessage(self._getAllApps())
 
 
     # !! Platform Command Handler Interface Function !!
@@ -29,6 +31,79 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
     # This must return a list of AppInstance
     #
     def GetAllApps(self) -> [AppInstance]:
+        Sentry.Debug("OCTO STORAGE", "-> GetAllApps")
+        with self.Lock:
+            Sentry.Debug("OCTO STORAGE", "<- GetAllApps")
+            return self._getAllApps()
+
+    def OnEvent(self, event, payload):
+        if event == Events.CLIENT_OPENED and self.DataFile is not None:
+            Sentry.Debug("OCTO STORAGE", "-> OnEvent")
+            with self.Lock:
+                Sentry.Debug("OCTO STORAGE", "<- OnEvent")
+                self._sendSettingsPluginMessage(self._getAllApps())
+
+
+    # !! Platform Command Handler Interface Function !!
+    #
+    # This must receive a lsit of AppInstnace
+    #
+    def RemoveApps(self, apps:[AppInstance]):
+        Sentry.Debug("OCTO STORAGE", "-> RemoveApps")
+        with self.Lock:
+            Sentry.Debug("OCTO STORAGE", "<- RemoveApps")
+            allApps = self._getAllApps()
+            for appToRemove in apps:
+                allApps = list(filter(lambda app: app.FcmToken != appToRemove.FcmToken, allApps))
+
+            self._setAllApps(allApps)
+
+
+    def OnApiCommand(self, command, data):
+        if command == "registerForNotifications":
+            if not Permissions.PLUGIN_OCTOAPP_RECEIVE_NOTIFICATIONS.can():
+                return flask.make_response("Insufficient rights", 403)
+
+            fcmToken = data["fcmToken"]
+
+            Sentry.Debug("OCTO STORAGE", "-> OnApiCommand")
+            with self.Lock:
+                Sentry.Debug("OCTO STORAGE", "<- OnApiCommand")
+                # load apps and filter the given FCM token out
+                apps = self._getAllApps()
+                if apps:
+                    apps = [app for app in apps if app.FcmToken != fcmToken]
+                else:
+                    apps = []
+
+                # add app for new registration
+                apps.append(
+                    AppInstance(
+                        fcmToken=fcmToken,
+                        fcmFallbackToken=data.get("fcmTokenFallback", None),
+                        instanceId=data["instanceId"],
+                        displayName=data["displayName"],
+                        displayDescription=data.get("displayDescription", None),
+                        model=data["model"],
+                        appVersion=data["appVersion"],
+                        appBuild=data["appBuild"],
+                        appLanguage=data["appLanguage"],
+                        lastSeenAt=time.time(),
+                        expireAt=(time.time() + data["expireInSecs"]) if "expireInSecs" in data else AppStorageHelper.Get().GetDefaultExpirationFromNow(),
+                    )
+                )
+
+                # save
+                Sentry.Info("NOTIFICATION", "Registered app %s" % fcmToken)
+                self._setAllApps(apps)
+                self.parent._settings.save()
+                return flask.jsonify(dict())
+    
+        else: 
+            return None
+        
+
+    def _getAllApps(self) -> [AppInstance]:
         try: 
             if os.path.isfile(self.DataFile):
                 with open(self.DataFile, 'r') as file:
@@ -44,38 +119,24 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
             raise e
         
 
-    def OnEvent(self, event, payload):
-        if event == Events.CLIENT_OPENED and self.DataFile is not None:
-            self.SendSettingsPluginMessage(self.GetAllApps())
-
-
-    # !! Platform Command Handler Interface Function !!
-    #
-    # This must receive a lsit of AppInstnace
-    #
-    def RemoveApps(self, apps:[AppInstance]):
-        filtered_apps = list(filter(lambda app: any(app.FcmToken != x.FcmToken for x in apps), self.GetAllApps()))
-        self.SetAllApps(filtered_apps)
-        
-    def SetAllApps(self, apps:[AppInstance]):
+    def _setAllApps(self, apps:[AppInstance]):
         mapped_apps = list(map(lambda x: x.ToDict(), apps))
 
         with open(self.DataFile, 'w') as outfile:
             json.dump(mapped_apps, outfile)
 
-        self.SendSettingsPluginMessage(apps)
+        self._sendSettingsPluginMessage(apps)
 
-
-    def UpgradeDataStructure(self):
+    def _upgradeDataStructure(self):
         try:
             if not os.path.isfile(self.DataFile):
                 Sentry.Info("APPS", "Dropping old app storage")
                 self.parent._settings.remove(["registeredApps"])
         except Exception as e:
-             Sentry.ExceptionNoSend("Failed to drop old app storage", e)
+            Sentry.ExceptionNoSend("Failed to drop old app storage", e)
 
 
-    def UpgradeExpirationDate(self):
+    def _upgradeExpirationDate(self):
         try:
             def add_expiration(app):
                 before = app.ExpireAt
@@ -83,15 +144,14 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
                 Sentry.Info("APPS", "Updating expire at for %s: %s => %s" % (app.InstanceId, before, app.ExpireAt))
                 return app
 
-            apps = self.GetAllApps()
+            apps = self._getAllApps()
             Sentry.Info("APPS", "Ensuring all apps have expiration dates")
             apps = list(map(lambda app: add_expiration(app), apps))
-            self.SetAllApps(apps)
+            self._setAllApps(apps)
         except Exception as e:
-             Sentry.ExceptionNoSend("Failed to upgrade expiration", e)
+            Sentry.ExceptionNoSend("Failed to upgrade expiration", e)
 
-
-    def SendSettingsPluginMessage(self, apps):
+    def _sendSettingsPluginMessage(self, apps):
         mapped_apps = list(map(lambda x: dict(
             displayName=x.DisplayName,
             lastSeenAt=x.LastSeenAt,
@@ -102,49 +162,3 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
         ), apps))
         mapped_apps = sorted(mapped_apps, key=lambda d: d.get("expireAt", None) or float('inf'))
         self.parent._plugin_manager.send_plugin_message("%s.settings" % self.parent._identifier, {"apps": mapped_apps})
-
-
-    def OnApiCommand(self, command, data):
-        if command == "registerForNotifications":
-            if not Permissions.PLUGIN_OCTOAPP_RECEIVE_NOTIFICATIONS.can():
-                return flask.make_response("Insufficient rights", 403)
-
-            fcmToken = data["fcmToken"]
-
-            # if this is a temporary app, remove all other temp apps for this instance
-            instnace_id = data.get("instanceId", None)
-            if fcmToken.startswith("activity:") and instnace_id is not None:
-                AppStorageHelper.Get().RemoveTemporaryApps()
-
-            # load apps and filter the given FCM token out
-            apps = self.GetAllApps()
-            if apps:
-                apps = [app for app in apps if app.FcmToken != fcmToken]
-            else:
-                apps = []
-
-            # add app for new registration
-            apps.append(
-                AppInstance(
-                    fcmToken=fcmToken,
-                    fcmFallbackToken=data.get("fcmTokenFallback", None),
-                    instanceId=data["instanceId"],
-                    displayName=data["displayName"],
-                    displayDescription=data.get("displayDescription", None),
-                    model=data["model"],
-                    appVersion=data["appVersion"],
-                    appBuild=data["appBuild"],
-                    appLanguage=data["appLanguage"],
-                    lastSeenAt=time.time(),
-                    expireAt=(time.time() + data["expireInSecs"]) if "expireInSecs" in data else AppStorageHelper.Get().GetDefaultExpirationFromNow(),
-                )
-            )
-
-            # save
-            Sentry.Info("NOTIFICATION", "Registered app %s" % fcmToken)
-            self.SetAllApps(apps)
-            self.parent._settings.save()
-            return flask.jsonify(dict())
-        
-        else: 
-            return None

@@ -2,7 +2,7 @@ import platform
 import requests
 
 from .localip import LocalIpHelper
-from .octostreammsgbuilder import OctoStreamMsgBuilder
+# from .octostreammsgbuilder import OctoStreamMsgBuilder
 from .mdns import MDns
 from .compat import Compat
 from .Proto.PathTypes import PathTypes
@@ -103,21 +103,21 @@ class OctoHttpRequest:
             if isZlibCompressed and preCompressedSize <= 0:
                 raise Exception("The pre-compression full size must be set if the buffer is compressed.")
 
-    # Handles making all http calls out of the plugin to OctoPrint or other services running locally on the device or
-    # even on other devices on the LAN.
-    #
-    # The main point of this function is to abstract away the logic around relative paths, absolute URLs, and the fallback logic
-    # we use for different ports. See the comments in the function for details.
-    @staticmethod
-    def MakeHttpCallOctoStreamHelper(logger, httpInitialContext, method, headers, data=None):
-        # Get the vars we need from the octostream initial context.
-        path = OctoStreamMsgBuilder.BytesToString(httpInitialContext.Path())
-        if path is None:
-            raise Exception("Http request has no path field in open message.")
-        pathType = httpInitialContext.PathType()
+    # # Handles making all http calls out of the plugin to OctoPrint or other services running locally on the device or
+    # # even on other devices on the LAN.
+    # #
+    # # The main point of this function is to abstract away the logic around relative paths, absolute URLs, and the fallback logic
+    # # we use for different ports. See the comments in the function for details.
+    # @staticmethod
+    # def MakeHttpCallOctoStreamHelper(logger, httpInitialContext, method, headers, data=None):
+    #     # Get the vars we need from the octostream initial context.
+    #     path = OctoStreamMsgBuilder.BytesToString(httpInitialContext.Path())
+    #     if path is None:
+    #         raise Exception("Http request has no path field in open message.")
+    #     pathType = httpInitialContext.PathType()
 
-        # Make the common call.
-        return OctoHttpRequest.MakeHttpCall(logger, path, pathType, method, headers, data)
+    #     # Make the common call.
+    #     return OctoHttpRequest.MakeHttpCall(logger, path, pathType, method, headers, data)
 
     # allowRedirects should be false for all proxy calls. If it's true, then the content returned might be from a redirected URL and the actual URL will be incorrect.
     # Instead, the system needs to handle the redirect 301 or 302 call as normal, sending it back to the caller, and allowing them to follow the redirect if needed.
