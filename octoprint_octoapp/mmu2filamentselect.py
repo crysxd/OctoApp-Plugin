@@ -22,7 +22,7 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
                 # If not currently active, send notification as we switched state
                 if self.parent.PluginState.get("mmuSelectionActive") is not True:
                     Sentry.Info("MMU", "Trigger shown")
-                    self.NotificationsHandler.NotificationSender.SendNotification(event=NotificationSender.EVENT_MMU2_FILAMENT_DONE)
+                    self.NotificationsHandler.NotificationSender.SendNotification(event=NotificationSender.EVENT_MMU2_FILAMENT_START)
 
                 self.parent.PluginState["mmuSelectionActive"] = True
                 self.parent.SendPluginStateMessage()

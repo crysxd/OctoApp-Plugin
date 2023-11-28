@@ -41,8 +41,11 @@ class NotificationSender:
         self._continuouslyCheckActivitiesExpired()
         self._continuouslyUpdateConfig()
 
-    def SendNotification(self, event, state):
+    def SendNotification(self, event, state=None):
         try:
+            if state is None:
+                state = self.LastPrintState
+
             self.LastPrintState = state
             helper = AppStorageHelper.Get()
             Sentry.Info("SENDER", "Preparing notification for %s" % event)
@@ -140,7 +143,7 @@ class NotificationSender:
                 apnsData=apnsData,
             )
 
-            Sentry.Debug("SENDER", "Sending notification: %s" % json.dumps(body))
+            Sentry.Info("SENDER", "Sending notification: %s" % json.dumps(body))
 
             # Make request and check 200
             r = requests.post(
@@ -206,7 +209,7 @@ class NotificationSender:
         return json.dumps(data)
     
     def _createApnsPushData(self, event, state):
-        Sentry.Debug("SENDER", "Targets contain iOS devices, generating texts for '%s'" % event)
+        Sentry.Info("SENDER", "Targets contain iOS devices, generating texts for '%s'" % event)
         notificationTitle = None
         notificationBody = None
         notificationSound = None
@@ -324,7 +327,7 @@ class NotificationSender:
         return event != self.EVENT_PROGRESS and event != self.EVENT_PROGRESS and event != self.EVENT_RESUME and event != self.EVENT_TIME_PROGRESS
 
     def _getPushTargets(self, preferActivity, canUseNonActivity):
-        Sentry.Debug("SENDER", "Finding targets preferActivity=%s canUseNonActivity=%s" % (preferActivity, canUseNonActivity))
+        Sentry.Info("SENDER", "Finding targets preferActivity=%s canUseNonActivity=%s" % (preferActivity, canUseNonActivity))
         helper = AppStorageHelper.Get()
         apps = helper.GetAllApps()
         phones = {}
