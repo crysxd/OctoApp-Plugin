@@ -2,7 +2,6 @@ import platform
 import requests
 
 from .localip import LocalIpHelper
-# from .octostreammsgbuilder import OctoStreamMsgBuilder
 from .mdns import MDns
 from .compat import Compat
 from .Proto.PathTypes import PathTypes

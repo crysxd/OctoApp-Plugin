@@ -18,7 +18,6 @@ from octoprint.events import Events
 from octoapp.webcamhelper import WebcamHelper
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
-from octoapp.commandhandler import CommandHandler
 from octoapp.compat import Compat
 from octoapp.appsstorage import AppStorageHelper
 
@@ -29,7 +28,6 @@ from .printerfirmware import OctoAppPrinterFirmwareSubPlugin
 from .mmu2filamentselect import OctoAppMmu2FilamentSelectSubPlugin
 from .webcamsnapshots import OctoAppWebcamSnapshotsSubPlugin
 from .printerstateobject import PrinterStateObject
-from .octoprintcommandhandler import OctoPrintCommandHandler
 from .octoprintwebcamhelper import OctoPrintWebcamHelper
 
 class OctoAppPlugin(octoprint.plugin.AssetPlugin,
@@ -79,9 +77,6 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         # Create the notification object now that we have the logger.
         self.NotificationHandler = NotificationsHandler(printerStateObject)
         printerStateObject.SetNotificationHandler(self.NotificationHandler)
-
-        # Create our command handler and our platform specific command handler.
-        CommandHandler.Init(self.NotificationHandler, OctoPrintCommandHandler(self._printer, printerStateObject, self))
 
         self.SubPlugins = [
             octoPrintAppStorage,
