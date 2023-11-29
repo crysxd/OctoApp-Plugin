@@ -46,6 +46,9 @@ class NotificationSender:
             if state is None:
                 state = self.LastPrintState
 
+            if event == self.EVENT_DONE:
+                state["ProgressPercentage"] = 100
+
             self.LastPrintState = state
             helper = AppStorageHelper.Get()
             Sentry.Info("SENDER", "Preparing notification for %s" % event)
