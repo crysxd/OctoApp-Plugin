@@ -256,6 +256,7 @@ class NotificationSender:
 
         elif event == self.EVENT_DONE:
             notificationTitle = "%s is done!" % self.PrinterName
+            notificationBody = state.get("FileName", None)
             notificationSound = "notification_print_done.wav"
             liveActivityState = "completed"
 

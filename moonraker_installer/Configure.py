@@ -17,7 +17,7 @@ class Configure:
     # This is the common service prefix (or word used in the file name) we use for all of our service file names.
     # This MUST be used for all instances running on this device, both local plugins and companions.
     # This also MUST NOT CHANGE, as it's used by the Updater logic to find all of the locally running services.
-    c_ServiceCommonNamePrefix = "octoapp"
+    c_ServiceCommonName = "octoapp"
 
     def Run(self, context:Context):
 
