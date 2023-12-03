@@ -1,6 +1,9 @@
 from octoapp.sentry import Sentry
 from .moonrakerdatabase import MoonrakerDatabase
 from octoapp.appsstorage import AppInstance, AppStorageHelper
+import uuid
+from Crypto import Random
+from Crypto.Cipher import AES
 
 class MoonrakerAppStorage:
 
@@ -17,6 +20,7 @@ class MoonrakerAppStorage:
         apps = self.Database.GetAppsEntry()
         return list(map(lambda app: AppInstance.FromDict(app), apps))        
 
+
     # !! Platform Command Handler Interface Function !!
     #
     # This must receive a lsit of AppInstnace
@@ -24,3 +28,10 @@ class MoonrakerAppStorage:
     def RemoveApps(self, apps:[AppInstance]):
         apps = list(map(lambda app: app.FcmToken, apps))
         self.Database.RemoveAppEntries(apps)
+
+    # !! Platform Command Handler Interface Function !!
+    #
+    # This must receive a lsit of AppInstnace
+    #
+    def GetOrCreateEncryptionKey(self):
+        return self.Database.GetOrCreateEncryptionKey()

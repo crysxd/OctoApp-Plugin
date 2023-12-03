@@ -4,6 +4,9 @@ import json
 import time
 import flask
 import threading
+import uuid
+from Crypto import Random
+from Crypto.Cipher import AES
 from .subplugin import OctoAppSubPlugin
 from octoprint.access.permissions import Permissions
 from octoprint.events import Events
@@ -24,6 +27,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
             self._upgradeDataStructure()
             self._upgradeExpirationDate()
             self._sendSettingsPluginMessage(self._getAllApps())
+            self._getOrCreateEncryptionKey()
 
 
     # !! Platform Command Handler Interface Function !!
@@ -101,6 +105,24 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
     
         else: 
             return None
+        
+    # !! Platform Command Handler Interface Function !!
+    #
+    # This must receive a lsit of AppInstnace
+    #
+    def GetOrCreateEncryptionKey(self):
+        Sentry.Debug("OCTO STORAGE", "-> GetOrCreateEncryptionKey")
+        with self.Lock:
+            Sentry.Debug("OCTO STORAGE", "<- GetOrCreateEncryptionKey")
+            return self._getOrCreateEncryptionKey()
+        
+    def _getOrCreateEncryptionKey(self):
+        key = self.parent._settings.get(["encryptionKey"])
+        if key is None:
+            key = str(uuid.uuid4())
+            Sentry.Info("NOTIFICATION", "Created new encryption key")
+            self.parent._settings.set(["encryptionKey"], key)
+        return key
         
 
     def _getAllApps(self) -> [AppInstance]:
