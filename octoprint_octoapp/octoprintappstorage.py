@@ -158,7 +158,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
             expireAt=x.ExpireAt,
             displayDescription=x.DisplayDescription,
             appVersion=x.AppVersion,
-            appOutdated=x.AppBuild < 1_18_000
+            appOutdated=x.AppBuild < 1_17_134
         ), apps))
         mapped_apps = sorted(mapped_apps, key=lambda d: d.get("expireAt", None) or float('inf'))
         self.parent._plugin_manager.send_plugin_message("%s.settings" % self.parent._identifier, {"apps": mapped_apps})
