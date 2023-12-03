@@ -1149,40 +1149,36 @@ class MoonrakerCompat:
 
             # Try to get the vars we need.
             # Use the print duration, since that's only the time spent printing (excluding warming up and pause time.)
-            printDurationSec = res["print_stats"]["print_duration"]
+            printTime = res["print_stats"]["print_duration"]
+            filamentUsed = res["print_stats"]["filament_used"]
             fileName = res["print_stats"]["filename"]
             progressFloat = res["virtual_sdcard"]["progress"]
             # The runtime configured speed of the printer currently. Where 1.0 is 100%, 2.0 is 200%
             speedFactorFloat = res["gcode_move"]["speed_factor"]
             inverseSpeedFactorFloat = 1.0/speedFactorFloat
+            estimatedPrintTime = FileMetadataCache.Get().GetEstimatedPrintTimeSec(fileName)
+            totalFilamentUse = FileMetadataCache.Get().GetEstimatedFilamentUsageMm(fileName)
+            def calcTimeLeftWithProgress(printTime, progress): return (printTime / progress) - printTime
 
-            # If possible, get the estimated slicer time from the file metadata.
-            # This will return -1 if it's not known
-            if fileName is not None and len(fileName) > 0:
-                fileMetadataEstimatedTimeFloatSec = FileMetadataCache.Get().GetEstimatedPrintTimeSec(fileName)
-                if fileMetadataEstimatedTimeFloatSec > 0:
-                    # If we get a valid ETA from the slicer, we will use it. From what we have seen, the slicer ETA
-                    # is usually more accurate than moonraker's, at the time of writing (2/5/2023)
-                    # This logic handles the progress being 0 just fine.
-                    timeConsumedFloatSec = progressFloat * fileMetadataEstimatedTimeFloatSec
-                    metadataEtaFloatSec = fileMetadataEstimatedTimeFloatSec - timeConsumedFloatSec
-                    # Before returning, we need to offset by the runtime speed, which will skew based on it.
-                    # For example, a speed of 200% will reduce the ETA by half.
-                    return int(metadataEtaFloatSec * inverseSpeedFactorFloat)
-
-            # If we didn't get a valid file metadata ETA, use a less accurate fallback.
-
-            # To start, if the progress time is really low (or 0), we can't compute a ETA.
-            if progressFloat < 0.0001:
-                return int(printDurationSec * inverseSpeedFactorFloat)
-
-            # Compute the ETA as suggested in the moonraker docs.
-            totalTimeSec = printDurationSec / progressFloat
-            basicEtaFloatSec = totalTimeSec - printDurationSec
+            # Can we calculate yet?
+            if printTime > 0:
+                all = [
+                    calcTimeLeftWithProgress(printTime=printTime, progress=progressFloat) if progressFloat is not None else None,
+                    calcTimeLeftWithProgress(printTime=printTime, progress=filamentUsed/totalFilamentUse) if filamentUsed is not None and totalFilamentUse > 0 else None,
+                    calcTimeLeftWithProgress(printTime=printTime, progress=printTime/estimatedPrintTime) if printTime is not None and estimatedPrintTime > 0 else None,
+                ]
+                available = list(filter(lambda x: x is not None, all))
+                if len(available) > 0:
+                    timeLeft = sum(available) / len(available)
+                else:
+                    timeLeft = estimatedPrintTime - printTime
+            else:
+                # Rely on slicer
+                timeLeft = estimatedPrintTime
 
             # Before returning, we need to offset by the runtime speed, which will skew based on it.
             # For example, a speed of 200% will reduce the ETA by half.
-            return int(basicEtaFloatSec * inverseSpeedFactorFloat)
+            return timeLeft * inverseSpeedFactorFloat
 
         except Exception as e:
             Sentry.Exception("GetPrintTimeRemainingEstimateInSeconds exception while computing ETA. ", e)

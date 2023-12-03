@@ -1,4 +1,6 @@
 import json
+import time
+import threading
 
 from octoapp.sentry import Sentry
 from octoapp.appsstorage import AppInstance
@@ -11,6 +13,9 @@ class MoonrakerDatabase:
     def __init__(self, printerId:str, pluginVersion:str) -> None:
         self.PrinterId = printerId
         self.PluginVersion = pluginVersion
+        self.PresenceAnnouncementRunning = False
+        self._continuouslyAnnouncePresence()
+       
 
     def GetAppsEntry(self):
         Sentry.Info("Database", "Getting apps")
@@ -76,16 +81,9 @@ class MoonrakerDatabase:
 
         # We use a few database entries under our own name space to share information with apps and other plugins.
         # Note that since these are used by 3rd party systems, they must never change. We also use this for our frontend.
-        result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.post_item",
-        {
-            "namespace": "octoapp",
-            "key": "public.pluginVersion",
-            "value": self.PluginVersion
-        })
-        if result.HasError():
-            Sentry.Error("Database", "Ensure database entry item plugin version failed. "+result.GetLoggingErrorStr())
-            return
-        Sentry.Debug("Database", "Ensure database items posted successfully.")
+        if self.PresenceAnnouncementRunning is False:
+            self.PresenceAnnouncementRunning = True
+            self._continuouslyAnnouncePresence()
 
 
     def _Debug_EnumerateDataBase(self):
@@ -106,3 +104,30 @@ class MoonrakerDatabase:
                 Sentry.Debug("Database", "Database namespace "+n+" : "+json.dumps(result.GetResult(), indent=4, separators=(", ", ": ")))
         except Exception as e:
             Sentry.Exception("_Debug_EnumerateDataBase exception.", e)
+
+    def _continuouslyAnnouncePresence(self):
+        t = threading.Thread(target=self._doContinuouslyAnnouncePresence)
+        t.daemon = True
+        t.start()
+
+    def _doContinuouslyAnnouncePresence(self):
+        while True:
+            try:
+                Sentry.Info("Database", "Updating presence")
+                result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.post_item",
+                {
+                    "namespace": "octoapp",
+                    "key": "public",
+                    "value": {
+                        "pluginVersion": self.PluginVersion,
+                        "lastSeen": time.time(),
+                        "printerId": self.PrinterId
+                    }
+                })
+
+                if result.HasError():
+                    Sentry.Error("Database", "Ensure database entry item plugin version failed. "+result.GetLoggingErrorStr())
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to update presence", e)
+
+            time.sleep(300)

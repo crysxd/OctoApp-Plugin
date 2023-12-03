@@ -141,7 +141,7 @@ class MoonrakerHost:
 
             # Setup the snapshot helper
             self.MoonrakerWebcamHelper = MoonrakerWebcamHelper(self.Config)
-            WebcamHelper.Init(self.MoonrakerWebcamHelper)
+            WebcamHelper.Init(self.MoonrakerWebcamHelper, localStorageDir)
 
             # Setup our smart pause helper
             SmartPause.Init()
@@ -246,7 +246,7 @@ class MoonrakerHost:
     #         Sentry.Warn("Host", "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     #         Sentry.Warn("Host", "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     #         Sentry.Warn("Host", "")
-    #         Sentry.Warn("Host", "")
+    #         Sentry.Warn("Host", "")p
 
     #     # Now that we are connected, start the moonraker client.
     #     # We do this after the connection incase it needs to send any notifications or messages when starting.

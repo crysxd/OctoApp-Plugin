@@ -1,4 +1,6 @@
 import logging
+import os
+import json
 
 from .sentry import Sentry
 from .octohttprequest import OctoHttpRequest
@@ -57,8 +59,8 @@ class WebcamHelper:
 
 
     @staticmethod
-    def Init(webcamPlatformHelperInterface):
-        WebcamHelper._Instance = WebcamHelper(webcamPlatformHelperInterface)
+    def Init(webcamPlatformHelperInterface, pluginDataFolderPath):
+        WebcamHelper._Instance = WebcamHelper(webcamPlatformHelperInterface, pluginDataFolderPath)
 
 
     @staticmethod
@@ -66,8 +68,11 @@ class WebcamHelper:
         return WebcamHelper._Instance
 
 
-    def __init__(self, webcamPlatformHelperInterface):
+    def __init__(self, webcamPlatformHelperInterface, pluginDataFolderPath:str):
         self.WebcamPlatformHelperInterface = webcamPlatformHelperInterface
+        self.SettingsFilePath = os.path.join(pluginDataFolderPath, "webcam-settings.json")
+        self.DefaultCameraName = None
+        self._LoadDefaultCameraName()
 
 
     # Returns the snapshot URL from the settings.
@@ -167,7 +172,7 @@ class WebcamHelper:
             # We use the allow redirects flag to make the API more robust, since some webcam images might need that.
             #
             # Whatever this returns, the rest of the request system will handle it, since it's expecting the OctoHttpRequest object
-            return OctoHttpRequest.MakeHttpCall(self.Logger, webcamStreamUrl, OctoHttpRequest.GetPathType(webcamStreamUrl), "GET", {}, allowRedirects=True)
+            return OctoHttpRequest.MakeHttpCall(webcamStreamUrl, OctoHttpRequest.GetPathType(webcamStreamUrl), "GET", {}, allowRedirects=True)
 
         # If we can't get the webcam stream URL, return None to fail out the request.
         return None
@@ -193,7 +198,7 @@ class WebcamHelper:
             # Where to actually make the webcam request in terms of IP and port.
             # We use the allow redirects flag to make the API more robust, since some webcam images might need that.
             Sentry.Debug("Webcam Helper", "Trying to get a snapshot using url: %s" % snapshotUrl)
-            octoHttpResult = OctoHttpRequest.MakeHttpCall(self.Logger, snapshotUrl, OctoHttpRequest.GetPathType(snapshotUrl), "GET", {}, allowRedirects=True)
+            octoHttpResult = OctoHttpRequest.MakeHttpCall(snapshotUrl, OctoHttpRequest.GetPathType(snapshotUrl), "GET", {}, allowRedirects=True)
             # If the result was successful, we are done.
             if octoHttpResult is not None and octoHttpResult.Result is not None and octoHttpResult.Result.status_code == 200:
                 return octoHttpResult
@@ -212,7 +217,7 @@ class WebcamHelper:
             # This is required because knowing the port to connect to might be tricky.
             # We use the allow redirects flag to make the API more robust, since some webcam images might need that.
             Sentry.Debug("Webcam Helper", "_GetSnapshotFromStream - Trying to get a snapshot using THE STREAM URL: %s" % url)
-            octoHttpResult = OctoHttpRequest.MakeHttpCall(self.Logger, url, OctoHttpRequest.GetPathType(url), "GET", {}, allowRedirects=True)
+            octoHttpResult = OctoHttpRequest.MakeHttpCall(url, OctoHttpRequest.GetPathType(url), "GET", {}, allowRedirects=True)
             if octoHttpResult is None or octoHttpResult.Result is None:
                 Sentry.Debug("Webcam Helper", "_GetSnapshotFromStream - Failed to make web request.")
                 return None
@@ -357,8 +362,11 @@ class WebcamHelper:
             a = self.ListWebcams()
             if a is None or len(a) == 0:
                 return None
-            # If we have a target camera name, find it.
-            if cameraName is not None and len(cameraName) != 0:
+            # If a camera name wasn't passed, see if there's a default.
+            if cameraName is None or len(cameraName) == 0:
+                cameraName = self.GetDefaultCameraName()
+            # If we have a target name, see if we can find it.
+            if cameraName is not None:
                 cameraNameLower = cameraName.lower()
                 for i in a:
                     if i.Name.lower() == cameraNameLower:
@@ -564,7 +572,7 @@ class WebcamHelper:
     # If the slash is detected to be missing, this function will return the URL with the slash added correctly.
     # Otherwise, it returns None.
     @staticmethod
-    def FixMissingSlashInWebcamUrlIfNeeded(logger:logging.Logger, webcamUrl:str) -> str:
+    def FixMissingSlashInWebcamUrlIfNeeded(webcamUrl:str) -> str:
         # First, the stream must have webcam* and ?action= in it, otherwise, we don't care.
         streamUrlLower = webcamUrl.lower()
         webcamLocation = streamUrlLower.find("webcam")
@@ -583,5 +591,51 @@ class WebcamHelper:
 
         # We know there is no slash before action, add it.
         newWebcamUrl = webcamUrl[:actionLocation] + "/" + webcamUrl[actionLocation:]
-        logger.info(f"Found incorrect webcam url, updating. [{webcamUrl}] -> [{newWebcamUrl}]")
+        Sentry.Info("Webcam Helper", f"Found incorrect webcam url, updating. [{webcamUrl}] -> [{newWebcamUrl}]")
         return newWebcamUrl
+
+
+    #
+    # Default camera name logic.
+    #
+
+    # Sets the default camera name and writes it to the settings file.
+    def SetDefaultCameraName(self, name:str) -> None:
+        name = name.lower()
+        self.DefaultCameraName = name
+        try:
+            settings = {
+                "DefaultWebcamName" : self.DefaultCameraName
+            }
+            with open(self.SettingsFilePath, encoding="utf-8", mode="w") as f:
+                f.write(json.dumps(settings))
+        except Exception as e:
+            Sentry.Error("Webcam Helper", "SetDefaultCameraName failed "+str(e))
+
+
+    # Returns the default camera name or None
+    def GetDefaultCameraName(self) -> str:
+        return self.DefaultCameraName
+
+
+    # Loads the current name from our settings file.
+    def _LoadDefaultCameraName(self) -> None:
+        try:
+            # Default the setting.
+            self.DefaultCameraName = None
+
+            # First check if there's a file.
+            if os.path.exists(self.SettingsFilePath) is False:
+                return
+
+            # Try to open it and get the key. Any failure will null out the key.
+            with open(self.SettingsFilePath, encoding="utf-8") as f:
+                data = json.load(f)
+
+            name = data["DefaultWebcamName"]
+            if name is None or len(name) == 0:
+                return
+            self.DefaultCameraName = name
+            Sentry.Info("Webcam Helper", f"Webcam settings loaded. Default camera name: {self.DefaultCameraName}")
+        except Exception as e:
+           Sentry.Error("Webcam Helper", "_LoadDefaultCameraName failed "+str(e))

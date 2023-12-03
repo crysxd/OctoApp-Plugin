@@ -1,4 +1,3 @@
-import time
 from octoapp.sentry import Sentry
 from .moonrakerdatabase import MoonrakerDatabase
 from octoapp.appsstorage import AppInstance, AppStorageHelper
