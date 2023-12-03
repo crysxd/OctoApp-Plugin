@@ -65,7 +65,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         Sentry.Info("PLUGIN", "OctoApp starting %s" % self._plugin_version)
 
         # Init the static snapshot helper
-        WebcamHelper.Init(OctoPrintWebcamHelper(self._settings))
+        WebcamHelper.Init(OctoPrintWebcamHelper(self._settings), self.get_plugin_data_folder())
 
         # Setup our printer state object, that implements the interface.
         printerStateObject = PrinterStateObject(self._printer)
