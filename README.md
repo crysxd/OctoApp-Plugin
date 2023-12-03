@@ -7,8 +7,7 @@ A plugin providing extra functionality to OctoApp:
 
 Get OctoApp on Google Play!
 
-[![Google Play](https://github.com/crysxd/OctoApp-Plugin/blob/release/images/play-badge.png)](https://play.google.com/store/apps/details?id=de.crysxd.octoapp&hl=en&gl=US)
-[![App Store](https://github.com/crysxd/OctoApp-Plugin/blob/release/images/app-store-badge.png)](https://apps.apple.com/us/app/octoapp-for-octoprint/id1658133862)
+[![Google Play](https://github.com/crysxd/OctoApp-Plugin/blob/1813c8145887d2862373a97279f56f4542c47ee3/images/play-badge.png)](https://play.google.com/store/apps/details?id=de.crysxd.octoapp&hl=en&gl=US)  [![App Store](https://github.com/crysxd/OctoApp-Plugin/blob/1813c8145887d2862373a97279f56f4542c47ee3/images/app-store-badge.png)](https://apps.apple.com/us/app/octoapp-for-octoprint/id1658133862)
 
 ![](https://github.com/crysxd/OctoApp-Plugin/blob/master/images/carousel.png)
 
