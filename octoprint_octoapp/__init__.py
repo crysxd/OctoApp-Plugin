@@ -65,7 +65,8 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         Sentry.Info("PLUGIN", "OctoApp starting %s" % self._plugin_version)
 
         # Init the static snapshot helper
-        WebcamHelper.Init(OctoPrintWebcamHelper(self._settings), self.get_plugin_data_folder())
+        octoPrintWebcamHelper = OctoPrintWebcamHelper(self._settings)
+        WebcamHelper.Init(octoPrintWebcamHelper, self.get_plugin_data_folder())
 
         # Setup our printer state object, that implements the interface.
         printerStateObject = PrinterStateObject(self._printer)
@@ -84,7 +85,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
             OctoAppPrinterMessageSubPlugin(self),
             OctoAppPrinterFirmwareSubPlugin(self),
             OctoAppMmu2FilamentSelectSubPlugin(self, self.NotificationHandler),
-            OctoAppWebcamSnapshotsSubPlugin(self)
+            OctoAppWebcamSnapshotsSubPlugin(self, octoPrintWebcamHelper)
         ]
 
         # Indicate this has been called and things have been inited.
@@ -274,7 +275,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         self._logger_handler.setLevel(logging.DEBUG)
         self._logger.addHandler(self._logger_handler)
         self._logger.setLevel(logging.DEBUG)
-        self._logger.propagate = False
+        self._logger.propagate = True
 
 
 __plugin_name__ = "OctoApp"

@@ -363,7 +363,7 @@ ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCg==
 " | base64 -d
 log_blank
 log_header "                                   OctoApp For Klipper "
-log_header "                          Based on the OctoEverywhere Companion"
+log_header "                            Based on the OctoEverywhere Plugin"
 log_blank
 log_blank
 

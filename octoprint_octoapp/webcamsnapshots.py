@@ -11,14 +11,16 @@ from datetime import datetime
 from octoprint.access.permissions import Permissions
 from octoapp.sentry import Sentry
 from flask import send_file
+from octoapp.webcamhelper import WebcamSettingItem
 
 class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
 
 
-    def __init__(self, parent):
+    def __init__(self, parent, octoPrintWebcamHelper):
         super().__init__(parent)
-        self.webcam_snapshot_cache = {}
-        self.webcam_snapshot_cache_lock = threading.Lock()
+        self.WebcamSnapshotCache = {}
+        self.WebcamSnapshotCacheLock = threading.Lock()
+        self.OctoPrintWebcamHelper = octoPrintWebcamHelper
 
 
     def OnAfterStartup(self):
@@ -31,10 +33,10 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                 return flask.make_response("Insufficient rights", 403)
 
             try:
-                with self.webcam_snapshot_cache_lock:
+                with self.WebcamSnapshotCacheLock:
                     webcamIndex = data.get("webcamIndex", 0)
-                    webcamSettings = self._getWebcamSettings(webcamIndex)
-                    cache = self.webcam_snapshot_cache.get(webcamIndex)
+                    webcamSettings = self._getWebcamSettingsItem(webcamIndex)
+                    cache = self.WebcamSnapshotCache.get(webcamIndex)
                     
                     if (cache == None):
                         return flask.make_response("Webcam image for {} not cached".format(webcamIndex), 406)
@@ -47,13 +49,13 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                     size = min(max(image.width, image.height), int(data.get("size", 720)))
                     image.thumbnail([size, size])
 
-                    if (webcamSettings.get("rotate90")):
-                        image = image.rotate(90, expand=True)
+                    if (webcamSettings.Rotation != 0):
+                        image = image.rotate(webcamSettings.Rotation, expand=True)
 
-                    if (webcamSettings.get("flipV")):
+                    if (webcamSettings.FlipV):
                         image = image.transpose(Image.FLIP_TOP_BOTTOM)
 
-                    if (webcamSettings.get("flipH")):
+                    if (webcamSettings.FlipH):
                         image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
                     imageBytes = BytesIO()
@@ -112,26 +114,20 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
 
     def _updateSnapshotCache(self, webcamIndex, log):
         try:
-            webcamSettings = self._getWebcamSettings(webcamIndex)
-            snapshotUrl = webcamSettings["snapshot"]
+            webcamSettings = self._getWebcamSettingsItem(webcamIndex)
+            snapshotUrl = webcamSettings.SnapshotUrl
 
             if snapshotUrl == "" or snapshotUrl is None:
                 return True
 
-            timeout = self.parent._settings.global_get_int(
-                ["webcam", "snapshotTimeout"]
-            )
-            if log:
-                Sentry.Debug("SNAPSHOT", "Failed to get webcam snapshot: %s" % e)
             imageBytes = BytesIO()
-            raw = requests.get(
-                snapshotUrl, timeout=float(timeout), stream=True)
+            raw = requests.get(snapshotUrl, timeout=float(15), stream=True)
 
             for chunk in raw.iter_content(chunk_size=128):
                 imageBytes.write(chunk)
 
-            with self.webcam_snapshot_cache_lock:
-                self.webcam_snapshot_cache[webcamIndex] = dict(bytes=imageBytes, time=datetime.now())
+            with self.WebcamSnapshotCacheLock:
+                self.WebcamSnapshotCache[webcamIndex] = dict(bytes=imageBytes, time=datetime.now())
 
             return True
         except Exception as e:
@@ -139,10 +135,23 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
             return False
       
            
-    def _getWebcamSettings(self, webcamIndex):
+    def _getWebcamSettingsItem(self, webcamIndex) -> WebcamSettingItem:
         if (webcamIndex == 0):
-            return self.parent._settings.global_get(["webcam"])
+            configs = self.OctoPrintWebcamHelper.GetWebcamConfig()
+            if len(configs) >= 1:
+                return configs[0]
+            else:
+                return None
         else:
-            return self.parent._settings.global_get(
+            config = self.parent._settings.global_get(
                 ["plugins", "multicam", "multicam_profiles"]
             )[webcamIndex]
+
+            WebcamSettingItem(
+                name="Multicam %s" % webcamIndex,
+                snapshotUrl=config.get("snapshot", None),
+                streamUrl=config.get("stream", None),
+                flipHBool=config.get("flipH", False),
+                flipVBool=config.get("flipV", False),
+                rotationInt=90 if config.get("rotate90", False) else 0,
+            )
