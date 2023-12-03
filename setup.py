@@ -1,7 +1,14 @@
 # coding=utf-8
 
-########################################################################################################################
-### Do not forget to adjust the following variables to your own plugin.
+
+#
+# This is not an installer script!
+# If you're trying to install OctoEverywhere for Klipper, you want to use the ./install.sh script!
+#
+# This PY script is required for the OctoPrint plugin install process.
+#
+# If you need help, feel free to contact us at support@octoeverywhere.com
+#
 
 # The plugin's identifier, has to be unique
 plugin_identifier = "octoapp"
@@ -14,8 +21,8 @@ plugin_package = "octoprint_octoapp"
 plugin_name = "OctoApp"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
-# !!!! Also update in plugin.py !!!!
-plugin_version = "1.3.3"
+# Note that this is also parsed by the moonraker module to pull the version, so the string and format must remain the same!
+plugin_version = "2.0.0"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
@@ -33,21 +40,41 @@ plugin_url = "https://github.com/crysxd/OctoApp-Plugin/"
 # The plugin's license. Can be overwritten within OctoPrint's internal data via __plugin_license__ in the plugin module
 plugin_license = "AGPLv3"
 
-# Any additional requirements besides OctoPrint should be listed here
-plugin_requires = ["pycryptodome>=3.15.0", "pillow"]
+# Any additional requirements besides OctoPrint should be listed here.
+#
+# On 4/13/2023 we updated to only support PY3, which frees us up from a lot of package issues. A lot the packages we depend on only support PY3 now.
+#
+# websocket_client
+# 	For the websocket_client, some older versions seem to have a thread issue that causes the 24 hour disconnect logic to fail, and eventually makes the thread limit get hit.
+# 	Version 1.4.0 also has an SSL error in it. https://github.com/websocket-client/websocket-client/issues/857
+#	Update: We also found a bug where the ping timer doesn't get cleaned up: https://github.com/websocket-client/websocket-client/pull/918
+#   Thus we need version 1.6.0 or higher.
+# dnspython
+#	We depend on a feature that was released with 2.3.0, so we need to require at least that.
+#
+# Other lib version notes:
+#   pillow - We don't require a version of pillow because we don't want to mess with other plugins and we use basic, long lived APIs.\
+#   certifi - We use to keep certs on the device that we need for let's encrypt. So we want to keep it fresh.
+#   rsa - OctoPrint 1.5.3 requires RAS>=4.0, so we must leave it at 4.0.
+#   httpx - Is an asyncio http lib. It seems to be required by dnspython, but dnspython doesn't enforce it. We had a user having an issue that updated to 0.24.0, and it resolved the issue.
+#   urllib3 - There is a bug with parsing headers in versions older than 1.26.? (https://github.com/diyan/pywinrm/issues/269). At least 1.26.6 fixes it, ubt we decide to just stick with a newer version.
+#
+# Note! These also need to stay in sync with requirements.txt, for the most part they should be the exact same!
+plugin_requires = ["pillow", "dnspython>=2.3.0", "pycryptodome>=3.15.0"]
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point
 ### --------------------------------------------------------------------------------------------------------------------
 
-# Additional package data to install for this plugin. The subfolders "templates", "static" and "translations" will
+# Additional package data to install for this plugin. The sub folders "templates", "static" and "translations" will
 # already be installed automatically if they exist. Note that if you add something here you'll also need to update
 # MANIFEST.in to match to ensure that python setup.py sdist produces a source distribution that contains all your
 # files. This is sadly due to how python's setup.py works, see also http://stackoverflow.com/a/14159430/2028598
 plugin_additional_data = []
 
 # Any additional python packages you need to install with your plugin that are not contained in <plugin_package>.*
-plugin_additional_packages = []
+# For OctoEverywhere, we need to include or common packages shared between hosts, so OctoPrint copies them into the package folder as well.
+plugin_additional_packages = [ "octoapp", "octoapp.Proto" ]
 
 # Any python packages within <plugin_package>.* you do NOT want to install with your plugin
 plugin_ignored_packages = []

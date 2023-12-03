@@ -7,3 +7,7 @@ dist
 *.egg*
 .DS_Store
 *.zip
+py2venv/*
+py3venv/*
+venv
+octoprint-data
