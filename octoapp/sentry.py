@@ -119,6 +119,7 @@ class Sentry:
     # Only logs an exception, without reporting.
     @staticmethod
     def ExceptionNoSend(msg, exception):
+        Sentry.Error("SENTRY", "Exception no send: %s" % exception)
         Sentry._handleException(msg, exception, False)
 
 

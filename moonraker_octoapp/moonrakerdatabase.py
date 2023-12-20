@@ -20,7 +20,7 @@ class MoonrakerDatabase:
        
 
     def GetAppsEntry(self):
-        Sentry.Info("Database", "Getting apps")
+        Sentry.Debug("Database", "Getting apps")
         result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.get_item",
         {
             "namespace": "octoapp",
@@ -56,10 +56,10 @@ class MoonrakerDatabase:
         if fluiddResult.HasError() is False and mainsailResult.GetResult() is not None:
             return mainsailResult.GetResult()["value"]
 
-        if mainsailResult.HasError() is False & mainsailResult.GetErrorCode() != 404 or mainsailResult.GetErrorCode() != -3260:
+        if mainsailResult.HasError() is True and mainsailResult.GetErrorCode() != 404 and mainsailResult.GetErrorCode() != -3260:
             Sentry.Error("Database", "Failed to load Mainsail printer name"+mainsailResult.GetLoggingErrorStr())
 
-        if fluiddResult.HasError() is False & fluiddResult.GetErrorCode() != 404 or fluiddResult.GetErrorCode() != -3260:
+        if fluiddResult.HasError() is True and fluiddResult.GetErrorCode() != 404 and fluiddResult.GetErrorCode() != -3260:
             Sentry.Error("Database", "Failed to load Fluidd printer name"+fluiddResult.GetLoggingErrorStr())
 
         return "Klipper"
@@ -69,10 +69,12 @@ class MoonrakerDatabase:
         if self.CachedEncryptionKey is None:
             result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.get_item",
             {
-                "namespace": "ocotapp",
+                "namespace": "octoapp",
                 "key": "public.encryptionKey",
             })
-            if result.HasError() is False and result.GetResult() is not None:
+            if result.HasError() is True & result.GetErrorCode() == 404 or result.GetErrorCode() != -3260:
+                Sentry.Warn("Database", "Encryption key not yet created")
+            elif result.HasError() is False and result.GetResult() is not None:
                 self.CachedEncryptionKey = result.GetResult()["value"]
             else:
                 raise Exception("Failed to get encryption key %s" % result.GetErrorStr())
@@ -82,11 +84,11 @@ class MoonrakerDatabase:
             Sentry.Info("Database", "Created new encryption key")
             result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.post_item",
             {
-                "namespace": "ocotapp",
+                "namespace": "octoapp",
                 "key": "public.encryptionKey",
                 "value": self.CachedEncryptionKey
             })
-            if result.HasError() is False and result.GetResult() is not None:
+            if result.HasError() is True:
                 # Just log. Should be flushed over time.
                 Sentry.Error("Database", "Failed to set encryption key %s" % result.GetErrorStr())
         
@@ -142,8 +144,14 @@ class MoonrakerDatabase:
         t.start()
 
     def _doContinuouslyAnnouncePresence(self):
+        Sentry.Info("Database", "Starting continuous update")
         while True:
             try:
+                if MoonrakerClient.Get() is None:
+                    Sentry.Info("Database", "Connection not ready...")
+                    time.sleep(5)
+                    continue
+
                 Sentry.Info("Database", "Updating presence")
                 result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.post_item",
                 {
@@ -164,4 +172,4 @@ class MoonrakerDatabase:
                     time.sleep(300)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to update presence", e)
-                time.sleep(60)
+                time.sleep(30)
