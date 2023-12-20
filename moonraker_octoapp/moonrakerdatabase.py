@@ -72,7 +72,7 @@ class MoonrakerDatabase:
                 "namespace": "octoapp",
                 "key": "public.encryptionKey",
             })
-            if result.HasError() is True & result.GetErrorCode() == 404 or result.GetErrorCode() != -3260:
+            if result.HasError() is True and (result.GetErrorCode() == 404 or result.GetErrorCode() != -3260):
                 Sentry.Warn("Database", "Encryption key not yet created")
             elif result.HasError() is False and result.GetResult() is not None:
                 self.CachedEncryptionKey = result.GetResult()["value"]
