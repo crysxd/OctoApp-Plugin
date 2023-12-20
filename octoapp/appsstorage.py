@@ -123,3 +123,6 @@ class AppStorageHelper:
         Sentry.Debug("APPS", "Removing %s apps" % len(apps))
         self.AppStoragePlatformHelper.RemoveApps(apps)
         self.LogApps()
+     
+    def GetOrCreateEncryptionKey(self):
+        return self.AppStoragePlatformHelper.GetOrCreateEncryptionKey()

@@ -3,6 +3,10 @@ import threading
 import requests
 import json
 import time
+import base64
+import hashlib
+from Crypto.Cipher import AES
+from Crypto import Random
 from .sentry import Sentry
 from .appsstorage import AppStorageHelper
 
@@ -211,7 +215,13 @@ class NotificationSender:
                 "type": type
             }
 
-        return json.dumps(data)
+        try:
+            cipher = AESCipher(AppStorageHelper.Get().GetOrCreateEncryptionKey())
+            return cipher.encrypt(json.dumps(data))
+        except Exception as e:
+            Sentry.ExceptionNoSend(e)
+            return json.dumps(data)
+        
     
     def _createApnsPushData(self, event, state):
         Sentry.Info("SENDER", "Targets contain iOS devices, generating texts for '%s'" % event)
@@ -455,4 +465,18 @@ class NotificationSender:
                 Sentry.ExceptionNoSend("Failed to fetch config using defaults for 5 minutes", e)
                 self.CachedConfig = self.DefaultConfig
                 self.CachedConfigAt = cache_config_max_age + 300
+
+class AESCipher(object):
+    def __init__(self, key):
+        self.bs = AES.block_size
+        self.key = hashlib.sha256(key.encode()).digest()
+
+    def encrypt(self, raw):
+        raw = self._pad(raw)
+        iv = Random.new().read(AES.block_size)
+        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        return base64.b64encode(iv + cipher.encrypt(raw.encode())).decode("utf-8")
+
+    def _pad(self, s):
+        return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
             

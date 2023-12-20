@@ -1,6 +1,7 @@
 import json
 import time
 import threading
+import uuid
 
 from octoapp.sentry import Sentry
 from octoapp.appsstorage import AppInstance
@@ -14,6 +15,7 @@ class MoonrakerDatabase:
         self.PrinterId = printerId
         self.PluginVersion = pluginVersion
         self.PresenceAnnouncementRunning = False
+        self.CachedEncryptionKey = None
         self._continuouslyAnnouncePresence()
        
 
@@ -61,6 +63,35 @@ class MoonrakerDatabase:
             Sentry.Error("Database", "Failed to load Fluidd printer name"+fluiddResult.GetLoggingErrorStr())
 
         return "Klipper"
+    
+
+    def GetOrCreateEncryptionKey(self):
+        if self.CachedEncryptionKey is None:
+            result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.get_item",
+            {
+                "namespace": "ocotapp",
+                "key": "public.encryptionKey",
+            })
+            if result.HasError() is False and result.GetResult() is not None:
+                self.CachedEncryptionKey = result.GetResult()["value"]
+            else:
+                raise Exception("Failed to get encryption key %s" % result.GetErrorStr())
+        
+        if self.CachedEncryptionKey is None:
+            self.CachedEncryptionKey = str(uuid.uuid4())
+            Sentry.Info("Database", "Created new encryption key")
+            result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.post_item",
+            {
+                "namespace": "ocotapp",
+                "key": "public.encryptionKey",
+                "value": self.CachedEncryptionKey
+            })
+            if result.HasError() is False and result.GetResult() is not None:
+                # Just log. Should be flushed over time.
+                Sentry.Error("Database", "Failed to set encryption key %s" % result.GetErrorStr())
+        
+        return self.CachedEncryptionKey
+
 
     def RemoveAppEntries(self, apps: []):
         Sentry.Info("Database", "Removing apps: %s" % apps)
@@ -127,17 +158,16 @@ class MoonrakerDatabase:
                     "value": {
                         "pluginVersion": self.PluginVersion,
                         "lastSeen": time.time(),
-                        "printerId": self.PrinterId
+                        "printerId": self.PrinterId,
+                        "encryptionKey": self.GetOrCreateEncryptionKey()
                     }
                 })
 
                 if result.HasError():
                     Sentry.Error("Database", "Ensure database entry item plugin version failed. "+result.GetLoggingErrorStr())
-                    time.sleep(30)
+                    time.sleep(60)
                 else:
                     time.sleep(300)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to update presence", e)
-                time.sleep(30)
-
-
+                time.sleep(60)
