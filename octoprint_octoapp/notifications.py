@@ -115,6 +115,14 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # No need to use a thread since all events are handled on a new thread.
             self.NotificationHandler.OnFilamentChange()
 
+        # M0 is a pause command
+        # https://marlinfw.org/docs/gcode/M000-M001.html
+        # We check for this both in sent and received, to make sure we cover all use cases. The OnUserInteractionNeeded will only allow one notification to fire every so often.
+        if self.isPauseCommand(gcode):
+            Sentry.Info("NOTIFICATION", "Firing On User Interaction Required From GcodeSent: "+str(gcode))
+            # No need to use a thread since all events are handled on a new thread.
+            self.NotificationHandler.OnUserInteractionNeeded()
+
         # Look for positive extrude commands, so we can keep track of them for final snap and our first layer tracking logic.
         # Example cmd value: `G1 X112.979 Y93.81 E.03895`
         if self.NotificationHandler is not None and gcode and cmd and gcode == "G1":
@@ -165,14 +173,17 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                     Sentry.Debug("NOTIFICATION", "Skipping beep, only %s seconds left and %s percent" % (timeLeft, progress)) 
 
             # Look for a line indicating user interaction is needed.
-            elif "paused for user" in lineLower or "// action:paused" in lineLower or "//action:pause" in lineLower or "@pause" in lineLower:
-                    Sentry.Info("NOTIFICATION", "Firing On User Interaction Required From GcodeReceived: "+str(line))
-                    # No need to use a thread since all events are handled on a new thread.
-                    self.NotificationHandler.OnUserInteractionNeeded()
+            elif self.isPauseCommand(lineLower):
+                Sentry.Info("NOTIFICATION", "Firing On User Interaction Required From GcodeReceived: "+str(line))
+                # No need to use a thread since all events are handled on a new thread.
+                self.NotificationHandler.OnUserInteractionNeeded()
 
         # We must return line the line won't make it to OctoPrint!
         return line
     
+    def isPauseCommand(self, line: str):
+        lineLower = line.lower()
+        return "paused for user" in lineLower or "// action:paused" in lineLower or "//action:pause" in lineLower or "@pause" in lineLower or "m0" == lineLower
 
     # A dict helper
     def _exists(self, dictObj:dict, key:str) -> bool:
