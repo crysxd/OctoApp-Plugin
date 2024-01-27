@@ -69,7 +69,8 @@ class NotificationSender:
             if not targets:
                 Sentry.Debug("SENDER", "No targets, skipping notification")
                 return
-
+                
+            targets = self._processFilters(targets=targets, event=event)
             ios_targets = helper.GetIosApps(targets)
             activity_targets = helper.GetActivities(targets)
             android_targets = helper.GetAndroidApps(targets)
@@ -132,6 +133,16 @@ class NotificationSender:
             Sentry.Debug("SENDER", "Skipping progress update, only %s seconds passed since last" % int(time_since_last))
             return True
     
+    def _processFilters(self, targets, event):
+        filterName = None
+        if event == self.EVENT_FIRST_LAYER_DONE:
+            filterName = "layer_1"
+        elif event == self.EVENT_THIRD_LAYER_DONE:
+            filterName = "layer_3"
+        else:
+            return targets
+    
+        return list(filter(lambda target: filterName not in target.ExcludeNotifications, targets))
 
     def _doSendNotification(self, targets, highProiroty, apnsData, androidData):
         try:

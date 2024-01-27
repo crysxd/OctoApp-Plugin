@@ -18,6 +18,7 @@ class AppInstance:
               appLanguage:str,
               lastSeenAt:float,
               expireAt:float,
+              excludeNotifications:list,
     ):
         self.FcmToken = fcmToken
         self.FcmFallbackToken = fcmFallbackToken
@@ -30,6 +31,7 @@ class AppInstance:
         self.AppLanguage = appLanguage
         self.LastSeenAt = lastSeenAt
         self.ExpireAt = expireAt
+        self.ExcludeNotifications = excludeNotifications
 
 
     def ToDict(self): 
@@ -44,7 +46,8 @@ class AppInstance:
             appBuild=self.AppBuild,
             appLanguage=self.AppLanguage,
             lastSeenAt=self.LastSeenAt,
-            expireAt=self.ExpireAt
+            expireAt=self.ExpireAt,
+            excludeNotifications=self.ExcludeNotifications
         )
 
     @staticmethod
@@ -61,6 +64,7 @@ class AppInstance:
             appLanguage=dict.get("appLanguage", "en"),
             lastSeenAt=dict.get("lastSeenAt", 0),
             expireAt=dict.get("expireAt", 0),
+            excludeNotifications=dict.get("excludeNotifications", []),
         )
 
        
