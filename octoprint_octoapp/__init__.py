@@ -275,7 +275,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         self._logger_handler.setLevel(logging.DEBUG)
         self._logger.addHandler(self._logger_handler)
         self._logger.setLevel(logging.DEBUG)
-        self._logger.propagate = True
+        self._logger.propagate = False
 
 
 __plugin_name__ = "OctoApp"
