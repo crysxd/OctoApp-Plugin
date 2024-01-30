@@ -74,6 +74,8 @@ class NotificationsHandler:
         self.zOffsetNotAtLowestCount = 0
         self.zOffsetHasSeenPositiveExtrude = False
         self.zOffsetTrackingStartTimeSec = 0.0
+        self.FirstLayerDoneSince = 0.0
+        self.ThirdLayerDoneSince = 0.0
         self.ProgressCompletionReported = []
         self.PrintId = "none"
         self.PrintStartTimeSec = 0
@@ -100,6 +102,8 @@ class NotificationsHandler:
         self.zOffsetLowestSeenMM = 1337.0
         self.zOffsetNotAtLowestCount = 0
         self.zOffsetTrackingStartTimeSec = 0.0
+        self.FirstLayerDoneSince = 0.0
+        self.ThirdLayerDoneSince = 0.0
         self.zOffsetHasSeenPositiveExtrude = False
         self.RestorePrintProgressPercentage = False
 
@@ -505,12 +509,35 @@ class NotificationsHandler:
 
             # If we are over the first layer and haven't sent the notification, do it now.
             if currentLayer > 1 and self.HasSendFirstLayerDoneMessage is False:
-                self.HasSendFirstLayerDoneMessage = True
-                self._sendEvent(NotificationSender.EVENT_FIRST_LAYER_DONE)
+                if self.FirstLayerDoneSince < 0.1:
+                    Sentry.Debug("NOTIFICATION", "First Layer Logic - Starting delay timer.")
+                    self.FirstLayerDoneSince = time.time()
+                elif time.time() - self.FirstLayerDoneSince < 10.0:
+                    Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting delay time to expire.")
+                else:
+                    Sentry.Debug("NOTIFICATION", "First Layer Logic - Done.")
+                    self.HasSendFirstLayerDoneMessage = True
+                    self._sendEvent(NotificationSender.EVENT_FIRST_LAYER_DONE)
+                    
+            if currentLayer <= 1 and self.FirstLayerDoneSince > 0.0:
+                Sentry.Debug("NOTIFICATION", "First Layer Logic - Reset.")
+                self.FirstLayerDoneSince = 0.0
+                
             # If we are past the 3rd, layer, do the same.
             if currentLayer > 3 and self.HasSendThirdLayerDoneMessage is False:
-                self.HasSendThirdLayerDoneMessage = True
-                self._sendEvent(NotificationSender.EVENT_THIRD_LAYER_DONE)
+                if self.ThirdLayerDoneSince < 0.1:
+                    Sentry.Debug("NOTIFICATION", "Third Layer Logic - Starting delay timer.")
+                    self.ThirdLayerDoneSince = time.time()  
+                elif time.time() - self.ThirdLayerDoneSince < 10.0:
+                    Sentry.Debug("NOTIFICATION", "Third Layer Logic - Waiting delay time to expire.")
+                else:
+                    Sentry.Debug("NOTIFICATION", "Third Layer Logic - Done.")
+                    self.HasSendThirdLayerDoneMessage = True
+                    self._sendEvent(NotificationSender.EVENT_THIRD_LAYER_DONE)
+
+            if currentLayer <= 3 and self.ThirdLayerDoneSince > 0.0:
+                Sentry.Debug("NOTIFICATION", "Third Layer Logic - Reset.")
+                self.ThirdLayerDoneSince = 0.0
 
             # If we return true, the time will continue, otherwise it will stop.
             isDone = self.HasSendFirstLayerDoneMessage is True and self.HasSendThirdLayerDoneMessage is True
