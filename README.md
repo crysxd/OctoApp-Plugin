@@ -27,7 +27,7 @@ The app will automatically register itself with the plugin the next time you use
 ## Setup Moonraker
 
 1. Open a terminal on your Klipper host via SSH
-2. Run `/bin/bash -c \"$(curl -fsSL https://octoapp.eu/install.sh)\"`  
+2. Run `/bin/bash -c "$(curl -fsSL https://octoapp.eu/install.sh)"`  
 This will clone this repository and guide your through the setup process
 
 The app will automatically register itself with the plugin the next time you use the app. The plugin will run as a Linux service in the background, you can start or stop it via Mainsail or Fluidd. To see a list of registered apps open http://_yourmoonraker_/server/database/item?namespace=octoapp
