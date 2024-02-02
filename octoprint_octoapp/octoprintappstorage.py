@@ -94,6 +94,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
                         appLanguage=data["appLanguage"],
                         lastSeenAt=time.time(),
                         expireAt=(time.time() + data["expireInSecs"]) if "expireInSecs" in data else AppStorageHelper.Get().GetDefaultExpirationFromNow(),
+                        excludeNotifications=data.get("excludeNotifications", [])
                     )
                 )
 
