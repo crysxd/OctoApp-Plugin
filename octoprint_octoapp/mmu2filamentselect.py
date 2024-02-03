@@ -13,7 +13,7 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
 
 
     def OnEmitWebsocketMessage(self, user, message, type, data):
-        if type == "plugin" and data.get("plugin") == "mmu2filamentselect" and isinstance(data.get("data"), dict):
+        if type == "plugin" and data.get("plugin") in ["mmu2filamentselect", "prusammu"] and isinstance(data.get("data"), dict):
             action = data.get("data").get("action")
 
             Sentry.Info("MMU", "Received event: %s" % action)
