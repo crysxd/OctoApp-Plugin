@@ -360,7 +360,7 @@ ICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
 ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
 ICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
 ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCg==
-" | base64 -d
+" | base64 -d 2> /dev/null || true 
 log_blank
 log_header "                                   OctoApp For Klipper "
 log_header "                            Based on the OctoEverywhere Plugin"
