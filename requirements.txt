@@ -16,6 +16,5 @@ rsa>=4.9
 dnspython>=2.3.0
 httpx==0.24.0
 urllib3>=1.26.15,<1.27.0
-pycryptodome>=3.15.0
 # The following are required only for Moonraker
 configparser

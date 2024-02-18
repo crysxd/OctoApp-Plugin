@@ -3,10 +3,9 @@ import threading
 import requests
 import json
 import time
+import sys
 import base64
 import hashlib
-from Crypto.Cipher import AES
-from Crypto import Random
 from .sentry import Sentry
 from .appsstorage import AppStorageHelper
 
@@ -228,9 +227,12 @@ class NotificationSender:
 
         try:
             cipher = AESCipher(AppStorageHelper.Get().GetOrCreateEncryptionKey())
-            return cipher.encrypt(json.dumps(data))
+            if cipher.prepare():
+                return cipher.encrypt(json.dumps(data))
+            else:
+                return json.dumps(data)
         except Exception as e:
-            Sentry.ExceptionNoSend(e)
+            Sentry.ExceptionNoSend("Failed to encrypt push notification", e)
             return json.dumps(data)
         
     
@@ -526,16 +528,34 @@ class NotificationSender:
                 self.CachedConfigAt = cache_config_max_age + 300
 
 class AESCipher(object):
+    _ready = None
+
     def __init__(self, key):
-        self.bs = AES.block_size
         self.key = hashlib.sha256(key.encode()).digest()
 
+    def prepare(self):
+        global AES, Random
+
+        if AESCipher._ready is None:
+            try:
+                from Crypto.Cipher import AES
+                from Crypto import Random
+                AESCipher._ready = True
+            except ImportError as e:
+                Sentry.Warn("SENDER", "Missing Crypto, notifications will not be encrypted. This happens on Sonic Pad and K1 (maybe others)")
+                AESCipher._ready = False
+        
+        return AESCipher._ready
+
     def encrypt(self, raw):
-        raw = self._pad(raw)
-        iv = Random.new().read(AES.block_size)
+        global AES, Random
+        bs = AES.block_size
+
+        def _pad(s):
+            return s + (bs - len(s) % bs) * chr(bs - len(s) % bs)
+
+        raw = _pad(raw)
+        iv = Random.new().read(bs)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
         return base64.b64encode(iv + cipher.encrypt(raw.encode())).decode("utf-8")
-
-    def _pad(self, s):
-        return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
             
