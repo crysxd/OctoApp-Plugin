@@ -490,7 +490,7 @@ class MoonrakerClient:
                 "client_name": "OctoApp",
                 "version": self.PluginVersionStr,
                 "type": "agent", # We must be the agent type so that we can send agent-event, aka send messages to the UI.
-                "url": "https://octoeverywhere.com",
+                "url": "https://octoapp.com",
             }
             if self.MoonrakerApiKey is not None:
                 Sentry.Info("Client", "API key added to websocket identify message.")

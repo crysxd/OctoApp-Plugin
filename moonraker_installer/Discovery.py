@@ -204,7 +204,7 @@ class Discovery:
             Logger.Header("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
             Logger.Error( "                               Moonraker Not Found!                                 ")
             Logger.Warn(  "   The K1 and K1 Max don't have Moonraker or a web frontend installed by default.   ")
-            Logger.Warn(  "  Moonraker and a frontend like Fluidd or Mainsail are required for OctoEverywhere. ")
+            Logger.Warn(  "  Moonraker and a frontend like Fluidd or Mainsail are required for OctoApp. ")
             Logger.Blank()
             Logger.Purple("        We have a step-by-step tutorial on how to install them in 30 seconds.       ")
             Logger.Purple("                         Follow this link: https://oe.ink/s/k1                      ")

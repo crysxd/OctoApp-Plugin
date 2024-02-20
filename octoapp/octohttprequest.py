@@ -129,14 +129,14 @@ class OctoHttpRequest:
         # 1) Absolute URLs
         # These are the easiest, because we just want to make a request to exactly what the absolute URL is. These are used
         # when the OctoPrint portal is trying to make an local LAN http request to the same device or even a different device.
-        # For these to work properly on a remote browser, the OctoEverywhere service will detect and convert the URLs in to encoded relative
-        # URLs for the portal. This ensures when the remote browser tries to access the HTTP endpoint, it will hit OctoEverywhere. The OctoEverywhere
+        # For these to work properly on a remote browser, the OctoApp service will detect and convert the URLs in to encoded relative
+        # URLs for the portal. This ensures when the remote browser tries to access the HTTP endpoint, it will hit OctoApp. The OctoApp
         # server detects the special relative URL, decodes the absolute URL, and sends that in the OctoMessage as "AbsUrl". For these URLs we just try
         # to hit them and we take whatever we get, we don't care if fails or not.
         #
         # 2) Relative Urls
         # These Urls are the most common, standard URLs. The browser makes the relative requests to the same hostname:port as it's currently
-        # on. However, for our setup its a little more complex. The issue is the OctoEverywhere plugin not knowing how the user's system is setup.
+        # on. However, for our setup its a little more complex. The issue is the OctoApp plugin not knowing how the user's system is setup.
         # The plugin can with 100% certainty query and know the port OctoPrint's http server is running on directly. So we do that to know exactly what
         # OctoPrint server to talk to. (consider there might be multiple instances running on one device.)
         #

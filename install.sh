@@ -135,7 +135,7 @@ ensure_creality_os_right_repo_path()
             return
         else
             log_info "Current path $OCTOAPP_REPO_DIR"
-            log_error "For the Creality devices the OctoEverywhere repo must be cloned into $HOME/octoapp"
+            log_error "For the Creality devices the OctoApp repo must be cloned into $HOME/octoapp"
             log_important "Moving the repo and running the install again..."
             cd $HOME
             # Send errors to null, if the folder already exists this will fail.
@@ -220,7 +220,7 @@ install_or_update_system_dependencies()
         # caused by an incorrect date.
         # Note some companion systems don't have curl installed, so this will fail.
         # KEEP WITH OCTOEVERYWHERE!
-        sudo date -s `curl --insecure 'https://octoeverywhere.com/api/util/date' 2>/dev/null` || true
+        sudo date -s `curl --insecure 'https://octoapp.com/api/util/date' 2>/dev/null` || true
 
         # These we require to be installed in the OS.
         # Note we need to do this before we create our virtual environment

@@ -14,7 +14,7 @@ class Uninstall:
 
         Logger.Blank()
         Logger.Blank()
-        Logger.Header("You're about to uninstall OctoEverywhere.")
+        Logger.Header("You're about to uninstall OctoApp.")
         Logger.Info  ("This printer ID will be deleted, but you can always reinstall the plugin and re-add this printer.")
         Logger.Blank()
         r =     input("Are you want to uninstall? [y/n]")
@@ -25,7 +25,7 @@ class Uninstall:
             return
         Logger.Blank()
         Logger.Blank()
-        Logger.Header("Starting OctoEverywhere uninstall")
+        Logger.Header("Starting OctoApp uninstall")
 
         # Since all service names must use the same identifier in them, we can find any services using the same search.
         foundOeServices = []
@@ -56,7 +56,7 @@ class Uninstall:
                 Logger.Debug(f"Full service path: {serviceFilePath}")
                 Logger.Info(f"Stopping and deleting {serviceFileName}...")
                 Util.RunShellCommand(f"{serviceFilePath} stop", False)
-                Util.RunShellCommand("ps -ef | grep 'moonraker_octoeverywhere' | grep -v grep | awk '{print $1}' | xargs -r kill -9", False)
+                Util.RunShellCommand("ps -ef | grep 'moonraker_octoapp' | grep -v grep | awk '{print $1}' | xargs -r kill -9", False)
                 os.remove(serviceFilePath)
             elif context.OsType == OsTypes.Debian:
                 Logger.Info(f"Stopping and deleting {serviceFileName}...")
@@ -73,7 +73,7 @@ class Uninstall:
         Logger.Blank()
         Logger.Blank()
         Logger.Header("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        Logger.Info(  "          OctoEverywhere Uninstall Complete            ")
+        Logger.Info(  "          OctoApp Uninstall Complete            ")
         Logger.Info(  "     We will miss you, please come back anytime!       ")
         Logger.Header("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
         Logger.Blank()
@@ -84,23 +84,23 @@ class Uninstall:
     # There's only one instance of moonraker, so there's no need to worry about multiple setups.
     def DoK1FileCleanup(self):
         # In modern setups, the env is here. In very few early installs, it's in /usr/share
-        self.DeleteDirOrFileIfExists("/usr/data/octoeverywhere-env")
-        self.DeleteDirOrFileIfExists("/usr/share/octoeverywhere-env")
+        self.DeleteDirOrFileIfExists("/usr/data/octoapp-env")
+        self.DeleteDirOrFileIfExists("/usr/share/octoapp-env")
 
         # For all installs, the storage folder will be here
-        self.DeleteDirOrFileIfExists("/usr/data/printer_data/octoeverywhere-store")
+        self.DeleteDirOrFileIfExists("/usr/data/printer_data/octoapp-store")
         # Delete any log files we have, there might be some rolling backups.
-        self.DeleteAllFilesContaining("/usr/data/printer_data/logs", "octoeverywhere")
+        self.DeleteAllFilesContaining("/usr/data/printer_data/logs", "octoapp")
         # Delete any config files.
-        self.DeleteAllFilesContaining("/usr/data/printer_data/config", "octoeverywhere")
+        self.DeleteAllFilesContaining("/usr/data/printer_data/config", "octoapp")
         # Remove our system config file include in the moonraker file, if there is one.
-        self.RemoveOctoEverywhereSystemCfgInclude("/usr/data/printer_data/config/moonraker.conf")
+        self.RemoveOctoAppSystemCfgInclude("/usr/data/printer_data/config/moonraker.conf")
         # Delete the installer file if it's still there
-        self.DeleteDirOrFileIfExists("/usr/data/octoeverywhere-installer.log")
+        self.DeleteDirOrFileIfExists("/usr/data/octoapp-installer.log")
 
         # Finally, remove the repo root. Note that /usr/share was used in very few early installs.
-        self.DeleteDirOrFileIfExists("/usr/data/octoeverywhere")
-        self.DeleteDirOrFileIfExists("/usr/share/octoeverywhere")
+        self.DeleteDirOrFileIfExists("/usr/data/octoapp")
+        self.DeleteDirOrFileIfExists("/usr/share/octoapp")
 
 
     # Deletes a file or directory, if it exists.
@@ -133,8 +133,8 @@ class Uninstall:
             Logger.Error(f"DeleteAllFilesContaining failed to delete {path} - {e}")
 
 
-    # Deletes the octoEverywhere-system.cfg file include if it exists in the moonraker config.
-    def RemoveOctoEverywhereSystemCfgInclude(self, moonrakerConfigPath:str):
+    # Deletes the octoapp-system.cfg file include if it exists in the moonraker config.
+    def RemoveOctoAppSystemCfgInclude(self, moonrakerConfigPath:str):
         try:
             Logger.Debug(f"Looking for OE system config include in {moonrakerConfigPath}")
             output = []
@@ -142,7 +142,7 @@ class Uninstall:
             with open(moonrakerConfigPath, encoding="utf-8") as f:
                 lines = f.readlines()
                 for l in lines:
-                    if "octoeverywhere-system.cfg" in l.lower():
+                    if "octoapp-system.cfg" in l.lower():
                         lineFound = True
                     else:
                         output.append(l)
@@ -156,6 +156,6 @@ class Uninstall:
                 for o in output:
                     f.write(f"{o}")
 
-            Logger.Debug(f"Removed octoeverywhere system config from {moonrakerConfigPath}")
+            Logger.Debug(f"Removed octoapp system config from {moonrakerConfigPath}")
         except Exception as e:
             Logger.Error(f"DeleteAllFilesContaining failed to delete {moonrakerConfigPath} - {e}")

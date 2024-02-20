@@ -5,7 +5,7 @@ from octoapp.sentry import Sentry
 class SystemConfigManager:
 
     # This can't change or it will break old installs.
-    c_updateConfigFileName = "octoeverywhere-system.cfg"
+    c_updateConfigFileName = "octoapp-system.cfg"
 
     # We use config files to integrate into moonraker's update manager, which allows our plugin repo to stay updated.
     # This also write a block that's used to allow the announcement system to show updates from our repo.
