@@ -135,7 +135,7 @@ ensure_creality_os_right_repo_path()
             return
         else
             log_info "Current path $OCTOAPP_REPO_DIR"
-            log_error "For the Creality devices the OctoEverywhere repo must be cloned into $HOME/octoapp"
+            log_error "For the Creality devices the OctoApp repo must be cloned into $HOME/octoapp"
             log_important "Moving the repo and running the install again..."
             cd $HOME
             # Send errors to null, if the folder already exists this will fail.

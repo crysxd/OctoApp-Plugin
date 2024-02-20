@@ -3,11 +3,11 @@
 
 #
 # This is not an installer script!
-# If you're trying to install OctoEverywhere for Klipper, you want to use the ./install.sh script!
+# If you're trying to install OctoApp for Klipper, you want to use the ./install.sh script!
 #
 # This PY script is required for the OctoPrint plugin install process.
 #
-# If you need help, feel free to contact us at support@octoeverywhere.com
+# If you need help, feel free to contact us at hello@octoapp.eu
 #
 
 # The plugin's identifier, has to be unique
@@ -22,7 +22,7 @@ plugin_name = "OctoApp"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
 # Note that this is also parsed by the moonraker module to pull the version, so the string and format must remain the same!
-plugin_version = "2.0.7"
+plugin_version = "2.0.8"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
@@ -73,7 +73,7 @@ plugin_requires = ["pillow", "dnspython>=2.3.0", "pycryptodome>=3.15.0"]
 plugin_additional_data = []
 
 # Any additional python packages you need to install with your plugin that are not contained in <plugin_package>.*
-# For OctoEverywhere, we need to include or common packages shared between hosts, so OctoPrint copies them into the package folder as well.
+# For OctoApp, we need to include or common packages shared between hosts, so OctoPrint copies them into the package folder as well.
 plugin_additional_packages = [ "octoapp", "octoapp.Proto" ]
 
 # Any python packages within <plugin_package>.* you do NOT want to install with your plugin

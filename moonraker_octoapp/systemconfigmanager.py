@@ -5,7 +5,7 @@ from octoapp.sentry import Sentry
 class SystemConfigManager:
 
     # This can't change or it will break old installs.
-    c_updateConfigFileName = "octoeverywhere-system.cfg"
+    c_updateConfigFileName = "octoapp-system.cfg"
 
     # We use config files to integrate into moonraker's update manager, which allows our plugin repo to stay updated.
     # This also write a block that's used to allow the announcement system to show updates from our repo.
@@ -26,7 +26,7 @@ type: git_repo
 # Using `channel: beta` makes moonraker only update to the lasted tagged commit on the branch. Which lets us control releases.
 channel: beta
 path: {RepoRootFolder}
-origin: https://github.com/QuinnDamerell/OctoPrint-OctoApp.git
+origin: https://github.com/crysxd/OctoApp-Plugin.git
 env: {pyVirtEnvRoot}/bin/python
 requirements: requirements.txt
 install_script: install.sh
