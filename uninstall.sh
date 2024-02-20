@@ -3,12 +3,12 @@
 
 
 #
-# OctoEverywhere for Klipper!
+# OctoApp for Klipper!
 #
-# This script works for any setup of OctoEverywhere, the normal plugin install, companion install, or a Creality install.
-# The script will automatically find all OctoEverywhere instances on this device and help you remove them.
+# This script works for any setup of OctoApp, the normal plugin install, companion install, or a Creality install.
+# The script will automatically find all OctoApp instances on this device and help you remove them.
 #
-# If you need help, feel free to contact us at support@octoeverywhere.com
+# If you need help, feel free to contact us at hello@octoapp.eu
 #
 
 
@@ -28,7 +28,7 @@ c_cyan=$(echo -en "\e[96m")
 
 echo ""
 echo ""
-echo -e "${c_yellow}Starting The OctoEverywhere Uninstaller${c_default}"
+echo -e "${c_yellow}Starting The OctoApp Uninstaller${c_default}"
 echo ""
 echo ""
 

@@ -8,7 +8,7 @@
 # This script works for any setup of OctoApp, the normal plugin install, companion install, or a Creality install.
 # The script will automatically find all OctoApp instances on this device and update them.
 #
-# If you need help, feel free to contact us at support@octoeverywhere.com
+# If you need help, feel free to contact us at hello@octoapp.eu
 #
 
 

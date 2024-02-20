@@ -965,7 +965,7 @@ class NotificationsHandler:
             files = requestArgs[1]
 
             # Use fairly aggressive retry logic on notifications if they fail to send.
-            # This is important because they power some of the other features of OctoEverywhere now, so having them as accurate as possible is ideal.
+            # This is important because they power some of the other features of OctoApp now, so having them as accurate as possible is ideal.
             attempts = 0
             while attempts < 3:
                 attempts += 1

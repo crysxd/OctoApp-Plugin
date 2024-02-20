@@ -77,10 +77,10 @@ class Sentry:
         try:
             stack = traceback.extract_stack((exc_info[2]).tb_frame)
             for s in stack:
-                # Check for any "octoeverywhere". The main source should be our package folder, which is
-                # "octoprint_octoeverywhere".
+                # Check for any "octoapp". The main source should be our package folder, which is
+                # "octoprint_octoapp".
                 filenameLower = s.filename.lower()
-                if "octoeverywhere" in filenameLower:
+                if "octoapp" in filenameLower:
                     # If found, return the event so it's reported.
                     return event
         except Exception as e:

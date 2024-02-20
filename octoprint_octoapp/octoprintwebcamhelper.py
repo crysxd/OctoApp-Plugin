@@ -41,7 +41,7 @@ class OctoPrintWebcamHelper():
             ]
 
         # Since OctoPrint 1.9.0+ needs to call plugins to return webcam settings, we want to reduce how often we make the call.
-        # The trade off there is that when a user changes an option, there will be a longer delay before the setting shows up in OctoEverywhere
+        # The trade off there is that when a user changes an option, there will be a longer delay before the setting shows up in OctoApp
         # But that's a very rare case, and in most cases, we want to avoid calling the plugins frequently. GetWebcamConfig() is called every time
         # we need a service snapshot, so for image based live links, it can be 1 time per second. It's also called for all notification and Gadget calls.
         if len(self.CachedWebcamSettingsResults) != 0:
