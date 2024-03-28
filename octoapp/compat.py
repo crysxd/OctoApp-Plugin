@@ -1,5 +1,5 @@
 
-# Some of the features we need to integrate into the octoeverywhere package only exist on
+# Some of the features we need to integrate into the octoapp package only exist on
 # some platforms. This is basically an interface that allows us to dynamically control
 # if some objects are available depending on the platform.
 class Compat:

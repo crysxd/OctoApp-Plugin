@@ -140,7 +140,6 @@ class MoonrakerClient:
         # Set the new address
         self.MoonrakerHostAndPort =  hostStr + ":" + str(portInt)
 
-
     # Parses the config file for the hostname and port.
     # If no file is found or the server block is missing, this will return the default values.
     # Always returns the hostname as a string, and the port as an int.
@@ -491,7 +490,7 @@ class MoonrakerClient:
                 "client_name": "OctoApp",
                 "version": self.PluginVersionStr,
                 "type": "agent", # We must be the agent type so that we can send agent-event, aka send messages to the UI.
-                "url": "https://octoeverywhere.com",
+                "url": "https://octoapp.eu",
             }
             if self.MoonrakerApiKey is not None:
                 Sentry.Info("Client", "API key added to websocket identify message.")
@@ -800,10 +799,8 @@ class MoonrakerCompat:
             return
         
         # Get our name
-        name = MoonrakerClient.Get().MoonrakerDatabase.GetPrinterName()
-        self.NotificationHandler.NotificationSender.PrinterName = name
-        Sentry.Info("Client", "Printer is called %s" % name)
-
+        self._updatePrinterName()
+    
         # Since this is a new print, reset the cache. The file name might be the same as the last, but have
         # different props, so we will always reset. We know when we are printing the same file name will have the same props.
         FileMetadataCache.Get().ResetCache()
@@ -819,6 +816,11 @@ class MoonrakerCompat:
         # Fire on started.
         self.NotificationHandler.OnStarted(fileName, fileSizeKBytes, filamentUsageMm)
 
+    def _updatePrinterName(self):
+        # Get our name
+        name = MoonrakerClient.Get().MoonrakerDatabase.GetPrinterName()
+        self.NotificationHandler.NotificationSender.PrinterName = name
+        Sentry.Info("Client", "Printer is called %s" % name)
 
     def OnDone(self):
         # Only process notifications when ready, aka after state sync.
@@ -1066,6 +1068,7 @@ class MoonrakerCompat:
         fileName_CanBeNone = stats["filename"]
         totalDurationFloatSec_CanBeNone = stats["total_duration"] # Use the total duration
         Sentry.Info("Client", "Printer state at socket connect is: "+state)
+        self._updatePrinterName()
         self.NotificationHandler.OnRestorePrintIfNeeded(state, fileName_CanBeNone, totalDurationFloatSec_CanBeNone)
 
 

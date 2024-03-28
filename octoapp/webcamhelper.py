@@ -535,7 +535,7 @@ class WebcamHelper:
     #
     # This function is designed to detect the camera-streamer URLs and fix them up for our internal use. We support WebRTC via the Klipper or OctoPrint portals,
     # but for all of our service related streaming we can't support WebRTC. For things like Live Links, WebRTC would expose the WAN IP of the user's device.
-    # Thus, for anything internally to OctoEverywhere, we convert camera-streamer's webrtc stream URL to jmpeg.
+    # Thus, for anything internally to OctoApp, we convert camera-streamer's webrtc stream URL to jmpeg.
     #
     # If the camera-streamer webrtc stream URL is found, the correct camera-streamer jmpeg stream is returned.
     # Otherwise None is returned.

@@ -32,7 +32,7 @@ class Gadget:
         self.PrinterStateInterface = printerStateInterface
         self.Lock = threading.Lock()
         self.Timer = None
-        self.DefaultProtocolAndDomain = "https://gadget-v1-oeapi.octoeverywhere.com"
+        self.DefaultProtocolAndDomain = "http://127.0.0.1:4500"
         self.FailedConnectionAttempts = 0
 
         # If there is a current host lock, this is the hostname.

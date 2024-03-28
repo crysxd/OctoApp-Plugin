@@ -26,9 +26,6 @@
 - Use F5 to debug and run
 
 
-## Install Other Branches:
-    - https://github.com/QuinnDamerell/OctoPrint-OctoEverywhere/archive/ui.zip
-
 ## Before checking in:
 - Run in py2 env
 - Run in py3 env
@@ -47,7 +44,7 @@
 # Plugin Development Details
 
 
-This repo contains code shared by both OctoPrint and Moonraker. Ideally most of the logic lives in the octoeverywhere module, and thus is shared. Any code that's specific to Moonraker or OctoPrint, is found in the octoprint_ or moonraker_ modules.
+This repo contains code shared by both OctoPrint and Moonraker. Ideally most of the logic lives in the octoapp module, and thus is shared. Any code that's specific to Moonraker or OctoPrint, is found in the octoprint_ or moonraker_ modules.
 
 ## Major OctoPrint and Moonraker Differences
 
@@ -61,7 +58,7 @@ OctoPrint installs and sets up the plugin using the setup.py file. The setup pro
 
 Moonraker currently requires the user to do a more advance setup. Either the user is required to ssh into the device, clone the repo, and then run the install script, or a tool like KIAUH can be used.
 
-The install script must manually install all required system and python packages. It also must figure out the current Moonraker, Mailsail, crowsnest, and Fluidd configs to create the OctoEverywhere config. Finally must setup and run the systemd service that will run the OctoEverywhere host.
+The install script must manually install all required system and python packages. It also must figure out the current Moonraker, Mailsail, crowsnest, and Fluidd configs to create the OctoApp config. Finally must setup and run the systemd service that will run the OctoApp host.
 
 ### OctoPrint Update
 
@@ -75,8 +72,8 @@ On update, the repo is pulled to the head of the branch. The install.sh script i
 
 ### OctoPrint Host
 
-OctoPrint hosts our plugin in the same process. The octoprint_octoeverywhere module has all of the required files and extensions that OctoPrint requires. Since we are hosted in OctoPrint, we have to share the process, but we also get a lot of runtime nice things for free.
+OctoPrint hosts our plugin in the same process. The octoprint_octoapp module has all of the required files and extensions that OctoPrint requires. Since we are hosted in OctoPrint, we have to share the process, but we also get a lot of runtime nice things for free.
 
 ### Moonraker Host
 
-For moonraker, we aren't in process, we run as our own service. The moonraker_octoeverywhere module is responsible for setting up the environment required, and hosting the common OctoEverywhere logic.
+For moonraker, we aren't in process, we run as our own service. The moonraker_octoapp module is responsible for setting up the environment required, and hosting the common OctoApp logic.

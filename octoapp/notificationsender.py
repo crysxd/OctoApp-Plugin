@@ -3,10 +3,9 @@ import threading
 import requests
 import json
 import time
+import sys
 import base64
 import hashlib
-from Crypto.Cipher import AES
-from Crypto import Random
 from .sentry import Sentry
 from .appsstorage import AppStorageHelper
 
@@ -69,7 +68,8 @@ class NotificationSender:
             if not targets:
                 Sentry.Debug("SENDER", "No targets, skipping notification")
                 return
-
+                
+            targets = self._processFilters(targets=targets, event=event)
             ios_targets = helper.GetIosApps(targets)
             activity_targets = helper.GetActivities(targets)
             android_targets = helper.GetAndroidApps(targets)
@@ -235,9 +235,12 @@ class NotificationSender:
 
         try:
             cipher = AESCipher(AppStorageHelper.Get().GetOrCreateEncryptionKey())
-            return cipher.encrypt(json.dumps(data))
+            if cipher.prepare():
+                return cipher.encrypt(json.dumps(data))
+            else:
+                return json.dumps(data)
         except Exception as e:
-            Sentry.ExceptionNoSend(e)
+            Sentry.ExceptionNoSend("Failed to encrypt push notification", e)
             return json.dumps(data)
         
     
@@ -245,14 +248,23 @@ class NotificationSender:
         Sentry.Info("SENDER", "Targets contain iOS devices, generating texts for '%s'" % event)
         notificationTitle = None
         notificationBody = None
+        notificationTitleKey = None
+        notificationTitleArgs = None
+        notificationBodyKey = None
+        notificationBodyArgs = None
         notificationSound = None
         liveActivityState = None
+        defaultBody = "Time to check %s!" % self.PrinterName
 
         if event == self.EVENT_BEEP:
             return {
                 "alert": {
-                    "title": "Beep!",
-                    "body": "%s needs attention" % self.PrinterName,
+                    "title": "Beep ",
+                    "body": "%s needs attention " % self.PrinterName,
+                    "title-loc-key": "print_notification___beep_title",
+                    "title-loc-args": [],
+                    "loc-key": "print_notification___beep_message",
+                    "loc-args": [self.PrinterName]
                 },
                 "sound": "default",
             }
@@ -262,6 +274,10 @@ class NotificationSender:
                 "alert": {
                     "title": "%s started to print" % self.PrinterName,
                     "body": "Open the app to see the progress",
+                    "title-loc-key": "print_notification___start_title",
+                    "title-loc-args": [self.PrinterName],
+                    "loc-key": "print_notification___start_message",
+                    "loc-args": []
                 },
                 "sound": "default",
             }
@@ -271,11 +287,21 @@ class NotificationSender:
 
         elif event == self.EVENT_FIRST_LAYER_DONE:
             notificationTitle = "First layer completed"
+            notificationTitleKey = "print_notification___layer_x_completed_title"
+            notificationTitleArgs = ["1"]
+            notificationBody = defaultBody
+            notificationBodyKey = "print_notification___layer_x_completed_message"
+            notificationBodyArgs = [self.PrinterName]
             notificationSound = "notification_filament_change.wav"
             liveActivityState = "printing"
 
         elif event == self.EVENT_THIRD_LAYER_DONE:
-            notificationTitle = "Third layer is completed"
+            notificationTitle = "Third layer completed"
+            notificationTitleKey = "print_notification___layer_x_completed_title"
+            notificationTitleArgs = ["3"]
+            notificationBody = defaultBody
+            notificationBodyKey = "print_notification___layer_x_completed_message"
+            notificationBodyArgs = [self.PrinterName]
             notificationSound = "notification_filament_change.wav"
             liveActivityState = "printing"
 
@@ -284,17 +310,27 @@ class NotificationSender:
 
         elif event == self.EVENT_DONE:
             notificationTitle = "%s is done!" % self.PrinterName
+            notificationTitleKey = "print_notification___print_done_title"
+            notificationTitleArgs = [self.PrinterName]
             notificationBody = state.get("FileName", None)
             notificationSound = "notification_print_done.wav"
             liveActivityState = "completed"
 
         elif event == self.EVENT_FILAMENT_REQUIRED:
             notificationTitle = "Filament required"
+            notificationTitleKey = "print_notification___filament_change_required_title"
+            notificationTitleArgs =  [self.PrinterName]
+            notificationBody = tate.get("FileName", None)
             notificationSound = "notification_filament_change.wav"
             liveActivityState = "filamentRequired"
 
         elif event == self.EVENT_USER_INTERACTION_NEEDED:
-            notificationTitle = "Print paused"
+            notificationTitle = "%s needs attention!" % self.PrinterName
+            notificationTitleKey = "print_notification___paused_from_gcode_title"
+            notificationTitleArgs = [self.PrinterName]
+            notificationBody = "Print was paused"
+            notificationBodyKey = "print_notification___paused_from_gcode_message"
+            notificationBodyArgs = []
             notificationSound = "notification_filament_change.wav"
             liveActivityState = "pausedGcode"
 
@@ -302,7 +338,12 @@ class NotificationSender:
             liveActivityState = "paused"
         
         elif event == self.EVENT_MMU2_FILAMENT_START:
-            notificationTitle = "MMU2 filament selection required"
+            notificationTitle = "%s asks for filament selection" % self.PrinterName
+            notificationTitleKey = "print_notification___filament_selection_title"
+            notificationTitleArgs = [self.PrinterName]
+            notificationBody = "Print is waiting for MMU"
+            notificationBodyKey = "print_notification___filament_selection_message"
+            notificationBodyArgs = []
             notificationSound = "notification_filament_change.wav"
             liveActivityState = "filamentRequired"
 
@@ -330,14 +371,24 @@ class NotificationSender:
         if notificationSound is not None:
             data["sound"] = notificationSound
         
-        if notificationBody is None:
+        if notificationBody is None and notificationBodyKey is None:
             notificationBody = "Time to check %s!" % self.PrinterName
 
-        if notificationTitle is not None:
+        if notificationTitle is not None or notificationTitleKey is not None:
+             # Create alert
             data["alert"] = {
                 "title": notificationTitle,
-                "body": notificationBody
+                "body": notificationBody,
+                "title-loc-key": notificationTitleKey,
+                "title-loc-args": notificationTitleArgs,
+                "loc-key": notificationBodyKey,
+                "loc-args": notificationBodyArgs,
             }
+
+            # Delete None values, causes issues with APNS
+            for k, v in dict(data["alert"]).items():
+                if v is None or (type(v) == list and len(v) == 0):
+                    del data["alert"][k]
 
         return data
 
@@ -485,16 +536,34 @@ class NotificationSender:
                 self.CachedConfigAt = cache_config_max_age + 300
 
 class AESCipher(object):
+    _ready = None
+
     def __init__(self, key):
-        self.bs = AES.block_size
         self.key = hashlib.sha256(key.encode()).digest()
 
+    def prepare(self):
+        global AES, Random
+
+        if AESCipher._ready is None:
+            try:
+                from Crypto.Cipher import AES
+                from Crypto import Random
+                AESCipher._ready = True
+            except ImportError as e:
+                Sentry.Warn("SENDER", "Missing Crypto, notifications will not be encrypted. This happens on Sonic Pad and K1 (maybe others)")
+                AESCipher._ready = False
+        
+        return AESCipher._ready
+
     def encrypt(self, raw):
-        raw = self._pad(raw)
-        iv = Random.new().read(AES.block_size)
+        global AES, Random
+        bs = AES.block_size
+
+        def _pad(s):
+            return s + (bs - len(s) % bs) * chr(bs - len(s) % bs)
+
+        raw = _pad(raw)
+        iv = Random.new().read(bs)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
         return base64.b64encode(iv + cipher.encrypt(raw.encode())).decode("utf-8")
-
-    def _pad(self, s):
-        return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
             

@@ -135,7 +135,7 @@ ensure_creality_os_right_repo_path()
             return
         else
             log_info "Current path $OCTOAPP_REPO_DIR"
-            log_error "For the Creality devices the OctoEverywhere repo must be cloned into $HOME/octoapp"
+            log_error "For the Creality devices the OctoApp repo must be cloned into $HOME/octoapp"
             log_important "Moving the repo and running the install again..."
             cd $HOME
             # Send errors to null, if the folder already exists this will fail.
@@ -143,7 +143,7 @@ ensure_creality_os_right_repo_path()
             cd $HOME/octoapp
             # Ensure state
             git reset --hard
-            git checkout master
+            git checkout release
             git pull
             # Run the install, if it fails, still do the clean-up of this repo.
             if [[ $IS_K1_OS -eq 1 ]]
@@ -255,6 +255,15 @@ install_or_update_python_env()
     log_info "Installing or updating required python libs..."
     "${OCTOAPP_ENV}"/bin/pip3 install -q -r "${OCTOAPP_REPO_DIR}"/requirements.txt
     log_info "Python libs installed."
+
+     log_info "Attempting to install optinal python libs..."
+     "${OCTOAPP_ENV}"/bin/pip3 install -q -r "${OCTOAPP_REPO_DIR}"/requirements_try.txt || PIP_FAILED="true"
+     if [ "$PIP_FAILED" = "true" ]; then 
+        log_error "Failed to install optional python libraries. Optional end-to-end encryption for Android notification is not possible. Continuing..." 
+    else
+        log_info "Python libs installed."  
+    fi;
+
 }
 
 #
@@ -360,7 +369,7 @@ ICAgICAgICAgICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
 ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
 ICAKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
 ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgCg==
-" | base64 -d
+" | base64 -d 2> /dev/null || true 
 log_blank
 log_header "                                   OctoApp For Klipper "
 log_header "                            Based on the OctoEverywhere Plugin"
