@@ -58,6 +58,7 @@ class NotificationsHandler:
         self.ProgressTimer = None
         self.FirstLayerTimer = None
         self.FinalSnapObj:FinalSnap = None
+        self.PauseThread = None
         # self.Gadget = Gadget(logger, self, self.PrinterStateInterface)
 
         # Define all the vars
@@ -219,6 +220,11 @@ class NotificationsHandler:
             # On paused, make sure they are stopped.
             self.StopTimers()
 
+    def _cancelDelayedPause(self):
+        if self.PauseThread is not None and self.PauseThread.is_alive():
+            Sentry.Info("NOTIFICATION", "Cancelling delayed pause")
+            self.PauseThread.stop()
+            self.PauseThread = None
 
     # Only used for testing.
     def OnTest(self):
@@ -261,6 +267,7 @@ class NotificationsHandler:
         self._updateCurrentFileName(fileName)
         self._updateToKnownDuration(durationSecStr)
         self.StopTimers()
+        self._cancelDelayedPause()
         self._sendEvent(NotificationSender.EVENT_CANCELLED, { "Reason": reason})
 
 
@@ -272,6 +279,7 @@ class NotificationsHandler:
         self._updateCurrentFileName(fileName_CanBeNone)
         self._updateToKnownDuration(durationSecStr_CanBeNone)
         self.StopTimers()
+        self.__cancelDelayedPause()
         self._sendEvent(NotificationSender.EVENT_DONE, useFinalSnapSnapshot=True)
 
 
@@ -279,13 +287,37 @@ class NotificationsHandler:
     def OnPaused(self, fileName):
         if self._shouldIgnoreEvent(fileName):
             return
+        
+        def firePause(delay, event):
+            _self = self.PauseThread 
+            Sentry.Info("NOTIFICATION", "Delaying pause for %d seconds" % delay)
+            time.sleep(delay)
+            if _self.stopped() is False:
+                Sentry.Info("NOTIFICATION", "Delayed pause not stopped, executing")
+                self._sendEvent(event)
+                self.PauseThread = None
+            else: 
+                 Sentry.Info("NOTIFICATION", "Delayed pause was stopped, dropping")
+            
+        def scheduleSent(delay, event):
+            if self.PauseThread is None or self.PauseThread.is_alive() is False:
+                if delay == 0:
+                    self._sendEvent(event)
+                else:
+                    self.PauseThread = StoppableThread(target=firePause, args=(delay, event))
+                    self.PauseThread.start()
+            else:
+                Sentry.Error("NOTIFICATION", "Skipping pause, already scheduled")
 
         # Always update the file name.
         self._updateCurrentFileName(fileName)
 
+        delay = 0
         event = NotificationSender.EVENT_PAUSED
         if Compat.IsMoonraker():
             # Because filament runout doesn't work, let's treat every pause as "interaction needed"
+            # Also delay in case of timlapse photo the pause will be super short. If the print is resumed within the delay, drop the pause
+            delay = 3
             event = NotificationSender.EVENT_USER_INTERACTION_NEEDED
 
         # See if there is a pause notification suppression set. If this is not null and it was recent enough
@@ -294,20 +326,21 @@ class NotificationsHandler:
         if Compat.HasSmartPauseInterface():
             lastSuppressTimeSec = Compat.GetSmartPauseInterface().GetAndResetLastPauseNotificationSuppressionTimeSec()
             if lastSuppressTimeSec is None or time.time() - lastSuppressTimeSec > 20.0:
-                self._sendEvent(event)
+                scheduleSent(delay, event)
             else:
                 Sentry.Info("NOTIFICATION", "Not firing the pause notification due to a Smart Pause suppression.")
         else:
-            self._sendEvent(event)
+            scheduleSent(delay, event)
 
         # Stop the ping timer, so we don't report progress while we are paused.
         self.StopTimers()
-
 
     # Fired when a print is resumed
     def OnResume(self, fileName):
         if self._shouldIgnoreEvent(fileName):
             return
+        
+        self._cancelDelayedPause()
         self._updateCurrentFileName(fileName)
         self._sendEvent(NotificationSender.EVENT_RESUME)
 
@@ -324,6 +357,7 @@ class NotificationsHandler:
             return
 
         self.StopTimers()
+        self._cancelDelayedPause()
 
         # This might be spammy from OctoPrint, so limit how often we bug the user with them.
         if self._shouldSendSpammyEvent("on-error"+str(error), 30.0) is False:
@@ -1208,6 +1242,19 @@ class NotificationsHandler:
             return True
         return False
 
+class StoppableThread(threading.Thread):
+    """Thread class with a stop() method. The thread itself has to check
+    regularly for the stopped() condition."""
+
+    def __init__(self,  *args, **kwargs):
+        super(StoppableThread, self).__init__(*args, **kwargs)
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
 
 class SpammyEventContext:
 
