@@ -386,20 +386,26 @@ then
     echo "Running in K1 and K1 Max OS mode"
 fi
 
-# Before anything, make sure this repo is cloned into the correct path on Creality OS devices.
-# If this is Creality OS and the path is wrong, it will re-clone the repo, run the install again, and exit.
-ensure_creality_os_right_repo_path
+echo "dishfosd $1"
+if [[ $1 != "-uninstall" ]]
+then
+    # Before anything, make sure this repo is cloned into the correct path on Creality OS devices.
+    # If this is Creality OS and the path is wrong, it will re-clone the repo, run the install again, and exit.
+    ensure_creality_os_right_repo_path
 
-# Next, make sure our required system packages are installed.
-# These are required for other actions in this script, so it must be done first.
-install_or_update_system_dependencies
+    # Next, make sure our required system packages are installed.
+    # These are required for other actions in this script, so it must be done first.
+    install_or_update_system_dependencies
 
-# Check that OctoPrint isn't found. If it is, we want to check with the user to make sure they are
-# not trying to setup OctoApp for OctoPrint.
-check_for_octoprint
+    # Check that OctoPrint isn't found. If it is, we want to check with the user to make sure they are
+    # not trying to setup OctoApp for OctoPrint.
+    check_for_octoprint
 
-# Now make sure the virtual env exists, is updated, and all of our currently required PY packages are updated.
-install_or_update_python_env
+    # Now make sure the virtual env exists, is updated, and all of our currently required PY packages are updated.
+    install_or_update_python_env
+else
+    echo "Running as uninstaller"
+fi
 
 # Before launching our PY script, set any vars it needs to know
 # Pass all of the command line args, so they can be handled by the PY script.
