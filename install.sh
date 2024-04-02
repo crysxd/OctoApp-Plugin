@@ -387,8 +387,10 @@ then
 fi
 
 echo "dishfosd $1"
-if [[ $1 != "-uninstall" ]]
+if [ "${@}" = "-uninstall" ]
 then
+    echo "Running as uninstaller"
+else
     # Before anything, make sure this repo is cloned into the correct path on Creality OS devices.
     # If this is Creality OS and the path is wrong, it will re-clone the repo, run the install again, and exit.
     ensure_creality_os_right_repo_path
@@ -403,8 +405,6 @@ then
 
     # Now make sure the virtual env exists, is updated, and all of our currently required PY packages are updated.
     install_or_update_python_env
-else
-    echo "Running as uninstaller"
 fi
 
 # Before launching our PY script, set any vars it needs to know
