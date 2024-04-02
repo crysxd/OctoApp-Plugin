@@ -387,7 +387,7 @@ then
 fi
 
 echo "args: ${@}"
-if [[ $1 -eq "-uninstall" ]]
+if [[ $1 = "-uninstall" ]]
 then
     echo "Running as uninstaller"
 else
