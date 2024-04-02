@@ -386,7 +386,7 @@ then
     echo "Running in K1 and K1 Max OS mode"
 fi
 
-echo "dishfosd $1"
+echo "args: ${@}"
 if [[ $1 -eq "-uninstall" ]]
 then
     echo "Running as uninstaller"
