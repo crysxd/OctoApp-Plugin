@@ -386,8 +386,7 @@ then
     echo "Running in K1 and K1 Max OS mode"
 fi
 
-echo "args: ${@}"
-if [ $1 = "uninstall" ]
+if [ "${@}" = "-uninstall" ]
 then
     echo "Running as uninstaller"
 else
