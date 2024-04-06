@@ -279,7 +279,7 @@ class NotificationsHandler:
         self._updateCurrentFileName(fileName_CanBeNone)
         self._updateToKnownDuration(durationSecStr_CanBeNone)
         self.StopTimers()
-        self.__cancelDelayedPause()
+        self._cancelDelayedPause()
         self._sendEvent(NotificationSender.EVENT_DONE, useFinalSnapSnapshot=True)
 
 
