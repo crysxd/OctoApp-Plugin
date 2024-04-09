@@ -52,6 +52,7 @@ class NotificationSender:
             if event == self.EVENT_DONE:
                 state["ProgressPercentage"] = 100
 
+
             self.LastPrintState = state
             helper = AppStorageHelper.Get()
             Sentry.Info("SENDER", "Preparing notification for %s" % event)
@@ -68,12 +69,19 @@ class NotificationSender:
             if not targets:
                 Sentry.Debug("SENDER", "No targets, skipping notification")
                 return
-                
+            
+            target_count_before_filter = len(targets)
             targets = self._processFilters(targets=targets, event=event)
             ios_targets = helper.GetIosApps(targets)
             activity_targets = helper.GetActivities(targets)
             android_targets = helper.GetAndroidApps(targets)
             apnsData = self._createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None
+
+            # Some clients might have user interaction disbaled. First send pause so all live activities etc
+            if event == self.EVENT_USER_INTERACTION_NEEDED and target_count_before_filter != len(targets):
+                Sentry.Info("SENDER", "User interaction needed, first sending pause")
+                self.SendNotification(self.EVENT_PAUSED)
+                time.sleep(2)
 
             if not len(android_targets) and apnsData is None:
                 Sentry.Info("SENDER", "Skipping push, no Android targets and no APNS data, skipping notification")
@@ -138,6 +146,14 @@ class NotificationSender:
             filterName = "layer_1"
         elif event == self.EVENT_THIRD_LAYER_DONE:
             filterName = "layer_3"
+        elif event == self.EVENT_FILAMENT_REQUIRED:
+            filterName = "filament_required"
+        elif event == self.EVENT_ERROR:
+            filterName = "error"
+        elif event == self.EVENT_USER_INTERACTION_NEEDED:
+            filterName = "interaction"
+        elif event == self.EVENT_BEEP:
+            filterName = "beep"
         else:
             return targets
     
@@ -312,7 +328,7 @@ class NotificationSender:
             notificationTitle = "Filament required"
             notificationTitleKey = "print_notification___filament_change_required_title"
             notificationTitleArgs =  [self.PrinterName]
-            notificationBody = tate.get("FileName", None)
+            notificationBody = state.get("FileName", None)
             notificationSound = "notification_filament_change.wav"
             liveActivityState = "filamentRequired"
 

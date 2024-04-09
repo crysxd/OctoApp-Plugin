@@ -213,13 +213,13 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
     # Depending on if we have PrintTimeGenius, use OctoPrints progress or emulate the PrintTimeGenius calculation 
     # (based on the printTimeLeft which is modified by PrintTimeGenius)
     def _updateProgressAndSendIfChanged(self):
-        progress = self.parent._printer.get_current_data().get("progress", {})
-        printTimeLeft = progress["printTimeLeft"]
-        printTime = progress["printTime"]
-        completion = progress["completion"]
+        progressDict = self.parent._printer.get_current_data().get("progress", {})
+        printTimeLeft = progressDict["printTimeLeft"]
+        printTime = progressDict["printTime"]
+        completion = progressDict["completion"]
         lastProgress = self.Progress
 
-        if completion is None or printTime is None or printTimeLeft is None:
+        if completion is None or printTime is None:
             return
 
         if self._hasPrintTimeGenius and printTime is not None and printTimeLeft is not None:
@@ -229,5 +229,5 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
         if self.Progress != lastProgress and self.NotificationHandler is not None:
             Sentry.Debug("NOTIFICATION", "Progress change: %s -> %s" % (lastProgress, self.Progress))
-            self.NotificationHandler.OnPrintProgress(progress, None)
+            self.NotificationHandler.OnPrintProgress(self.Progress, None)
     
