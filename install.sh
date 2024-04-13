@@ -224,7 +224,7 @@ install_or_update_system_dependencies()
 
         # These we require to be installed in the OS.
         # Note we need to do this before we create our virtual environment
-        sudo apt update
+        sudo apt update || true
         sudo apt install --yes ${PKGLIST}
 
         # The PY lib Pillow depends on some system packages that change names depending on the OS.
