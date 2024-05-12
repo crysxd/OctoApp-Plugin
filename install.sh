@@ -260,7 +260,7 @@ install_or_update_python_env()
     log_info "Installing or updating required python libs..."
     if [[ $IS_K1_OS -eq 1 ]]
     then
-        "${OCTOAPP_ENV}"/bin/pip3 install --trusted-host pypi.python.org --trusted-host pypi.org --trusted-host=files.pythonhosted.org -r "${OCTOAPP_REPO_DIR}"/requirements.txt
+        "${OCTOAPP_ENV}"/bin/pip3 install --trusted-host pypi.python.org --trusted-host pypi.org --trusted-host=files.pythonhosted.org -q -r "${OCTOAPP_REPO_DIR}"/requirements.txt
     else
         "${OCTOAPP_ENV}"/bin/pip3 install -q -r "${OCTOAPP_REPO_DIR}"/requirements.txt
     fi
