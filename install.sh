@@ -213,12 +213,14 @@ install_or_update_system_dependencies()
         # On the K1, the only we thing we ensure is that virtualenv is installed via pip.
         if [[ -f /opt/bin/opkg ]]
         then
+            opkg update || true
             opkg install ${CREALITY_DEP_LIST}
         fi
         pip3 install --trusted-host pypi.python.org --trusted-host pypi.org --trusted-host=files.pythonhosted.org --no-cache-dir virtualenv
     elif [[ $IS_SONIC_PAD_OS -eq 1 ]]
     then
         # The sonic pad always has opkg installed, so we can make sure these packages are installed.
+        opkg update || true
         opkg install ${SONIC_PAD_DEP_LIST}
         pip3 install virtualenv
     else
