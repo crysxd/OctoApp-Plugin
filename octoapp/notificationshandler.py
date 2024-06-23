@@ -145,6 +145,9 @@ class NotificationsHandler:
         if fsLocal is not None:
             fsLocal.ReportPositiveExtrudeCommandSent()
 
+    def DisableLayerMagic(self):
+        Sentry.Info("NOTIFICATION", "Disabling layer magic")
+        self.StopFirstLayerTimer()
 
     # Hints at if we are tracking a print or not.
     def IsTrackingPrint(self) -> bool:
@@ -258,7 +261,6 @@ class NotificationsHandler:
         self.StartPrintTimers(True, None)
         self._sendEvent(NotificationSender.EVENT_STARTED)
         Sentry.Info("NOTIFICATION", f"New print started; PrintId: {str(self.PrintId)} file:{str(self.CurrentFileName)} size:{str(self.CurrentFileSizeInKBytes)} filament:{str(self.CurrentEstFilamentUsageMm)}")
-
 
     # Fired when a print fails
     def OnFailed(self, fileName, durationSecStr, reason):
@@ -401,6 +403,13 @@ class NotificationsHandler:
         # Otherwise, send it.
         self._sendEvent(NotificationSender.EVENT_USER_INTERACTION_NEEDED)
 
+    # Fired when the first layer is completed
+    def OnFirstLayerDone(self):
+        self._sendEvent(NotificationSender.EVENT_FIRST_LAYER_DONE)
+
+     # Fired when the third layer is completed
+    def OnThirdLayerDone(self):
+        self._sendEvent(NotificationSender.EVENT_THIRD_LAYER_DONE)
     
      # Fired when the printer needs user interaction to continue
     def OnBeep(self):
@@ -1129,7 +1138,6 @@ class NotificationsHandler:
         self.FirstLayerTimer = None
         if firstLayerTimer is not None:
             firstLayerTimer.Stop()
-
 
     # Starts all print timers, including the progress time, Gadget, and the first layer watcher.
     def StartPrintTimers(self, resetHoursReported, restoreActionSetHoursReportedInt_OrNone):

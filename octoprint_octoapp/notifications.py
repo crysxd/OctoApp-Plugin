@@ -2,6 +2,7 @@
 from .subplugin import OctoAppSubPlugin
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
+from octoapp.layerutils import LayerUtils
 
 class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
@@ -11,6 +12,9 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         self._hasPrintTimeGenius = self.parent._plugin_manager.get_plugin("PrintTimeGenius") is not None
         self.Progress = 0
         self.GcodeSentCount = 0
+        self.LayerMagic = True
+        self.FirstLayerDoneCommand = LayerUtils.CreateLayerChangeCommand(1)
+        self.ThirdLayerDoneCommand = LayerUtils.CreateLayerChangeCommand(3)
 
 
     def _getPrinterName(self):
@@ -48,9 +52,11 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
         # Listen for the rest of these events for notifications.
         # OctoPrint Events
+        # self.LayerMagic might be set before the PrintStarted event, so do not reset on start but end of print
         if event == "PrintStarted":
             self.Progress = 0
             self.GcodeSentCount = 0
+            Sentry.Info("NOTIFICATION", "Print started")
             fileName = self.GetDictStringOrEmpty(payload, "name")
             # Gather some stats from other places, if they exist.
             currentData = self.parent._printer.get_current_data()
@@ -62,15 +68,20 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                 totalFilamentUsageMm = int(currentData["job"]["filament"]["tool0"]["length"])
             self._updateProgressAndSendIfChanged()
             self.NotificationHandler.OnStarted(fileName, fileSizeKBytes, totalFilamentUsageMm)
+
+            if self.LayerMagic is False and self.NotificationHandler:
+                self.NotificationHandler.DisableLayerMagic()
         elif event == "PrintFailed" or event == "PrintCancelled":
             fileName = self.GetDictStringOrEmpty(payload, "name")
             durationSec = self.GetDictStringOrEmpty(payload, "time")
             reason = self.GetDictStringOrEmpty(payload, "reason")
             self.NotificationHandler.OnFailed(fileName, durationSec, reason)
+            self.LayerMagic = True
         elif event == "PrintDone":
             fileName = self.GetDictStringOrEmpty(payload, "name")
             durationSec = self.GetDictStringOrEmpty(payload, "time")
             self.NotificationHandler.OnDone(fileName, durationSec)
+            self.LayerMagic = True
         elif event == "PrintPaused":
             fileName = self.GetDictStringOrEmpty(payload, "name")
             self.NotificationHandler.OnPaused(fileName)
@@ -95,6 +106,24 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # Name might have changed
             self.NotificationHandler.NotificationSender.PrinterName = self._getPrinterName()
 
+    def OnGcodeQueued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+        # Check for our layer commands
+        if cmd == LayerUtils.DisableLegacyLayerCommand:
+            Sentry.Info("NOTIFICATION", "Layer magic disabled")
+            self.LayerMagic = False
+            if self.NotificationHandler:
+                self.NotificationHandler.DisableLayerMagic()
+            return False
+
+        if cmd == self.FirstLayerDoneCommand and self.NotificationHandler:
+            self.NotificationHandler.OnFirstLayerDone()
+            return False
+        
+        if cmd == self.ThirdLayerDoneCommand:
+            self.NotificationHandler.OnThirdLayerDone()
+            return False
+        
+        return True
 
     def OnGcodeSent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         # Blocking will block the printer commands from being handled so we can't block here!
@@ -125,7 +154,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
         # Look for positive extrude commands, so we can keep track of them for final snap and our first layer tracking logic.
         # Example cmd value: `G1 X112.979 Y93.81 E.03895`
-        if self.NotificationHandler is not None and gcode and cmd and gcode == "G1":
+        if self.LayerMagic is True and self.NotificationHandler is not None and gcode and cmd and gcode == "G1":
             try:
                 indexOfE = cmd.find('E')
                 if indexOfE != -1:
@@ -182,7 +211,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         return line
     
     def isPauseCommand(self, line: str):
-        lineLower = line.lower()
+        lineLower = line.lower() if line is not None else ""
         return "paused for user" in lineLower or "// action:paused" in lineLower or "//action:pause" in lineLower or "@pause" in lineLower or "m0" == lineLower
 
     # A dict helper

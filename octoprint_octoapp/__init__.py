@@ -29,6 +29,7 @@ from .mmu2filamentselect import OctoAppMmu2FilamentSelectSubPlugin
 from .webcamsnapshots import OctoAppWebcamSnapshotsSubPlugin
 from .printerstateobject import PrinterStateObject
 from .octoprintwebcamhelper import OctoPrintWebcamHelper
+from .layerprocessor import LayerProcessor
 
 class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                     octoprint.plugin.ProgressPlugin,
@@ -193,11 +194,17 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
 
     def OnGcodeQueued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+        send = True
         for sp in self.SubPlugins:
             try:
-                sp.OnGcodeQueued(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
+                send = send and sp.OnGcodeQueued(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to handle gcode queued", e)
+        
+        # If we should not send the ocmmand to the printer, return a None, value
+        if send is False:
+            Sentry.Debug("Main", "Supressing Gcode: " + cmd)
+            return None,
 
 
     def OnGcodeSent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
@@ -298,4 +305,5 @@ def __plugin_load__():
         "octoprint.comm.protocol.firmware.info": __plugin_implementation__.OnFirmwareInfoReceived,
         "octoprint.access.permissions": __plugin_implementation__.GetAdditionalPermissions,
         "octoprint.server.sockjs.emit": __plugin_implementation__.OnEmitWebsocketMessage,
+        "octoprint.filemanager.preprocessor": LayerProcessor.InsertLayerChanges
     }

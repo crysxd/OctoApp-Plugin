@@ -36,7 +36,7 @@ class OctoAppSubPlugin():
 
 
     def OnGcodeQueued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
-        pass
+        return True
 
 
     def OnGcodeReceived(self, comm_instance, line, *args, **kwargs):
