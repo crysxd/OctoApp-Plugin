@@ -421,6 +421,9 @@ class MoonrakerClient:
                 buffer = ""
                 filePos = 0
                 context = {}
+
+                # Do not read by line! We need to keep track of \r and \n because they are part of the filePos
+                # later used. If read by line we do not know if \r\n or \n was used
                 while chunk := response.read(4096):
                     buffer += chunk.decode('utf-8')
                     while '\n' in buffer:
