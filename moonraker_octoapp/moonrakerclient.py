@@ -1,15 +1,19 @@
 import os
+import sys
 import threading
 import time
 import json
 import queue
 import logging
 import math
+import urllib.request
+from urllib.parse import quote
 
 import configparser
 from octoapp.compat import Compat
 
 from octoapp.sentry import Sentry
+from octoapp.layerutils import LayerUtils
 from octoapp.websocketimpl import Client
 from octoapp.notificationshandler import NotificationsHandler
 from .moonrakercredentailmanager import MoonrakerCredentialManager
@@ -351,6 +355,7 @@ class MoonrakerClient:
                         if "filename" in jobObj:
                             fileName = jobObj["filename"]
                             self.MoonrakerCompat.OnPrintStart(fileName)
+                            self.DownloadFileForProcessing(fileName)
                             return
                 elif action == "finished":
                     # This can be a finish canceled or failed.
@@ -374,6 +379,7 @@ class MoonrakerClient:
         if method == "notify_status_update":
             # This is shared by a few things, so get it once.
             progressFloat_CanBeNone = self._GetProgressFromMsg(msg)
+            filePos_CanBeNone = self._GetFilePosFromMsg(msg)
 
             # Check for a state container
             stateContainerObj = self._GetWsMsgParam(msg, "print_stats")
@@ -399,12 +405,39 @@ class MoonrakerClient:
 
             # Report progress. Do this after the others so they will report before a potential progress update.
             # Progress updates super frequently (like once a second) so there's plenty of chances.
-            if progressFloat_CanBeNone is not None:
-                self.MoonrakerCompat.OnPrintProgress(progressFloat_CanBeNone)
+            if progressFloat_CanBeNone is not None and filePos_CanBeNone is not None:
+                self.MoonrakerCompat.OnPrintProgress(progressFloat_CanBeNone, filePos_CanBeNone)
 
         # When the webcams change, kick the webcam helper.
         if method == "notify_webcams_changed":
             self.ConnectionStatusHandler.OnWebcamSettingsChanged()
+
+    def DownloadFileForProcessing(self, fileName):
+        try:
+            path = '/'.join(list(map(quote, fileName.split("/"))))
+            url = "http://" + self.MoonrakerHostAndPort + "/server/files/gcodes/" + path
+            Sentry.Info("Client", "Processing file at %s" % url)
+            with urllib.request.urlopen(url) as response:
+                buffer = ""
+                filePos = 0
+                context = {}
+
+                # Do not read by line! We need to keep track of \r and \n because they are part of the filePos
+                # later used. If read by line we do not know if \r\n or \n was used
+                while chunk := response.read(4096):
+                    buffer += chunk.decode('utf-8')
+                    while '\n' in buffer:
+                        line, buffer = buffer.split('\n', 1)
+                        filePos += len(line) + 1 # +1 for \n
+                        if self.MoonrakerCompat._extractNotifications(line.strip(), filePos, context) is False:
+                            Sentry.Info("Client", "Processing stopped prematurely, all notifications extracted")
+                            return
+
+                if buffer:
+                    self.MoonrakerCompat._extractNotifications(line, filePos)
+
+        except Exception as e:
+            Sentry.Error("Client", "Failed to download file %s" % e)
 
 
     # If the message has a progress contained in the virtual_sdcard, this returns it. The progress is a float from 0.0->1.0
@@ -415,6 +448,17 @@ class MoonrakerClient:
             vsd = vsdContainerObj["virtual_sdcard"]
             if "progress" in vsd:
                 return vsd["progress"]
+        return None
+
+    
+    # If the message has a progress contained in the virtual_sdcard, this returns it
+    # Otherwise None
+    def _GetFilePosFromMsg(self, msg):
+        vsdContainerObj = self._GetWsMsgParam(msg, "virtual_sdcard")
+        if vsdContainerObj is not None:
+            vsd = vsdContainerObj["virtual_sdcard"]
+            if "file_position" in vsd:
+                return vsd["file_position"]
         return None
 
 
@@ -719,6 +763,12 @@ class MoonrakerCompat:
         self.NotificationHandler = NotificationsHandler(self)
         # self.NotificationHandler.SetPrinterId(printerId)
 
+        # Set the LastFilePos to a high value so the layer notifications are not send if the plugin
+        # is started during a print
+        self.LastFilePos = sys.maxsize
+        self.FirstLayerCompletedAt = None
+        self.ThirdLayerCompletedAt = None
+
 
     def GetNotificationHandler(self):
         return self.NotificationHandler
@@ -815,12 +865,43 @@ class MoonrakerCompat:
 
         # Fire on started.
         self.NotificationHandler.OnStarted(fileName, fileSizeKBytes, filamentUsageMm)
+        self.FirstLayerCompletedAt = None
+        self.ThirdLayerCompletedAt = None
+        self.LastFilePos = 0
 
     def _updatePrinterName(self):
-        # Get our name
-        name = MoonrakerClient.Get().MoonrakerDatabase.GetPrinterName()
-        self.NotificationHandler.NotificationSender.PrinterName = name
-        Sentry.Info("Client", "Printer is called %s" % name)
+        try:
+            # Get our name
+            name = MoonrakerClient.Get().MoonrakerDatabase.GetPrinterName()
+            self.NotificationHandler.NotificationSender.PrinterName = name
+            Sentry.Info("Client", "Printer is called %s" % name)
+        except Exception as e:
+            Sentry.ExceptionNoSend("Failed to update printer name" % e)
+
+    def _extractNotifications(self, line, filePos, context):
+        context['layerCounter'] = context.get('layerCounter', 0)
+        
+        try:
+            if LayerUtils.IsLayerChange(line):
+                Sentry.Info("Client", "Layer " + str(context['layerCounter']) + " completed at at " + str(filePos))
+
+                if context['layerCounter'] == 1:
+                    self.FirstLayerCompletedAt = filePos
+
+                if context['layerCounter'] == 3:
+                    self.ThirdLayerCompletedAt = filePos
+
+                context['layerCounter'] += 1
+            
+            # We stop parsing after layer 3
+            if context['layerCounter'] > 3:
+               return False
+
+        except Exception as e:
+            Sentry.ExceptionNoSend("Failed to update printer name" % e)
+
+        return True
+
 
     def OnDone(self):
         # Only process notifications when ready, aka after state sync.
@@ -873,10 +954,19 @@ class MoonrakerCompat:
 
 
     # Called when there's a print percentage progress update.
-    def OnPrintProgress(self, progressFloat):
+    def OnPrintProgress(self, progressFloat, filePos):
         # Only process notifications when ready, aka after state sync.
         if self.IsReadyToProcessNotifications is False:
             return
+
+        # Check if a layer was completed
+        if self.FirstLayerCompletedAt and self.LastFilePos < self.FirstLayerCompletedAt and filePos >= self.FirstLayerCompletedAt:
+            self.NotificationHandler.OnFirstLayerDone()
+        
+        if self.ThirdLayerCompletedAt and self.LastFilePos < self.ThirdLayerCompletedAt and filePos >= self.ThirdLayerCompletedAt:
+            self.NotificationHandler.OnThirdLayerDone()
+
+        self.LastFilePos = filePos
 
         # Moonraker sends about 3 of these per second, which is way faster than we need to process them.
         nowSec = time.time()
@@ -1070,6 +1160,8 @@ class MoonrakerCompat:
         Sentry.Info("Client", "Printer state at socket connect is: "+state)
         self._updatePrinterName()
         self.NotificationHandler.OnRestorePrintIfNeeded(state, fileName_CanBeNone, totalDurationFloatSec_CanBeNone)
+        if fileName_CanBeNone:
+            MoonrakerClient.Get().DownloadFileForProcessing(fileName_CanBeNone)
 
 
     # Queries moonraker for the current printer stats.
