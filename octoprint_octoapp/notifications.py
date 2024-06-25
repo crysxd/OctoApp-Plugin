@@ -134,12 +134,12 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self.NotificationHandler.OnFirstLayerDone()
             return False
         
-        if cmd == self.ThirdLayerDoneCommand:
+        if cmd == self.ThirdLayerDoneCommand and self.NotificationHandler:
             self.NotificationHandler.OnThirdLayerDone()
             return False
         
         message = NotificationUtils.GetMessageIfNotifyCommand(cmd)
-        if message is not None:
+        if message is not None and self.NotificationHandler:
             self.NotificationHandler.OnCustomNotification(message)
             return False
         

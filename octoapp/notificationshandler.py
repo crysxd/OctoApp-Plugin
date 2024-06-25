@@ -237,13 +237,13 @@ class NotificationsHandler:
     # Triggered by a Gcode command
     def OnCustomNotification(self, message, unlimited = False):
         if unlimited:
-            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.CUSTOM_EVENT_MESSAGE: message })
+            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: message })
         if self.CustomNotificationCounter < self.CustomNotificationLimit:
             self.CustomNotificationCounter += 1
-            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.CUSTOM_EVENT_MESSAGE: message })
+            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: message })
         elif self.CustomNotificationCounter == self.CustomNotificationLimit:
             self.CustomNotificationCounter += 1
-            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.CUSTOM_EVENT_MESSAGE: "You reached the limit of %d Gcode notifications for this print" % self.CustomNotificationLimit })
+            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: "You reached the limit of %d Gcode notifications for this print" % self.CustomNotificationLimit })
 
 
     # Fired when a print fails
