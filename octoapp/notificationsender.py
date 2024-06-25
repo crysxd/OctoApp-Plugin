@@ -440,7 +440,7 @@ class NotificationSender:
         }
 
     def _shouldPreferActivity(self, event):
-        return event != self.EVENT_BEEP and event != self.EVENT_FIRST_LAYER_DONE and event != self.EVENT_THIRD_LAYER_DONE
+        return event != self.EVENT_BEEP and event != self.EVENT_FIRST_LAYER_DONE and event != self.EVENT_THIRD_LAYER_DONE and event != self.EVENT_CUSTOM
 
     def _canUseNonActivity(self, event):
         return event != self.EVENT_PROGRESS and event != self.EVENT_PROGRESS and event != self.EVENT_RESUME and event != self.EVENT_TIME_PROGRESS
