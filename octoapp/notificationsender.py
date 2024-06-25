@@ -17,6 +17,7 @@ class NotificationSender:
     EVENT_TIME_PROGRESS="timerprogress"
     EVENT_DONE="done"
     EVENT_CANCELLED="cancelled"
+    EVENT_CUSTOM="custom"
     EVENT_PROGRESS="progress"
     EVENT_STARTED="started"
     EVENT_ERROR="error"
@@ -26,6 +27,13 @@ class NotificationSender:
     EVENT_RESUME="resume"
     EVENT_THIRD_LAYER_DONE="third_layer_done"
     EVENT_FIRST_LAYER_DONE="first_layer_done"
+    
+    STATE_CUSTOM_EVENT_MESSAGE = "message"
+    STATE_TIME_REMAINING_SEC = "time_remaining_sec"
+    STATE_PROGRESS_PERCENT = "progress_percent"
+    STATE_DURATION_SEC = "duration_sec"
+    STATE_FILE_NAME = "file_name"
+    STATE_PRINT_ID = "print_id"
 
 
     def __init__(self):
@@ -50,7 +58,7 @@ class NotificationSender:
                 state = self.LastPrintState
 
             if event == self.EVENT_DONE:
-                state["ProgressPercentage"] = 100
+                state[NotificationSender.STATE_PROGRESS_PERCENT] = 100
 
 
             self.LastPrintState = state
@@ -123,7 +131,7 @@ class NotificationSender:
         highPrecisionEnd = self.CachedConfig["highPrecisionRangeEnd"]
         minIntervalSecs = self.CachedConfig["minIntervalSecs"]
         time_since_last = time.time() - self.LastProgressUpdate
-        progress = int(state["ProgressPercentage"])
+        progress = int(state[NotificationSender.STATE_PROGRESS_PERCENT])
         if progress < 100 and progress > 0 and (
             (progress % modulus) == 0
             or progress <= highPrecisionStart
@@ -206,6 +214,8 @@ class NotificationSender:
         data = {}
         if event == self.EVENT_BEEP:
             data = { "type": "beep" }
+        elif event == self.EVENT_CUSTOM:
+            data = { "type": "custom", "message": state.get(self.STATE_CUSTOM_EVENT_MESSAGE, "Gcode notification") }
         else:
             type = None
             if event == self.EVENT_PROGRESS or event == self.EVENT_STARTED or event == self.EVENT_TIME_PROGRESS or event == self.EVENT_RESUME:
@@ -230,15 +240,18 @@ class NotificationSender:
                 type = "mmu_filament_selection_completed"
             elif event == self.EVENT_CANCELLED:
                 type = "idle"
+            elif event == self.EVENT_CUSTOM:
+                type = "custom"
 
             data = {
                 "serverTime": int(time.time()),
                 "serverTimePrecise": time.time(),
-                "printId": state.get("PrintId", None),
-                "fileName": state.get("FileName", None),
-                "progress": state.get("ProgressPercentage", None),
-                "timeLeft": state.get("TimeRemainingSec", None),
-                "type": type
+                "printId": state.get(NotificationSender.STATE_PRINT_ID, None),
+                "fileName": state.get(NotificationSender.STATE_FILE_NAME, None),
+                "progress": state.get(NotificationSender.STATE_PROGRESS_PERCENT, None),
+                "timeLeft": state.get(NotificationSender.STATE_TIME_REMAINING_SEC, None),
+                "type": type,
+                "message": state.get(NotificationSender.STATE_CUSTOM_EVENT_MESSAGE, None)
             }
 
         try:
@@ -264,10 +277,23 @@ class NotificationSender:
         liveActivityState = None
         defaultBody = "Time to check %s!" % self.PrinterName
 
-        if event == self.EVENT_BEEP:
+        if event == self.EVENT_CUSTOM:
             return {
                 "alert": {
-                    "title": "Beep ",
+                    "title": state.get(self.STATE_CUSTOM_EVENT_MESSAGE, "Gcode notification"),
+                    "body": "Triggered on %s by a Gcode command" % self.PrinterName,
+                    "title-loc-key": "print_notification___beep_title",
+                    "title-loc-args": [],
+                    "loc-key": "print_notification___beep_message",
+                    "loc-args": [self.PrinterName]
+                },
+                "sound": "default",
+            }
+        
+        elif event == self.EVENT_BEEP:
+            return {
+                "alert": {
+                    "title": "Beep",
                     "body": "%s needs attention " % self.PrinterName,
                     "title-loc-key": "print_notification___beep_title",
                     "title-loc-args": [],
@@ -320,7 +346,7 @@ class NotificationSender:
             notificationTitle = "%s is done!" % self.PrinterName
             notificationTitleKey = "print_notification___print_done_title"
             notificationTitleArgs = [self.PrinterName]
-            notificationBody = state.get("FileName", None)
+            notificationBody = state.get(NotificationSender.STATE_FILE_NAME, None)
             notificationSound = "notification_print_done.wav"
             liveActivityState = "completed"
 
@@ -328,7 +354,7 @@ class NotificationSender:
             notificationTitle = "Filament required"
             notificationTitleKey = "print_notification___filament_change_required_title"
             notificationTitleArgs =  [self.PrinterName]
-            notificationBody = state.get("FileName", None)
+            notificationBody = state.get(NotificationSender.STATE_FILE_NAME, None)
             notificationSound = "notification_filament_change.wav"
             liveActivityState = "filamentRequired"
 
@@ -404,12 +430,12 @@ class NotificationSender:
         return {
             "event": "end" if isEnd else "update",
             "content-state": {
-                "fileName": state.get("FileName", None),
-                "progress": int(float(state.get("ProgressPercentage", None))),
+                "fileName": state.get(NotificationSender.STATE_FILE_NAME, None),
+                "progress": int(float(state.get(NotificationSender.STATE_PROGRESS_PERCENT, None))),
                 "sourceTime": int(time.time() * 1000),
                 "state": liveActivityState,
-                "timeLeft": int(float(state.get("TimeRemainingSec", None))),
-                "printTime": int(float(state.get("DurationSec", None))),
+                "timeLeft": int(float(state.get(NotificationSender.STATE_TIME_REMAINING_SEC, None))),
+                "printTime": int(float(state.get(NotificationSender.STATE_DURATION_SEC, None))),
             }
         }
 

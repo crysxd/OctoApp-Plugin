@@ -1,8 +1,13 @@
+from datetime import datetime, timedelta
+from time import sleep
+from threading import Thread
 
 from .subplugin import OctoAppSubPlugin
-from octoapp.notificationshandler import NotificationsHandler
+from octoapp.notificationshandler import NotificationsHandler, StoppableThread
 from octoapp.sentry import Sentry
 from octoapp.layerutils import LayerUtils
+from octoapp.notificationutils import NotificationUtils
+from octoprint.filemanager import FileManager
 
 class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
@@ -12,10 +17,12 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         self._hasPrintTimeGenius = self.parent._plugin_manager.get_plugin("PrintTimeGenius") is not None
         self.Progress = 0
         self.GcodeSentCount = 0
-        self.LayerMagic = True
+        self.LayerMagicDisabledAt = datetime.fromtimestamp(0)
         self.FirstLayerDoneCommand = LayerUtils.CreateLayerChangeCommand(1)
         self.ThirdLayerDoneCommand = LayerUtils.CreateLayerChangeCommand(3)
-
+        self.ScheduledNotifications = None
+        self.ScheduledNotificationsThread = {}
+        self.LastFilePos = 0
 
     def _getPrinterName(self):
         name = self.parent._settings.global_get(
@@ -31,6 +38,13 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
     def OnAfterStartup(self):
         self.NotificationHandler.NotificationSender.PrinterName = self._getPrinterName()
         Sentry.Info("NOTIFICATION",  "Has PrintTimeGenius: %s" % self._hasPrintTimeGenius)
+
+    
+    def OnCurrentData(self, data):
+        filePos = data.get("progress", {}).get("filepos", None)
+        if filePos != self.LastFilePos and self.ScheduledNotifications is not None and self.NotificationHandler is not None:
+            NotificationUtils.SendScheduledNotifications(self.ScheduledNotifications, self.NotificationHandler, filePos, self.LastFilePos)
+            self.LastFilePos = filePos
 
 
     def OnPrintProgress(self, storage, path, progress):
@@ -55,9 +69,12 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         # self.LayerMagic might be set before the PrintStarted event, so do not reset on start but end of print
         if event == "PrintStarted":
             self.Progress = 0
+            self.LastFilePos = 0
             self.GcodeSentCount = 0
             Sentry.Info("NOTIFICATION", "Print started")
             fileName = self.GetDictStringOrEmpty(payload, "name")
+            path = self.GetDictStringOrEmpty(payload, "path")
+            origin = self.GetDictStringOrEmpty(payload, "origin")
             # Gather some stats from other places, if they exist.
             currentData = self.parent._printer.get_current_data()
             fileSizeKBytes = 0
@@ -68,20 +85,19 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                 totalFilamentUsageMm = int(currentData["job"]["filament"]["tool0"]["length"])
             self._updateProgressAndSendIfChanged()
             self.NotificationHandler.OnStarted(fileName, fileSizeKBytes, totalFilamentUsageMm)
+            self._extractScheduledNotificationsIfNotStoppedBefore(origin, path)
 
-            if self.LayerMagic is False and self.NotificationHandler:
-                self.NotificationHandler.DisableLayerMagic()
         elif event == "PrintFailed" or event == "PrintCancelled":
             fileName = self.GetDictStringOrEmpty(payload, "name")
             durationSec = self.GetDictStringOrEmpty(payload, "time")
             reason = self.GetDictStringOrEmpty(payload, "reason")
             self.NotificationHandler.OnFailed(fileName, durationSec, reason)
-            self.LayerMagic = True
+            self.LayerMagicDisabledAt = datetime.fromtimestamp(0)
         elif event == "PrintDone":
             fileName = self.GetDictStringOrEmpty(payload, "name")
             durationSec = self.GetDictStringOrEmpty(payload, "time")
             self.NotificationHandler.OnDone(fileName, durationSec)
-            self.LayerMagic = True
+            self.LayerMagicDisabledAt = datetime.fromtimestamp(0)
         elif event == "PrintPaused":
             fileName = self.GetDictStringOrEmpty(payload, "name")
             self.NotificationHandler.OnPaused(fileName)
@@ -106,13 +122,12 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # Name might have changed
             self.NotificationHandler.NotificationSender.PrinterName = self._getPrinterName()
 
+
     def OnGcodeQueued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         # Check for our layer commands
         if cmd == LayerUtils.DisableLegacyLayerCommand:
             Sentry.Info("NOTIFICATION", "Layer magic disabled")
-            self.LayerMagic = False
-            if self.NotificationHandler:
-                self.NotificationHandler.DisableLayerMagic()
+            self.LayerMagicDisabledAt = datetime.now()
             return False
 
         if cmd == self.FirstLayerDoneCommand and self.NotificationHandler:
@@ -123,7 +138,13 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self.NotificationHandler.OnThirdLayerDone()
             return False
         
+        message = NotificationUtils.GetMessageIfNotifyCommand(cmd)
+        if message is not None:
+            self.NotificationHandler.OnCustomNotification(message)
+            return False
+        
         return True
+
 
     def OnGcodeSent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         # Blocking will block the printer commands from being handled so we can't block here!
@@ -151,29 +172,6 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             Sentry.Info("NOTIFICATION", "Firing On User Interaction Required From GcodeSent: "+str(gcode))
             # No need to use a thread since all events are handled on a new thread.
             self.NotificationHandler.OnUserInteractionNeeded()
-
-        # Look for positive extrude commands, so we can keep track of them for final snap and our first layer tracking logic.
-        # Example cmd value: `G1 X112.979 Y93.81 E.03895`
-        if self.LayerMagic is True and self.NotificationHandler is not None and gcode and cmd and gcode == "G1":
-            try:
-                indexOfE = cmd.find('E')
-                if indexOfE != -1:
-                    endOfEValue = cmd.find(' ', indexOfE)
-                    if endOfEValue == -1:
-                        endOfEValue = len(cmd)
-                    eValue = cmd[indexOfE+1:endOfEValue]
-                    # The value will look like one of these: -.333,1.33,.33
-                    # We don't care about negative values, so ignore them.
-                    if eValue[0] != '-':
-                        # If the value doesn't start with a 0, the float parse wil fail.
-                        if eValue[0] != '0':
-                            eValue = "0" + eValue
-                        # Now the value should be something like 1.33 or 0.33
-                        if float(eValue) > 0:
-                            self.NotificationHandler.ReportPositiveExtrudeCommandSent()
-            except Exception as e:
-                Sentry.Warn("Failed to parse gcode %s, error %s" % (cmd, str(e)))
-    
 
     def OnGcodeReceived(self, comm_instance, line, *args, **kwargs):
         # Blocking will block the printer commands from being handled so we can't block here!
@@ -259,4 +257,33 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         if self.Progress != lastProgress and self.NotificationHandler is not None:
             Sentry.Debug("NOTIFICATION", "Progress change: %s -> %s" % (lastProgress, self.Progress))
             self.NotificationHandler.OnPrintProgress(self.Progress, None)
+
+
+    def _extractScheduledNotificationsIfNotStoppedBefore(self, origin, path):
+        def doLoad():
+            try:
+                if origin != "local":
+                    Sentry.Info("NOTIFICATION", "Unsupported origin for layer magic: %s" % origin)
+                    return
+            
+                sleep(5)
+                if (datetime.now() - self.LayerMagicDisabledAt) < timedelta(seconds=10):
+                    Sentry.Info("NOTIFICATION", "Layer magic was disabled, stopping")
+                    return
+            
+           
+                diskPath = self.parent._file_manager.path_on_disk(origin, path)
+                Sentry.Info("NOTIFICATION", "Processing file at %s for layer magic" % path)
+                with open(diskPath, 'r') as stream:
+                    self.ScheduledNotifications = NotificationUtils.ExtractNotifications(stream, stopAfterLayer3 = True)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to process file for notifications", e)
+
+        if self.ScheduledNotificationsThread:
+            self.ScheduledNotificationsThread.stop()
+
+        self.ScheduledNotifications = None
+        self.ScheduledNotificationsThread = StoppableThread(target = doLoad, daemon=True)
+        self.ScheduledNotificationsThread.start()
+        
     

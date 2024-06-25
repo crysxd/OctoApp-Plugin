@@ -41,3 +41,7 @@ class OctoAppSubPlugin():
 
     def OnGcodeReceived(self, comm_instance, line, *args, **kwargs):
         pass
+
+
+    def OnCurrentData(self, data):
+        pass

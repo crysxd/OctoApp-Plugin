@@ -117,7 +117,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
             webcamSettings = self._getWebcamSettingsItem(webcamIndex)
             snapshotUrl = webcamSettings.SnapshotUrl
 
-            if snapshotUrl == "" or snapshotUrl is None:
+            if snapshotUrl == "" or snapshotUrl is None or (not snapshotUrl.startswith("http://") or not snapshotUrl.startswith("https://")):
                 return True
 
             imageBytes = BytesIO()

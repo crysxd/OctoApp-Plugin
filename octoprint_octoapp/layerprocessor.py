@@ -14,6 +14,7 @@ class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
         super().__init__(input_stream)
         self.LayerCounter = 0
         self.FirstLine = True
+        self.Context = {}
 
     def process_line(self, line):
         try:
@@ -22,7 +23,7 @@ class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
             if decodedLine.startswith(LayerUtils.LayerChangeCommand) or decodedLine.startswith(LayerUtils.DisableLegacyLayerCommand):
                 return None
             
-            if LayerUtils.IsLayerChange(decodedLine):
+            if LayerUtils.IsLayerChange(decodedLine, self.Context):
                 result = (decodedLine + LayerUtils.CreateLayerChangeCommand(self.LayerCounter) + "\r\n").encode()
                 self.LayerCounter += 1
                 return result

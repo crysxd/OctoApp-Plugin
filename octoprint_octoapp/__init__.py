@@ -6,6 +6,7 @@ from datetime import datetime
 
 import time
 import flask
+import octoprint.printer
 import requests
 import octoprint.plugin
 import logging
@@ -38,7 +39,8 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                     octoprint.plugin.SimpleApiPlugin,
                     octoprint.plugin.SettingsPlugin,
                     octoprint.plugin.EventHandlerPlugin,
-                    octoprint.plugin.RestartNeedingPlugin):
+                    octoprint.plugin.RestartNeedingPlugin,
+                    octoprint.printer.PrinterCallback):
     
     def __init__(self):
         # Update logger
@@ -91,6 +93,9 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
         # Indicate this has been called and things have been inited.
         self.HasOnStartupBeenCalledYet = True
+
+        # Hook up events
+        self._printer.register_callback(self)
 
 
     # Mixin method
@@ -156,6 +161,14 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 sp.OnPrintProgress(storage=storage, path=path, progress=progress)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to handle progress", e)
+
+
+    def on_printer_send_current_data(self, data):
+        for sp in self.SubPlugins:
+            try:
+                sp.OnCurrentData(data=data)
+            except Exception as e:
+                Sentry.ExceptionNoSend("Failed to handle current data", e)
 
 
     # Mixin method
@@ -282,7 +295,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         self._logger_handler.setLevel(logging.DEBUG)
         self._logger.addHandler(self._logger_handler)
         self._logger.setLevel(logging.DEBUG)
-        self._logger.propagate = False
+        self._logger.propagate = True
 
 
 __plugin_name__ = "OctoApp"

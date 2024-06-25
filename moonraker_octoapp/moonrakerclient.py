@@ -13,7 +13,7 @@ import configparser
 from octoapp.compat import Compat
 
 from octoapp.sentry import Sentry
-from octoapp.layerutils import LayerUtils
+from octoapp.notificationutils import NotificationUtils
 from octoapp.websocketimpl import Client
 from octoapp.notificationshandler import NotificationsHandler
 from .moonrakercredentailmanager import MoonrakerCredentialManager
@@ -418,26 +418,11 @@ class MoonrakerClient:
             url = "http://" + self.MoonrakerHostAndPort + "/server/files/gcodes/" + path
             Sentry.Info("Client", "Processing file at %s" % url)
             with urllib.request.urlopen(url) as response:
-                buffer = ""
-                filePos = 0
-                context = {}
-
-                # Do not read by line! We need to keep track of \r and \n because they are part of the filePos
-                # later used. If read by line we do not know if \r\n or \n was used
-                while chunk := response.read(4096):
-                    buffer += chunk.decode('utf-8')
-                    while '\n' in buffer:
-                        line, buffer = buffer.split('\n', 1)
-                        filePos += len(line) + 1 # +1 for \n
-                        if self.MoonrakerCompat._extractNotifications(line.strip(), filePos, context) is False:
-                            Sentry.Info("Client", "Processing stopped prematurely, all notifications extracted")
-                            return
-
-                if buffer:
-                    self.MoonrakerCompat._extractNotifications(line, filePos)
+                notifications = NotificationUtils.ExtractNotifications(response)
+                self.MoonrakerCompat.ScheduledNotifications(notifications)
 
         except Exception as e:
-            Sentry.Error("Client", "Failed to download file %s" % e)
+            Sentry.Error("Client", "Failed to download file for notification processing: %s" % e)
 
 
     # If the message has a progress contained in the virtual_sdcard, this returns it. The progress is a float from 0.0->1.0
@@ -766,8 +751,7 @@ class MoonrakerCompat:
         # Set the LastFilePos to a high value so the layer notifications are not send if the plugin
         # is started during a print
         self.LastFilePos = sys.maxsize
-        self.FirstLayerCompletedAt = None
-        self.ThirdLayerCompletedAt = None
+        self.ScheduledNotifications = {}
 
 
     def GetNotificationHandler(self):
@@ -865,8 +849,7 @@ class MoonrakerCompat:
 
         # Fire on started.
         self.NotificationHandler.OnStarted(fileName, fileSizeKBytes, filamentUsageMm)
-        self.FirstLayerCompletedAt = None
-        self.ThirdLayerCompletedAt = None
+        self.ScheduledNotifications = {}
         self.LastFilePos = 0
 
     def _updatePrinterName(self):
@@ -878,29 +861,9 @@ class MoonrakerCompat:
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to update printer name" % e)
 
-    def _extractNotifications(self, line, filePos, context):
-        context['layerCounter'] = context.get('layerCounter', 0)
-        
-        try:
-            if LayerUtils.IsLayerChange(line):
-                Sentry.Info("Client", "Layer " + str(context['layerCounter']) + " completed at at " + str(filePos))
 
-                if context['layerCounter'] == 1:
-                    self.FirstLayerCompletedAt = filePos
-
-                if context['layerCounter'] == 3:
-                    self.ThirdLayerCompletedAt = filePos
-
-                context['layerCounter'] += 1
-            
-            # We stop parsing after layer 3
-            if context['layerCounter'] > 3:
-               return False
-
-        except Exception as e:
-            Sentry.ExceptionNoSend("Failed to update printer name" % e)
-
-        return True
+    def ScheduleNotifications(self, notifications):
+        self.ScheduledNotifications = notifications
 
 
     def OnDone(self):
@@ -958,14 +921,9 @@ class MoonrakerCompat:
         # Only process notifications when ready, aka after state sync.
         if self.IsReadyToProcessNotifications is False:
             return
-
-        # Check if a layer was completed
-        if self.FirstLayerCompletedAt and self.LastFilePos < self.FirstLayerCompletedAt and filePos >= self.FirstLayerCompletedAt:
-            self.NotificationHandler.OnFirstLayerDone()
         
-        if self.ThirdLayerCompletedAt and self.LastFilePos < self.ThirdLayerCompletedAt and filePos >= self.ThirdLayerCompletedAt:
-            self.NotificationHandler.OnThirdLayerDone()
-
+        # Trigger scheduled notifications
+        NotificationUtils.TriggerNotifications(self.ScheduledNotifications, filePos, self.LastFilePos)
         self.LastFilePos = filePos
 
         # Moonraker sends about 3 of these per second, which is way faster than we need to process them.

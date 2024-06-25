@@ -56,7 +56,6 @@ class NotificationsHandler:
         self.PrinterStateInterface = printerStateInterface
         self.NotificationSender = NotificationSender()
         self.ProgressTimer = None
-        self.FirstLayerTimer = None
         self.FinalSnapObj:FinalSnap = None
         self.PauseThread = None
         # self.Gadget = Gadget(logger, self, self.PrinterStateInterface)
@@ -69,18 +68,12 @@ class NotificationsHandler:
         self.FallbackProgressInt = 0
         self.MoonrakerReportedProgressFloat_CanBeNone = None
         self.PingTimerHoursReported = 0
-        self.HasSendFirstLayerDoneMessage = False
-        self.HasSendThirdLayerDoneMessage = False
-        self.zOffsetLowestSeenMM = 1337.0
-        self.zOffsetNotAtLowestCount = 0
-        self.zOffsetHasSeenPositiveExtrude = False
-        self.zOffsetTrackingStartTimeSec = 0.0
-        self.FirstLayerDoneSince = 0.0
-        self.ThirdLayerDoneSince = 0.0
         self.ProgressCompletionReported = []
         self.PrintId = "none"
         self.PrintStartTimeSec = 0
         self.RestorePrintProgressPercentage = False
+        self.CustomNotificationCounter = 0
+        self.CustomNotificationLimit = 10
 
         self.SpammyEventTimeDict = {}
         self.SpammyEventLock = threading.Lock()
@@ -97,15 +90,6 @@ class NotificationsHandler:
         self.FallbackProgressInt = 0
         self.MoonrakerReportedProgressFloat_CanBeNone = None
         self.PingTimerHoursReported = 0
-        self.HasSendFirstLayerDoneMessage = False
-        self.HasSendThirdLayerDoneMessage = False
-        # The following values are used to figure out when the first layer is done.
-        self.zOffsetLowestSeenMM = 1337.0
-        self.zOffsetNotAtLowestCount = 0
-        self.zOffsetTrackingStartTimeSec = 0.0
-        self.FirstLayerDoneSince = 0.0
-        self.ThirdLayerDoneSince = 0.0
-        self.zOffsetHasSeenPositiveExtrude = False
         self.RestorePrintProgressPercentage = False
 
         # Ensure there's no final snap running.
@@ -138,16 +122,6 @@ class NotificationsHandler:
 
     def GetPrintStartTimeSec(self):
         return self.PrintStartTimeSec
-
-    def ReportPositiveExtrudeCommandSent(self):
-        self.zOffsetHasSeenPositiveExtrude = True
-        fsLocal = self.FinalSnapObj
-        if fsLocal is not None:
-            fsLocal.ReportPositiveExtrudeCommandSent()
-
-    def DisableLayerMagic(self):
-        Sentry.Info("NOTIFICATION", "Disabling layer magic")
-        self.StopFirstLayerTimer()
 
     # Hints at if we are tracking a print or not.
     def IsTrackingPrint(self) -> bool:
@@ -198,10 +172,6 @@ class NotificationsHandler:
         # Always set the file name, if not None
         if fileName_CanBeNone is not None:
             self._updateCurrentFileName(fileName_CanBeNone)
-
-        # Disable the first layer complete logic, since we don't know what the base z-axis was
-        self.HasSendFirstLayerDoneMessage = True
-        self.HasSendThirdLayerDoneMessage = True
 
         # Set this flag so the first progress update will restore the progress to the current progress without
         # firing all of the progress points we missed.
@@ -259,8 +229,22 @@ class NotificationsHandler:
         self.CurrentFileSizeInKBytes = fileSizeKBytes
         self.CurrentEstFilamentUsageMm = totalFilamentUsageMm
         self.StartPrintTimers(True, None)
+        self.CustomNotificationCounter = 0
         self._sendEvent(NotificationSender.EVENT_STARTED)
         Sentry.Info("NOTIFICATION", f"New print started; PrintId: {str(self.PrintId)} file:{str(self.CurrentFileName)} size:{str(self.CurrentFileSizeInKBytes)} filament:{str(self.CurrentEstFilamentUsageMm)}")
+
+
+    # Triggered by a Gcode command
+    def OnCustomNotification(self, message, unlimited = False):
+        if unlimited:
+            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.CUSTOM_EVENT_MESSAGE: message })
+        if self.CustomNotificationCounter < self.CustomNotificationLimit:
+            self.CustomNotificationCounter += 1
+            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.CUSTOM_EVENT_MESSAGE: message })
+        elif self.CustomNotificationCounter == self.CustomNotificationLimit:
+            self.CustomNotificationCounter += 1
+            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.CUSTOM_EVENT_MESSAGE: "You reached the limit of %d Gcode notifications for this print" % self.CustomNotificationLimit })
+
 
     # Fired when a print fails
     def OnFailed(self, fileName, durationSecStr, reason):
@@ -512,206 +496,6 @@ class NotificationsHandler:
         self.PingTimerHoursReported += 1
 
         self._sendEvent(NotificationSender.EVENT_TIME_PROGRESS, { "HoursCount": str(self.PingTimerHoursReported) })
-
-
-    #
-    # Note this values are important!
-    # The cost of getting the current z offset is decently high, and thus we can't check it too often.
-    # However, the our "first layer complete" logic works by watching the zoffset to detect when it has moved above
-    # the "lowest ever seen.". It will only fire the notification after we have seen something above "the lowest ever seen"
-    # so many times. If we don't poll frequently enough, the notification will be delayed and we might miss some of the layer heights changes.
-    #
-    # For now, we settled on checking every 2 seconds and a FirstLayerCountAboveLowestBeforeNotify value of 5, meaning we need to constantly see
-    # a layer height above the lowest for 10 seconds before we will fire the notification.
-    FirstLayerTimerIntervalSec = 2.0
-    FirstLayerCountAboveLowestBeforeNotify = 5
-
-
-    # Called by our firstLayerTimer at a fixed interval defined by FirstLayerTimerIntervalSec.
-    # Returns True if the timer should continue, otherwise False
-    def _OnFirstLayerWatchTimer(self):
-
-        # If we have already sent the first layer done message there's nothing to do.
-        # Remember! This timer will be started mid print for a Moonraker state restore or on resume, so we need to make
-        # Sure we handle that. Right now we use HasSendFirstLayerDoneMessage to ensure we don't run the logic anymore until the print restarts.
-        if self.HasSendFirstLayerDoneMessage and self.HasSendThirdLayerDoneMessage:
-            return False
-
-        # Ensure we are in state where we should fire this (printing)
-        if self.PrinterStateInterface.ShouldPrintingTimersBeRunning() is False:
-            self.HasSendFirstLayerDoneMessage = True
-            self.HasSendThirdLayerDoneMessage = True
-            return False
-
-        # We have two ways of computing the layer heights.
-        # 1) On some platforms (Moonraker) we can query the actual layer from the system, so we don't have to guess.
-        # 2) If the platform doesn't support getting the actual layer height, we can try to figure it out with z offsets.
-        currentLayer, totalLayers = self.PrinterStateInterface.GetCurrentLayerInfo()
-        if currentLayer is not None and totalLayers is not None:
-            # We have layer info from the system, use this to handle the events.
-
-            # If we are over the first layer and haven't sent the notification, do it now.
-            if currentLayer > 1 and self.HasSendFirstLayerDoneMessage is False:
-                if self.FirstLayerDoneSince < 0.1:
-                    Sentry.Debug("NOTIFICATION", "First Layer Logic - Starting delay timer.")
-                    self.FirstLayerDoneSince = time.time()
-                elif time.time() - self.FirstLayerDoneSince < 10.0:
-                    Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting delay time to expire.")
-                else:
-                    Sentry.Debug("NOTIFICATION", "First Layer Logic - Done.")
-                    self.HasSendFirstLayerDoneMessage = True
-                    self._sendEvent(NotificationSender.EVENT_FIRST_LAYER_DONE)
-                    
-            if currentLayer <= 1 and self.FirstLayerDoneSince > 0.0:
-                Sentry.Debug("NOTIFICATION", "First Layer Logic - Reset.")
-                self.FirstLayerDoneSince = 0.0
-                
-            # If we are past the 3rd, layer, do the same.
-            if currentLayer > 3 and self.HasSendThirdLayerDoneMessage is False:
-                if self.ThirdLayerDoneSince < 0.1:
-                    Sentry.Debug("NOTIFICATION", "Third Layer Logic - Starting delay timer.")
-                    self.ThirdLayerDoneSince = time.time()  
-                elif time.time() - self.ThirdLayerDoneSince < 10.0:
-                    Sentry.Debug("NOTIFICATION", "Third Layer Logic - Waiting delay time to expire.")
-                else:
-                    Sentry.Debug("NOTIFICATION", "Third Layer Logic - Done.")
-                    self.HasSendThirdLayerDoneMessage = True
-                    self._sendEvent(NotificationSender.EVENT_THIRD_LAYER_DONE)
-
-            if currentLayer <= 3 and self.ThirdLayerDoneSince > 0.0:
-                Sentry.Debug("NOTIFICATION", "Third Layer Logic - Reset.")
-                self.ThirdLayerDoneSince = 0.0
-
-            # If we return true, the time will continue, otherwise it will stop.
-            isDone = self.HasSendFirstLayerDoneMessage is True and self.HasSendThirdLayerDoneMessage is True
-            return isDone is False
-
-        #
-        # We don't have a system provided layer info, use the second option with the z-offset.
-
-        # Get the current zoffset value.
-        currentZOffsetMM = self.PrinterStateInterface.GetCurrentZOffset()
-
-        # Make sure we know it.
-        # If not, return True so we keep checking.
-        if currentZOffsetMM == -1:
-            Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting for positive z axis measurement.")
-            return True
-
-        # If the value is 0.0, the printer is still warming up or getting ready. We can't print at 0.0, because that's the nozzle touching the plate.
-        # Ignore this value, so we don't lock to it as the "lowest we have seen."
-        # I'm not sure if OctoPrint does this, but moonraker will report the value of 0.0
-        # In this case, return True so we keep checking.
-        if currentZOffsetMM < 0.0001:
-            Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting for >0 z axis measurement.")
-            return True
-
-        # Wait to do any zAxis tracking until after we see a positive extrude.
-        # This prevents us from tracking the zAxis during some pre-print gcode marcos, like bed level probing and such.
-        # The only thing this doesn't really exclude is a purge line.
-        if self.zOffsetHasSeenPositiveExtrude is False:
-            Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting for the first extrude.")
-            return True
-
-        # Finally, before tracking the zAxisOffset, we need to wait for a possible purge line.
-        # Hopefully with the blocking logic above, like the warm up check and waiting to see an extrude, we will ignore any z-axis values
-        # from most pre-print macros.
-        # The final thing we need to exclude is a purge line, since the purge line's layer height might be less than the first layer height used
-        # for the actual print. That means our system will lock onto the purge line's layer height, instead of the print's first layer height.
-        #
-        # We choose 10 seconds as the time to wait. The trade off is that we want to wait longer than most purge line extrudes, but we don't want to miss the first layer
-        # being printed. Since we only start our time after the first extrude, this gives us ~10 seconds after the first extrude for the purge line to be done.
-        if self.zOffsetTrackingStartTimeSec < 0.1:
-            Sentry.Debug("NOTIFICATION", "First Layer Logic - Starting delay timer.")
-            self.zOffsetTrackingStartTimeSec = time.time()
-        if time.time() - self.zOffsetTrackingStartTimeSec < 20.0:
-            Sentry.Debug("NOTIFICATION", "First Layer Logic - Waiting delay time to expire.")
-            return True
-
-        # The trick here is how we do figure out when the first layer is done with out knowing the print layer height
-        # or how the gcode is written to do zhops.
-        #
-        # Our current solution is to keep track of the lowest zvalue we have seen for this print.
-        # Every time we don't see the zvalue be the lowest, we increment a counter. After n number of reports above the lowest value, we
-        # consider the first layer done because we haven't seen the printer return to the first layer height.
-        #
-        # Typically, the flow looks something like... 0.4 -> 0.2 -> 0.4 -> 0.2 -> 0.4 -> 0.5 -> 0.7 -> 0.5 -> 0.7...
-        # Where the layer hight is 0.2 (because it's the lowest first value) and the zhops are 0.4 or more.
-        #
-        # This system is pumped every FirstLayerTimerIntervalSec and the z offset is checked.
-
-        # First, do the logic for the first layer
-        if self.HasSendFirstLayerDoneMessage is False:
-            # Since this is a float, avoid ==
-            if currentZOffsetMM > self.zOffsetLowestSeenMM - 0.01 and currentZOffsetMM < self.zOffsetLowestSeenMM + 0.01:
-                # The zOffset is the same as the previously seen.
-                self.zOffsetNotAtLowestCount = 0
-                Sentry.Debug("NOTIFICATION", "First Layer Logic - currentOffset: %.4f; lowestSeen: %.4f; notAtLowestCount: %d - Same as the 'lowest ever seen', resetting the counter." % (currentZOffsetMM, self.zOffsetLowestSeenMM, self.zOffsetNotAtLowestCount))
-            elif currentZOffsetMM < self.zOffsetLowestSeenMM:
-                # We found a new low, record it.
-                self.zOffsetLowestSeenMM = currentZOffsetMM
-                self.zOffsetNotAtLowestCount = 0
-                Sentry.Debug("NOTIFICATION", "First Layer Logic - currentOffset: %.4f; lowestSeen: %.4f; notAtLowestCount: %d - New lowest zoffset ever seen." % (currentZOffsetMM, self.zOffsetLowestSeenMM, self.zOffsetNotAtLowestCount))
-            else:
-                # The zOffset is higher than the lowest we have seen.
-                self.zOffsetNotAtLowestCount += 1
-                Sentry.Debug("NOTIFICATION", "First Layer Logic - currentOffset: %.4f; lowestSeen: %.4f; notAtLowestCount: %d - Offset is higher than lowest seen, adding to the count." % (currentZOffsetMM, self.zOffsetLowestSeenMM, self.zOffsetNotAtLowestCount))
-
-            # Check if we have been above the min layer height for FirstLayerCountAboveLowestBeforeNotify of times in a row.
-            # If not, keep waiting, if so, fire the notification.
-            if self.zOffsetNotAtLowestCount < NotificationsHandler.FirstLayerCountAboveLowestBeforeNotify:
-                # Not done yet, return True to keep checking.
-                return True
-
-            # Set the flag and reset the count, since it will now be used for the third lowest layer notification.
-            self.HasSendFirstLayerDoneMessage = True
-            self.zOffsetNotAtLowestCount = 0
-
-            # Send the message.
-            self._sendEvent(NotificationSender.EVENT_FIRST_LAYER_DONE, {"ZOffsetMM" : str(currentZOffsetMM) })
-
-        # Next, after we know the first layer is done, do the logic for the third layer notification.
-        elif self.HasSendThirdLayerDoneMessage is False:
-            # Sanity check we have a valid value for self.zOffsetLowestSeenMM, from the first layer notification.
-            if self.zOffsetLowestSeenMM > 50.0:
-                Sentry.Warn("NOTIFICATION", "First layer notification has sent but third layer hans't but the zOffsetLowestSeenMM value is really high, seems like it's unset. Value: "+str(self.zOffsetLowestSeenMM))
-                self.HasSendThirdLayerDoneMessage = True
-                return False
-            if self.zOffsetLowestSeenMM <= 0.0001:
-                Sentry.Warn("NOTIFICATION", "zOffsetLowestSeenMM is too low for third layer notification. Value: "+str(self.zOffsetLowestSeenMM))
-                self.HasSendThirdLayerDoneMessage = True
-                return False
-
-            # To compute the third layer, we assume the lowest z offset height is the layer height.
-            # Since we don't allow a value of 0, this is reasonable.
-            thirdLayerHeight = self.zOffsetLowestSeenMM * 3
-            if currentZOffsetMM > thirdLayerHeight + 0.001:
-                # The current offset is larger than the third layer height, count it.
-                self.zOffsetNotAtLowestCount += 1
-                Sentry.Debug("NOTIFICATION", "Third Layer Logic - currentOffset: %.4f; thirdLayerHeight: %.4f; notAtLowestCount: %d - Offset is higher than the third layer height, adding to the count." % (currentZOffsetMM, thirdLayerHeight, self.zOffsetNotAtLowestCount))
-
-            else:
-                # The current layer height is equal to or at the third layer height, reset the count
-                self.zOffsetNotAtLowestCount = 0
-                Sentry.Debug("NOTIFICATION", "Third Layer Logic - currentOffset: %.4f; thirdLayerHeight: %.4f; notAtLowestCount: %d - Offset less than or equal to the third layer height, resetting the count." % (currentZOffsetMM, thirdLayerHeight, self.zOffsetNotAtLowestCount))
-
-            # Check if we have been above the third layer height for FirstLayerCountAboveLowestBeforeNotify of times in a row.
-            # If not, keep waiting, if so, fire the notification.
-            if self.zOffsetNotAtLowestCount < NotificationsHandler.FirstLayerCountAboveLowestBeforeNotify:
-                # Not done yet, return True to keep checking.
-                return True
-
-            # Set the flag to indicate we sent the notification
-            self.HasSendThirdLayerDoneMessage = True
-
-            # Send the notification.
-            self._sendEvent(NotificationSender.EVENT_THIRD_LAYER_DONE, {"ZOffsetMM" : str(currentZOffsetMM) })
-
-        # If we have fired both, we are done.
-        # If we are not done, return True, so we keep going.
-        # Otherwise, return false, to stop the timer, because we are done.
-        isDone = self.HasSendFirstLayerDoneMessage is True and self.HasSendThirdLayerDoneMessage is True
-        return isDone is False
 
 
     # If possible, gets a snapshot from the snapshot URL configured in OctoPrint.
@@ -1063,18 +847,18 @@ class NotificationsHandler:
 
         # Add the required vars
         args["PrinterId"] = self.PrinterId
-        args["PrintId"] = self.PrintId
+        args[NotificationSender.STATE_PRINT_ID] = self.PrintId
         args["OctoKey"] = self.OctoKey
         args["Event"] = event
 
         # Always add the file name and other common props
-        args["FileName"] = str(self.CurrentFileName).split("/")[-1]
+        args[NotificationSender.STATE_FILE_NAME] = str(self.CurrentFileName).split("/")[-1]
         args["FileSizeKb"] = str(self.CurrentFileSizeInKBytes)
         args["FilamentUsageMm"] = str(self.CurrentEstFilamentUsageMm)
 
         # Always include the ETA, note this will be -1 if the time is unknown.
         timeRemainEstStr =  str(self.PrinterStateInterface.GetPrintTimeRemainingEstimateInSeconds())
-        args["TimeRemainingSec"] = timeRemainEstStr
+        args[NotificationSender.STATE_TIME_REMAINING_SEC] = timeRemainEstStr
 
         # Always include the layer height, if it can be gotten from the platform.
         currentLayer, totalLayers = self.PrinterStateInterface.GetCurrentLayerInfo()
@@ -1092,10 +876,10 @@ class NotificationsHandler:
         else:
             progressFloat = self._getCurrentProgressFloat()
 
-        args["ProgressPercentage"] = str(int(progressFloat))
+        args[NotificationSender.STATE_PROGRESS_PERCENT] = str(int(progressFloat))
 
         # Always add the current duration
-        args["DurationSec"] = str(self.GetCurrentDurationSecFloat())
+        args[NotificationSender.STATE_DURATION_SEC] = str(self.GetCurrentDurationSecFloat())
 
         # Also always include a snapshot if we can get one.
         files = {}
@@ -1125,21 +909,11 @@ class NotificationsHandler:
         if progressTimer is not None:
             progressTimer.Stop()
 
-        # Stop the first layer timer.
-        self.StopFirstLayerTimer()
-
         # Stop Gadget From Watching
         # self.Gadget.StopWatching()
 
 
-    def StopFirstLayerTimer(self):
-        # Capture locally & Stop
-        firstLayerTimer = self.FirstLayerTimer
-        self.FirstLayerTimer = None
-        if firstLayerTimer is not None:
-            firstLayerTimer.Stop()
-
-    # Starts all print timers, including the progress time, Gadget, and the first layer watcher.
+    # Starts all print timers, including the progress time
     def StartPrintTimers(self, resetHoursReported, restoreActionSetHoursReportedInt_OrNone):
         # First, stop any timer that's currently running.
         self.StopTimers()
@@ -1157,12 +931,6 @@ class NotificationsHandler:
         timer = RepeatTimer(intervalSec, self.ProgressTimerCallback)
         timer.start()
         self.ProgressTimer = timer
-
-        # Setup the first layer watcher - we use a different timer since this timer is really short lived and it fires much more often.
-        intervalSec = NotificationsHandler.FirstLayerTimerIntervalSec
-        firstLayerTimer = RepeatTimer(intervalSec, self.FirstLayerTimerCallback)
-        firstLayerTimer.start()
-        self.FirstLayerTimer = firstLayerTimer
 
         # Start Gadget From Watching
         # self.Gadget.StartWatching()
@@ -1190,19 +958,6 @@ class NotificationsHandler:
 
         # Fire the event.
         self.OnPrintTimerProgress()
-
-
-    # Fired when the ping timer fires.
-    def FirstLayerTimerCallback(self):
-
-        # Don't check the printer state, we will allow the function to handle all of that
-        # If the function returns True, the timer should continue. If it returns false, the time should be stopped.
-        if self._OnFirstLayerWatchTimer() is True:
-            return
-
-        # Stop the timer.
-        Sentry.Info("NOTIFICATION", "First layer timer is done. Stopping.")
-        self.StopFirstLayerTimer()
 
 
     # Only allows possibly spammy events to be sent every x minutes.
