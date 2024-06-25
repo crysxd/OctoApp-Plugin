@@ -85,6 +85,7 @@ class MoonrakerClient:
         self.ConnectionStatusHandler = connectionStatusHandler
         self.PluginVersionStr = pluginVersionStr
         self.MoonrakerDatabase = moonrakerDatabase
+        self.ScheduledNotificationsCache = {}
 
         # Setup the json-rpc vars
         self.JsonRpcIdLock = threading.Lock()
@@ -414,15 +415,25 @@ class MoonrakerClient:
 
     def DownloadFileForProcessing(self, fileName):
         try:
+            modified = FileMetadataCache.Get().GetModified(fileName)
+            cacheKey = fileName + ":" + str(modified)
+
+            if cacheKey in self.ScheduledNotificationsCache.keys():
+                Sentry.Info("Client", "Reusing cached notifications for " + fileName)
+                self.MoonrakerCompat.ScheduleNotifications(self.ScheduledNotificationsCache[cacheKey])
+                return
+
             path = '/'.join(list(map(quote, fileName.split("/"))))
             url = "http://" + self.MoonrakerHostAndPort + "/server/files/gcodes/" + path
             Sentry.Info("Client", "Processing file at %s" % url)
             with urllib.request.urlopen(url) as response:
                 notifications = NotificationUtils.ExtractNotifications(response)
-                self.MoonrakerCompat.ScheduledNotifications(notifications)
+                self.MoonrakerCompat.ScheduleNotifications(notifications)
+                Sentry.Info("Client", "File processed")
+                self.ScheduledNotificationsCache[cacheKey] = notifications
 
         except Exception as e:
-            Sentry.Error("Client", "Failed to download file for notification processing: %s" % e)
+            Sentry.ExceptionNoSend("Failed to download file for notification processing", e)
 
 
     # If the message has a progress contained in the virtual_sdcard, this returns it. The progress is a float from 0.0->1.0
@@ -923,7 +934,7 @@ class MoonrakerCompat:
             return
         
         # Trigger scheduled notifications
-        NotificationUtils.TriggerNotifications(self.ScheduledNotifications, filePos, self.LastFilePos)
+        NotificationUtils.SendScheduledNotifications(self.ScheduledNotifications, self.NotificationHandler, filePos, self.LastFilePos)
         self.LastFilePos = filePos
 
         # Moonraker sends about 3 of these per second, which is way faster than we need to process them.

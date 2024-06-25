@@ -39,4 +39,4 @@ class LayerUtils:
         if slicer == "simplify":
             return line.startswith("; layer ") 
         
-        return line.startswith("; OCTOAPP_LAYER_CHANGE ") 
+        return line.startswith("; OCTOAPP_LAYER_CHANGE") 

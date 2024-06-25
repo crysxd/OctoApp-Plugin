@@ -25,6 +25,7 @@ class FileMetadataCache:
         self.FirstLayerHeight:float = -1.0
         self.LayerHeight:float = -1.0
         self.ObjectHeight:float = -1.0
+        self.Modified:float = 0.0
         self.ResetCache()
 
 
@@ -38,6 +39,7 @@ class FileMetadataCache:
         self.FirstLayerHeight = -1.0
         self.LayerHeight = -1.0
         self.ObjectHeight = -1.0
+        self.Modified:float = 0.0
 
 
     # If the estimated time for the print can be gotten from the file metadata, this will return it.
@@ -106,7 +108,24 @@ class FileMetadataCache:
 
         # Return the value, which could still be -1 if it failed.
         return (self.LayerCount, self.LayerHeight, self.FirstLayerHeight, self.ObjectHeight)
+    
+    
+    # If the file size can be gotten from the file metadata, this will return it.
+    # Any of the values will return -1 if they are unknown.
+    def GetModified(self, filename:str):
+        # Check to see if we have checked for this file before.
+        if self.FileName is not None:
+            # Check if it's the same file, case sensitive.
+            if self.FileName == filename:
+                # Return the last result, this maybe valid or not.
+                return self.Modified
 
+        # The filename changed or we don't have one at all, do a refresh now.
+        self._RefreshFileMetaDataCache(filename)
+
+        # Return the value, which could still be -1 if it failed.
+        return self.Modified
+    
 
     # Does a refresh of the file name metadata cache.
     def _RefreshFileMetaDataCache(self, filename:str) -> None:
@@ -139,6 +158,10 @@ class FileMetadataCache:
             value = int(res["size"])
             if value > 0:
                 self.FileSizeKBytes = int(value / 1024)
+        if "modified" in res:
+            value = res["modified"]
+            if value > 0:
+                self.Modified = value
         if "filament_total" in res:
             value = int(res["filament_total"])
             if value > 0:
@@ -159,5 +182,6 @@ class FileMetadataCache:
             value = float(res["object_height"])
             if value > 0:
                 self.ObjectHeight = value
+
 
         Sentry.Info("Metadata Cache", f"FileMetadataCache updated for file [{filename}]; est time: {str(self.EstimatedPrintTimeSec)}, size: {str(self.FileSizeKBytes)}, filament usage: {str(self.EstimatedFilamentUsageMm)}")

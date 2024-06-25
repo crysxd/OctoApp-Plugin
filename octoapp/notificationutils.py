@@ -54,7 +54,7 @@ class NotificationUtils:
             try:
                 if LayerUtils.IsLayerChange(line, context):
                     if context['layerCounter'] <= 4:
-                        Sentry.Info("Client", "Layer " + str(context['layerCounter']) + " completed at at " + str(filePos))
+                        Sentry.Info("NOTIFICATIONS", "Layer " + str(context['layerCounter']) + " completed at at " + str(filePos))
 
                     if context['layerCounter'] == 1:
                         notifications[filePos] = NotificationUtils.FirstLayerCompletedAt
@@ -68,6 +68,7 @@ class NotificationUtils:
                 
                 notifyMessage = NotificationUtils.GetMessageIfNotifyCommand(line)
                 if notifyMessage is not None:
+                    Sentry.Info("NOTIFICATIONS", "Custom notification at " + str(filePos))
                     notifications[filePos] = notifyMessage
 
             except Exception as e:
@@ -83,7 +84,7 @@ class NotificationUtils:
                 line, buffer = buffer.split('\n', 1)
                 filePos += len(line) + 1 # +1 for \n
                 if processLine(line.strip()) is False:
-                    Sentry.Info("Client", "Processing stopped prematurely, all notifications extracted")
+                    Sentry.Info("NOTIFICATIONS", "Processing stopped prematurely, all notifications extracted")
                     return notifications
 
         if buffer:
