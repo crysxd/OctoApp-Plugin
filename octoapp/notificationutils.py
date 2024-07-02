@@ -72,7 +72,7 @@ class NotificationUtils:
                     notifications[filePos] = notifyMessage
 
             except Exception as e:
-                Sentry.ExceptionNoSend("Failed to update printer name" % e)
+                Sentry.ExceptionNoSend("Failed to detect layer change", e)
 
             return True
 

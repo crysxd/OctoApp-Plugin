@@ -870,7 +870,7 @@ class MoonrakerCompat:
             self.NotificationHandler.NotificationSender.PrinterName = name
             Sentry.Info("Client", "Printer is called %s" % name)
         except Exception as e:
-            Sentry.ExceptionNoSend("Failed to update printer name" % e)
+            Sentry.ExceptionNoSend("Failed to update printer name", e)
 
 
     def ScheduleNotifications(self, notifications):

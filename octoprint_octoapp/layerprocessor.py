@@ -34,7 +34,7 @@ class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
             
             return line
         except Exception as e:
-            Sentry.Error("Layers", "Failed to process", e)
+            Sentry.ExceptionNoSend("Failed to process", e)
             raise e
     
     @staticmethod
