@@ -78,7 +78,11 @@ class NotificationUtils:
 
         # Do not read by line! We need to keep track of \r and \n because they are part of the filePos
         # later used. If read by line we do not know if \r\n or \n was used
-        while chunk := response.read(4096):
+        while True:
+            chunk = response.read(4096)
+            if not chunk:
+                break
+
             buffer += chunk if type(chunk) == str else chunk.decode('utf-8')
             while '\n' in buffer:
                 line, buffer = buffer.split('\n', 1)
