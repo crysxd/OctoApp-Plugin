@@ -50,7 +50,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                     image.thumbnail([size, size])
 
                     if (webcamSettings.Rotation != 0):
-                        image = image.rotate(webcamSettings.Rotation, expand=True)
+                        image = image.rotate(-webcamSettings.Rotation, expand=True)
 
                     if (webcamSettings.FlipV):
                         image = image.transpose(Image.FLIP_TOP_BOTTOM)
