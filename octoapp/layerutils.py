@@ -4,6 +4,7 @@ class LayerUtils:
     # Version of layer change commands we used. 
     # The 0 index is the currently used ones, below are older variations
     LayerChangeCommands = [
+        "M118 E1 OCTOAPP_LAYER",
         "M118 E1 OCTOAPP_LAYER_CHANGE",
         "OCTOAPP_LAYER_CHANGE"
     ]
@@ -11,6 +12,7 @@ class LayerUtils:
     # Version of disable legacy layer commands we used. 
     # The 0 index is the currently used ones, below are older variations
     DisableLegacyLayerCommands = [
+        "M118 E1 OCTOAPP_DISABLE_LAYER_MAXIC",
         "M118 E1 OCTOAPP_DISABLE_LAYER_MAGIC",
         "OCTOAPP_DISABLE_LAYER_MAGIC"
     ]
