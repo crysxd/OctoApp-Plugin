@@ -35,6 +35,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
             try:
                 with self.WebcamSnapshotCacheLock:
                     webcamIndex = data.get("webcamIndex", 0)
+                    applyTransform = data.get("applyTransform", True) is True
                     webcamSettings = self._getWebcamSettingsItem(webcamIndex)
                     cache = self.WebcamSnapshotCache.get(webcamIndex)
                     
@@ -49,13 +50,13 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
                     size = min(max(image.width, image.height), int(data.get("size", 720)))
                     image.thumbnail([size, size])
 
-                    if (webcamSettings.Rotation != 0):
-                        image = image.rotate(webcamSettings.Rotation, expand=True)
+                    if (applyTransform and webcamSettings.Rotation != 0):
+                        image = image.rotate(-webcamSettings.Rotation, expand=True)
 
-                    if (webcamSettings.FlipV):
+                    if (applyTransform and webcamSettings.FlipV):
                         image = image.transpose(Image.FLIP_TOP_BOTTOM)
 
-                    if (webcamSettings.FlipH):
+                    if (applyTransform and webcamSettings.FlipH):
                         image = image.transpose(Image.FLIP_LEFT_RIGHT)
 
                     imageBytes = BytesIO()
