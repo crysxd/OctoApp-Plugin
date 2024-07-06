@@ -14,23 +14,27 @@ class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
         super().__init__(input_stream)
         self.LayerCounter = 0
         self.FirstLine = True
+        self.Disabled = False
         self.Context = {}
 
     def process_line(self, line):
         try:
             decodedLine = line.decode()
 
-            if decodedLine.startswith(LayerUtils.LayerChangeCommand) or decodedLine.startswith(LayerUtils.DisableLegacyLayerCommand):
-                return None
+            if decodedLine.replace('\n', '').replace('\r', '') in LayerUtils.DisableLegacyLayerCommands:
+                self.Disabled = True
+
+            if self.Disabled is True:
+                return line
             
             if LayerUtils.IsLayerChange(decodedLine, self.Context):
-                result = (decodedLine + LayerUtils.CreateLayerChangeCommand(self.LayerCounter) + "\r\n").encode()
+                result = (decodedLine + LayerUtils.CreateLayerChangeCommands(self.LayerCounter)[0] + "\r\n").encode()
                 self.LayerCounter += 1
                 return result
             
             if self.FirstLine:
                 self.FirstLine = False
-                return (LayerUtils.DisableLegacyLayerCommand + "\r\n" + decodedLine).encode()
+                return (LayerUtils.DisableLegacyLayerCommands[0] + "\r\n" + decodedLine).encode()
             
             return line
         except Exception as e:
