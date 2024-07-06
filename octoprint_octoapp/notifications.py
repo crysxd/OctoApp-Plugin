@@ -18,8 +18,8 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         self.Progress = 0
         self.GcodeSentCount = 0
         self.LayerMagicDisabledAt = datetime.fromtimestamp(0)
-        self.FirstLayerDoneCommand = LayerUtils.CreateLayerChangeCommand(1)
-        self.ThirdLayerDoneCommand = LayerUtils.CreateLayerChangeCommand(3)
+        self.FirstLayerDoneCommands = LayerUtils.CreateLayerChangeCommands(1)
+        self.ThirdLayerDoneCommands = LayerUtils.CreateLayerChangeCommands(3)
         self.ScheduledNotifications = None
         self.ScheduledNotificationsThread = {}
         self.LastFilePos = 0
@@ -125,22 +125,25 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def OnGcodeQueued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
         # Check for our layer commands
-        if cmd == LayerUtils.DisableLegacyLayerCommand:
+        if cmd in LayerUtils.DisableLegacyLayerCommands:
             Sentry.Info("NOTIFICATION", "Layer magic disabled")
             self.LayerMagicDisabledAt = datetime.now()
             return False
 
-        if cmd == self.FirstLayerDoneCommand and self.NotificationHandler:
+        if cmd in self.FirstLayerDoneCommands and self.NotificationHandler:
             self.NotificationHandler.OnFirstLayerDone()
             return False
         
-        if cmd == self.ThirdLayerDoneCommand and self.NotificationHandler:
+        if cmd in self.ThirdLayerDoneCommands and self.NotificationHandler:
             self.NotificationHandler.OnThirdLayerDone()
             return False
         
         message = NotificationUtils.GetMessageIfNotifyCommand(cmd)
         if message is not None and self.NotificationHandler:
             self.NotificationHandler.OnCustomNotification(message)
+            return False
+        
+        if LayerUtils.IsOctoAppCommand(cmd):
             return False
         
         return True

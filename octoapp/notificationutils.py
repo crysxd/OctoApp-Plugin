@@ -22,7 +22,7 @@ class NotificationUtils:
             return s
         
         base = NotificationUtils.CreateNotificationCommand("")
-        commands = [ base, ";" + base, "; " + base]
+        commands = [ base, ";" + base, "; " + base, "M118 E1 " + base]
         
         for command in commands:
             if line.startswith(command):
