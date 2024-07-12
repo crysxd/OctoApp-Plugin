@@ -282,9 +282,7 @@ class NotificationSender:
                 "alert": {
                     "title": state.get(self.STATE_CUSTOM_EVENT_MESSAGE, "Gcode notification"),
                     "body": "Triggered on %s by a Gcode command" % self.PrinterName,
-                    "title-loc-key": "print_notification___beep_title",
-                    "title-loc-args": [],
-                    "loc-key": "print_notification___beep_message",
+                    "loc-key": "print_notification___custom_message",
                     "loc-args": [self.PrinterName]
                 },
                 "sound": "default",
