@@ -92,6 +92,6 @@ class NotificationUtils:
                     return notifications
 
         if buffer:
-            processLine(line, filePos)
+            processLine(line)
         
         return notifications
