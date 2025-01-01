@@ -188,7 +188,7 @@ ensure_py_venv()
         # The K1 requires we setup the virtualenv like this.
         if [[ -f /opt/bin/python3 ]]
         then
-            virtualenv -p /opt/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
+            /opt/bin/virtualenv -p /opt/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
         else
             python3 /usr/lib/python3.8/site-packages/virtualenv.py -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
         fi
