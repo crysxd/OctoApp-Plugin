@@ -190,8 +190,9 @@ ensure_py_venv()
         then
             # virtualenv path is broken for a few K1 one, for other /opt/bin/virtualenv doesn't exist
             if [[ -f /opt/bin/virtualenv ]]
+            then
                 /opt/bin/virtualenv -p /opt/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
-            else 
+            else
                 virtualenv -p /opt/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
             fi
         else
