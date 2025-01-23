@@ -9,9 +9,11 @@ class AppInstance:
               self, 
               fcmToken:str, 
               fcmFallbackToken:str, 
+              activityAutoStartToken:str,
               instanceId:str,
               displayName:str,
               displayDescription:str,
+              displayColor:str,
               model:str,
               appVersion:str,
               appBuild:int,
@@ -23,7 +25,9 @@ class AppInstance:
         self.FcmToken = fcmToken
         self.FcmFallbackToken = fcmFallbackToken
         self.InstanceId = instanceId
+        self.ActivityAutoStartToken = activityAutoStartToken
         self.DisplayName = displayName
+        self.DisplayColor = displayColor
         self.DisplayDescription = displayDescription
         self.Model = model
         self.AppVersion = appVersion
@@ -41,6 +45,8 @@ class AppInstance:
             instanceId=self.InstanceId,
             displayName=self.DisplayName,
             displayDescription=self.DisplayDescription,
+            displayColor=self.DisplayColor,
+            activityAutoStartToken=self.ActivityAutoStartToken,
             model=self.Model,
             appVersion=self.AppVersion,
             appBuild=self.AppBuild,
@@ -58,7 +64,9 @@ class AppInstance:
             instanceId=dict["instanceId"],
             displayName=dict.get("displayName", "Unknown"),
             displayDescription=dict.get("displayDescription", ""),
+            displayColor=dict.get("displayColor", "#FF0000"),
             model=dict.get("model", "Unknown"),
+            activityAutoStartToken=dict.get("activityAutoStartToken", None),
             appVersion=dict.get("appVersion", "Unknown"),
             appBuild=dict.get("appBuild", 1),
             appLanguage=dict.get("appLanguage", "en"),
@@ -96,6 +104,9 @@ class AppStorageHelper:
 
     def GetActivities(self, apps):
         return list(sorted(filter(lambda app: app.FcmToken.startswith("activity:"), apps), key=lambda app: app.LastSeenAt, reverse=True))
+    
+    def GetActivityAutoStarts(self, apps):
+        return list(sorted(filter(lambda app: app.ActivityAutoStartToken is not None, apps), key=lambda app: app.LastSeenAt, reverse=True))
     
     def GetDefaultExpirationFromNow(self):
         return (time.time() + 2592000)

@@ -82,8 +82,13 @@ class NotificationSender:
             targets = self._processFilters(targets=targets, event=event)
             ios_targets = helper.GetIosApps(targets)
             activity_targets = helper.GetActivities(targets)
+            activity_auto_start_targets = helper.GetActivityAutoStarts(targets) if (event == self.EVENT_STARTED) else []
             android_targets = helper.GetAndroidApps(targets)
-            apnsData = self._createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None
+            apnsData = self.__createActivityStartData(event, state) if event == self.EVENT_STARTED and len(activity_auto_start_targets) else (self._createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None)
+
+            # Remove all ios_targets that also will get a LiveActivity as they will already receive the alert from the LiveActivity
+            auto_start_instance_ids = [target['InstanceId'] for target in activity_auto_start_targets]
+            ios_targets = list(filter(lambda target: target['InstanceId'] in auto_start_instance_ids, ios_targets))
 
             # Some clients might have user interaction disbaled. First send pause so all live activities etc
             if event == self.EVENT_USER_INTERACTION_NEEDED and target_count_before_filter != len(targets):
@@ -179,7 +184,8 @@ class NotificationSender:
                 targets=list(map(lambda x: {
                     "fcmToken": x.FcmToken,
                     "fcmTokenFallback": x.FcmFallbackToken,
-                    "instanceId": x.InstanceId
+                    "instanceId": x.InstanceId,
+                    "instanceColor": x.DisplayColor,
                 }, targets)),
                 highPriority=highProiroty,
                 androidData=androidData,
@@ -423,6 +429,27 @@ class NotificationSender:
                     del data["alert"][k]
 
         return data
+    
+    def __createActivityStartData(self, event, state):
+        # Base: Activity state
+        data = self._createActivityContentState(event, state)
+        # Add alert
+        data.update(self._createApnsPushData(event, state))
+        # Add attributes needed for start
+        # ! the node JS server will set attributes.instanceId
+        data.update(
+            {
+                "event": "start",
+                "attributes-type": "PrintActivityAttributes",
+                "attributes": {
+                    "instanceLabel": self.PrinterName,
+                    "instanceColor": "#FFFF00",
+                    "expiresAt": int(time.time() + 27000), # 7.5h
+                }
+            }
+        )
+        return data
+        
 
     def _createActivityContentState(self, isEnd, state, liveActivityState):
         return {
