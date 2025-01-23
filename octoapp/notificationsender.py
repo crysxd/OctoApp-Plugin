@@ -84,7 +84,7 @@ class NotificationSender:
             activity_targets = helper.GetActivities(targets)
             activity_auto_start_targets = helper.GetActivityAutoStarts(targets) if (event == self.EVENT_STARTED) else []
             android_targets = helper.GetAndroidApps(targets)
-            apnsData = self.__createActivityStartData(event, state) if event == self.EVENT_STARTED and len(activity_auto_start_targets) else (self._createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None)
+            apnsData = self.__createActivityStartData(event, state, activity_auto_start_targets[0]) if event == self.EVENT_STARTED and len(activity_auto_start_targets) else (self._createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None)
 
             # Remove all ios_targets that also will get a LiveActivity as they will already receive the alert from the LiveActivity
             auto_start_instance_ids = [target['InstanceId'] for target in activity_auto_start_targets]
@@ -430,7 +430,7 @@ class NotificationSender:
 
         return data
     
-    def __createActivityStartData(self, event, state):
+    def __createActivityStartData(self, event, state, firstTarget):
         # Base: Activity state
         data = self._createActivityContentState(event, state)
         # Add alert
@@ -443,7 +443,7 @@ class NotificationSender:
                 "attributes-type": "PrintActivityAttributes",
                 "attributes": {
                     "instanceLabel": self.PrinterName,
-                    "instanceColor": "#FFFF00",
+                    "instanceColor": firstTarget.DisplayColor if firstTarget.DisplayColor is not None else "#FFFF00",
                     "expiresAt": int(time.time() + 27000), # 7.5h
                 }
             }

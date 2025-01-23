@@ -64,7 +64,7 @@ class AppInstance:
             instanceId=dict["instanceId"],
             displayName=dict.get("displayName", "Unknown"),
             displayDescription=dict.get("displayDescription", ""),
-            displayColor=dict.get("displayColor", "#FF0000"),
+            displayColor=dict.get("displayColor", "#FF00FF"),
             model=dict.get("model", "Unknown"),
             activityAutoStartToken=dict.get("activityAutoStartToken", None),
             appVersion=dict.get("appVersion", "Unknown"),
