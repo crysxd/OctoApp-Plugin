@@ -13,7 +13,6 @@ class AppInstance:
               instanceId:str,
               displayName:str,
               displayDescription:str,
-              displayColor:str,
               model:str,
               appVersion:str,
               appBuild:int,
@@ -27,7 +26,6 @@ class AppInstance:
         self.InstanceId = instanceId
         self.ActivityAutoStartToken = activityAutoStartToken
         self.DisplayName = displayName
-        self.DisplayColor = displayColor
         self.DisplayDescription = displayDescription
         self.Model = model
         self.AppVersion = appVersion
@@ -45,7 +43,6 @@ class AppInstance:
             instanceId=self.InstanceId,
             displayName=self.DisplayName,
             displayDescription=self.DisplayDescription,
-            displayColor=self.DisplayColor,
             activityAutoStartToken=self.ActivityAutoStartToken,
             model=self.Model,
             appVersion=self.AppVersion,
@@ -64,7 +61,6 @@ class AppInstance:
             instanceId=dict["instanceId"],
             displayName=dict.get("displayName", "Unknown"),
             displayDescription=dict.get("displayDescription", ""),
-            displayColor=dict.get("displayColor", "#FF00FF"),
             model=dict.get("model", "Unknown"),
             activityAutoStartToken=dict.get("activityAutoStartToken", None),
             appVersion=dict.get("appVersion", "Unknown"),

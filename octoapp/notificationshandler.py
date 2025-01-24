@@ -853,6 +853,7 @@ class NotificationsHandler:
 
         # Always add the file name and other common props
         args[NotificationSender.STATE_FILE_NAME] = str(self.CurrentFileName).split("/")[-1]
+        args[NotificationSender.STATE_FILE_PATH] = str(self.CurrentFileName)
         args["FileSizeKb"] = str(self.CurrentFileSizeInKBytes)
         args["FilamentUsageMm"] = str(self.CurrentEstFilamentUsageMm)
 

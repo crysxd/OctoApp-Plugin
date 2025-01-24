@@ -33,6 +33,7 @@ class NotificationSender:
     STATE_PROGRESS_PERCENT = "progress_percent"
     STATE_DURATION_SEC = "duration_sec"
     STATE_FILE_NAME = "file_name"
+    STATE_FILE_PATH = "file_name"
     STATE_PRINT_ID = "print_id"
 
 
@@ -84,11 +85,11 @@ class NotificationSender:
             activity_targets = helper.GetActivities(targets)
             activity_auto_start_targets = helper.GetActivityAutoStarts(targets) if (event == self.EVENT_STARTED) else []
             android_targets = helper.GetAndroidApps(targets)
-            apnsData = self.__createActivityStartData(event, state, activity_auto_start_targets[0]) if event == self.EVENT_STARTED and len(activity_auto_start_targets) else (self._createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None)
+            apnsData = self._createActivityStartData(event, state, activity_auto_start_targets[0]) if event == self.EVENT_STARTED and len(activity_auto_start_targets) > 0 else (self._createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None)
 
             # Remove all ios_targets that also will get a LiveActivity as they will already receive the alert from the LiveActivity
-            auto_start_instance_ids = [target['InstanceId'] for target in activity_auto_start_targets]
-            ios_targets = list(filter(lambda target: target['InstanceId'] in auto_start_instance_ids, ios_targets))
+            auto_start_instance_ids = list(map(lambda target: target.InstanceId, activity_auto_start_targets))
+            ios_targets = list(filter(lambda target: target.InstanceId not in auto_start_instance_ids, ios_targets))
 
             # Some clients might have user interaction disbaled. First send pause so all live activities etc
             if event == self.EVENT_USER_INTERACTION_NEEDED and target_count_before_filter != len(targets):
@@ -182,10 +183,9 @@ class NotificationSender:
             # priority status update
             body = dict(
                 targets=list(map(lambda x: {
-                    "fcmToken": x.FcmToken,
+                    "fcmToken": x.ActivityAutoStartToken if x.ActivityAutoStartToken is not None and apnsData is not None and apnsData.get("event", None) == "start" else x.FcmToken,
                     "fcmTokenFallback": x.FcmFallbackToken,
-                    "instanceId": x.InstanceId,
-                    "instanceColor": x.DisplayColor,
+                    "instanceId": x.InstanceId
                 }, targets)),
                 highPriority=highProiroty,
                 androidData=androidData,
@@ -430,9 +430,14 @@ class NotificationSender:
 
         return data
     
-    def __createActivityStartData(self, event, state, firstTarget):
+
+    def _createActivityStartData(self, event, state, firstTarget):
         # Base: Activity state
-        data = self._createActivityContentState(event, state)
+        data = self._createActivityContentState(
+            isEnd=False,
+            state=state,
+            liveActivityState="printing"
+        )
         # Add alert
         data.update(self._createApnsPushData(event, state))
         # Add attributes needed for start
@@ -442,20 +447,19 @@ class NotificationSender:
                 "event": "start",
                 "attributes-type": "PrintActivityAttributes",
                 "attributes": {
-                    "instanceLabel": self.PrinterName,
-                    "instanceColor": firstTarget.DisplayColor if firstTarget.DisplayColor is not None else "#FFFF00",
-                    "expiresAt": int(time.time() + 27000), # 7.5h
+                    "filePath": state.get(NotificationSender.STATE_FILE_PATH, None),
                 }
             }
         )
         return data
-        
+
 
     def _createActivityContentState(self, isEnd, state, liveActivityState):
         return {
             "event": "end" if isEnd else "update",
             "content-state": {
                 "fileName": state.get(NotificationSender.STATE_FILE_NAME, None),
+                "filePath": state.get(NotificationSender.STATE_FILE_PATH, None),
                 "progress": int(float(state.get(NotificationSender.STATE_PROGRESS_PERCENT, None))),
                 "sourceTime": int(time.time() * 1000),
                 "state": liveActivityState,
@@ -464,11 +468,14 @@ class NotificationSender:
             }
         }
 
+
     def _shouldPreferActivity(self, event):
         return event != self.EVENT_BEEP and event != self.EVENT_FIRST_LAYER_DONE and event != self.EVENT_THIRD_LAYER_DONE and event != self.EVENT_CUSTOM
 
+
     def _canUseNonActivity(self, event):
         return event != self.EVENT_PROGRESS and event != self.EVENT_PROGRESS and event != self.EVENT_RESUME and event != self.EVENT_TIME_PROGRESS
+
 
     def _getPushTargets(self, preferActivity, canUseNonActivity):
         Sentry.Info("SENDER", "Finding targets preferActivity=%s canUseNonActivity=%s" % (preferActivity, canUseNonActivity))
@@ -519,6 +526,7 @@ class NotificationSender:
         )
         t.daemon = True
         t.start()
+
 
     def _doContinuouslyCheckActivitiesExpired(self):
          Sentry.Debug("SENDER", "Checking for expired apps every 60s")
