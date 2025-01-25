@@ -88,6 +88,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin):
                         instanceId=data["instanceId"],
                         displayName=data["displayName"],
                         displayDescription=data.get("displayDescription", None),
+                        activityAutoStartToken=data.get("activityAutoStartToken", None),
                         model=data["model"],
                         appVersion=data["appVersion"],
                         appBuild=data["appBuild"],
