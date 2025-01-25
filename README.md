@@ -6,7 +6,7 @@ A plugin providing extra functionality to OctoApp:
 - Remote push notifications for your print progress
 - Remote push notifications from your Gcode
 - Live Activities on iOS
-- End-to-end encryption for iOS
+- End-to-end encryption for Android
 
 Get OctoApp on Google Play and the App Store!
 
