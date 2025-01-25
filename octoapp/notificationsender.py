@@ -33,6 +33,7 @@ class NotificationSender:
     STATE_PROGRESS_PERCENT = "progress_percent"
     STATE_DURATION_SEC = "duration_sec"
     STATE_FILE_NAME = "file_name"
+    STATE_ERROR = "error"
     STATE_FILE_PATH = "file_name"
     STATE_PRINT_ID = "print_id"
 
@@ -55,15 +56,18 @@ class NotificationSender:
 
     def SendNotification(self, event, state=None):
         try:
+            helper = AppStorageHelper.Get()
+
             if state is None:
                 state = self.LastPrintState
 
             if event == self.EVENT_DONE:
                 state[NotificationSender.STATE_PROGRESS_PERCENT] = 100
-
+            
+            if event == self.EVENT_STARTED:
+                helper.RemoveTemporaryApps()
 
             self.LastPrintState = state
-            helper = AppStorageHelper.Get()
             Sentry.Info("SENDER", "Preparing notification for %s" % event)
             onlyActivities = self._shouldSendOnlyActivities(event=event, state=state)
             targets = self._getPushTargets(
@@ -389,6 +393,11 @@ class NotificationSender:
             liveActivityState = "printing"
 
         elif event == self.EVENT_ERROR:
+            notificationTitle = "%s needs attention!" % self.PrinterName
+            notificationTitleKey = "print_notification___paused_from_gcode_title"
+            notificationTitleArgs = [self.PrinterName]
+            notificationBody = state.get(self.STATE_ERROR, "Print failed")
+            notificationSound = "notification_filament_change.wav"
             liveActivityState = "error"
 
         else:
@@ -397,13 +406,13 @@ class NotificationSender:
 
         # Let's only end the activity on cancel. If we end it on completed the alert isn't shown
         data = self._createActivityContentState(
-            isEnd=event == self.EVENT_CANCELLED,
+            isEnd=event == self.EVENT_CANCELLED or event == self.EVENT_ERROR or event == self.EVENT_DONE,
             state=state,
             liveActivityState=liveActivityState
         )
 
         # Delay cancel or complete notification to ensure it's last
-        if event == self.EVENT_CANCELLED or event == self.EVENT_DONE:
+        if event == self.EVENT_CANCELLED or event == self.EVENT_DONE or event == self.EVENT_ERROR:
             time.sleep(5)
 
         if notificationSound is not None:
@@ -421,6 +430,7 @@ class NotificationSender:
                 "title-loc-args": notificationTitleArgs,
                 "loc-key": notificationBodyKey,
                 "loc-args": notificationBodyArgs,
+                "sound": notificationSound,
             }
 
             # Delete None values, causes issues with APNS
@@ -440,6 +450,7 @@ class NotificationSender:
         )
         # Add alert
         data.update(self._createApnsPushData(event, state))
+
         # Add attributes needed for start
         # ! the node JS server will set attributes.instanceId
         data.update(
@@ -463,6 +474,7 @@ class NotificationSender:
                 "progress": int(float(state.get(NotificationSender.STATE_PROGRESS_PERCENT, None))),
                 "sourceTime": int(time.time() * 1000),
                 "state": liveActivityState,
+                "error": state.get(self.STATE_ERROR, None),
                 "timeLeft": int(float(state.get(NotificationSender.STATE_TIME_REMAINING_SEC, None))),
                 "printTime": int(float(state.get(NotificationSender.STATE_DURATION_SEC, None))),
             }

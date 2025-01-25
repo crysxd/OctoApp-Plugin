@@ -882,6 +882,9 @@ class NotificationsHandler:
         # Always add the current duration
         args[NotificationSender.STATE_DURATION_SEC] = str(self.GetCurrentDurationSecFloat())
 
+        # Error state? Copy into the normal error field
+        args[NotificationSender.STATE_ERROR] = args.get("Error", None)
+
         # Also always include a snapshot if we can get one.
         files = {}
         snapshot = None
