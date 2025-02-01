@@ -69,7 +69,13 @@ class NotificationSender:
 
             self.LastPrintState = state
             Sentry.Info("SENDER", "Preparing notification for %s" % event)
-            onlyActivities = self._shouldSendOnlyActivities(event=event, state=state)
+            eventFilter = self._filterEvents(event=event, state=state)
+
+            # Skip this event
+            if  eventFilter == -1: 
+                return
+
+            onlyActivities = eventFilter == 1
             targets = self._getPushTargets(
                 preferActivity=self._shouldPreferActivity(event),
                 canUseNonActivity=self._canUseNonActivity(event) and not onlyActivities
@@ -122,19 +128,19 @@ class NotificationSender:
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to send notification", e)
     
-    def _shouldSendOnlyActivities(self, event, state):
+    def _filterEvents(self, event, state):
         if event == self.EVENT_STARTED:
             self.LastProgressUpdate = time.time()
-            return False
+            return 0
 
         # If the event is not progress, send to all (including time progress)
         elif event != self.EVENT_PROGRESS:
-            return False
+            return 0
         
         # Sanity check
         elif self.CachedConfig is None:
             Sentry.Warn("SENDER", "No config cached!")
-            return True
+            return 1
         
         modulus = self.CachedConfig["updatePercentModulus"]
         highPrecisionStart = self.CachedConfig["highPrecisionRangeStart"]
@@ -147,16 +153,19 @@ class NotificationSender:
             or progress <= highPrecisionStart
             or progress >= (100 - highPrecisionEnd)
         ):
-            Sentry.Debug("SENDER", "Updating progress in main interval: %s" % progress)
+            Sentry.Debug("SENDER", "Updating progress in main interval, sending high priotiy update: %s" % progress)
             self.LastProgressUpdate = time.time()
-            return False
+            return 0
         elif time_since_last > minIntervalSecs:
-            Sentry.Debug("SENDER", "Over %s sec passed since last progress update, sending low priority update" % int(time_since_last))
+            Sentry.Debug("SENDER", "Over %s sec passed since last progress update, sending high priority update" % int(time_since_last))
             self.LastProgressUpdate = time.time()
-            return False
+            return 0
+        elif time_since_last > (minIntervalSecs / 10):
+            Sentry.Debug("SENDER", "Over %s sec passed since last progress update, sending low priority update" % int(time_since_last))
+            return 1
         else:
             Sentry.Debug("SENDER", "Skipping progress update, only %s seconds passed since last" % int(time_since_last))
-            return True
+            return -1
     
     def _processFilters(self, targets, event):
         filterName = None
@@ -459,6 +468,7 @@ class NotificationSender:
                 "attributes-type": "PrintActivityAttributes",
                 "attributes": {
                     "filePath": state.get(NotificationSender.STATE_FILE_PATH, None),
+                    "startedAt": time.time()
                 }
             }
         )
