@@ -209,10 +209,12 @@ class NotificationSender:
                 timeout=float(10), 
                 json=body
             )
+            function_execution_id = r.headers.get("Function-Execution-Id", "N/A")
+
             if r.status_code != requests.codes.ok:
-                raise Exception("Unexpected response code %d: %s" % (r.status_code, r.text))
+                raise Exception("Unexpected response code %d: %s (Execution ID: %s)" % (r.status_code, r.text, function_execution_id))
             else:
-                Sentry.Info("SENDER", "Send to %s was success %s" % (len(targets), r.json()))
+                Sentry.Info("SENDER", "Send to %s was success %s (Execution ID: %s)" % (len(targets), r.json(), function_execution_id))
 
             # Delete invalid tokens
             apps = AppStorageHelper.Get().GetAllApps()
