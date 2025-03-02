@@ -121,10 +121,6 @@ class NotificationSender:
                 apnsData=apnsData,
                 androidData=self._createAndroidPushData(event, state)
             )
-
-            # Remove temporary apps after getting targets
-            if event == self.EVENT_CANCELLED or event == self.EVENT_DONE:
-                helper.RemoveTemporaryApps()
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to send notification", e)
     
@@ -321,17 +317,14 @@ class NotificationSender:
             }
         
         elif event == self.EVENT_STARTED:
-            return {
-                "alert": {
-                    "title": "%s started to print" % self.PrinterName,
-                    "body": "Open the app to see the progress",
-                    "title-loc-key": "print_notification___start_title",
-                    "title-loc-args": [self.PrinterName],
-                    "loc-key": "print_notification___start_message",
-                    "loc-args": []
-                },
-                "sound": "default",
-            }
+            notificationTitle = "%s started to print" % self.PrinterName
+            notificationTitleKey = "print_notification___start_title"
+            notificationTitleArgs = [self.PrinterName]
+            notificationBody = "Open the app to see the progress"
+            notificationBodyKey = "print_notification___start_message"
+            notificationBodyArgs = []
+            notificationSound = "default"
+            liveActivityState = "printing"
     
         elif event == self.EVENT_PROGRESS or event == self.EVENT_TIME_PROGRESS or event == self.EVENT_RESUME:
             liveActivityState = "printing"
@@ -364,6 +357,8 @@ class NotificationSender:
             notificationTitleKey = "print_notification___print_done_title"
             notificationTitleArgs = [self.PrinterName]
             notificationBody = state.get(NotificationSender.STATE_FILE_NAME, None)
+            notificationBodyKey = state.get(NotificationSender.STATE_FILE_NAME, None)
+            notificationBodyArgs = []
             notificationSound = "notification_print_done.wav"
             liveActivityState = "completed"
 
@@ -372,6 +367,8 @@ class NotificationSender:
             notificationTitleKey = "print_notification___filament_change_required_title"
             notificationTitleArgs =  [self.PrinterName]
             notificationBody = state.get(NotificationSender.STATE_FILE_NAME, None)
+            notificationBodyKey = state.get(NotificationSender.STATE_FILE_NAME, None)
+            notificationBodyArgs = []
             notificationSound = "notification_filament_change.wav"
             liveActivityState = "filamentRequired"
 
@@ -438,8 +435,19 @@ class NotificationSender:
                 "title-loc-key": notificationTitleKey,
                 "title-loc-args": notificationTitleArgs,
                 "loc-key": notificationBodyKey,
-                "loc-args": notificationBodyArgs,
-                "sound": notificationSound,
+                "loc-args": notificationBodyArgs
+            }
+
+            data["activity-alert"] = {
+                "title": {
+                    "loc-key": notificationTitleKey,
+                    "loc-args": notificationTitleArgs,
+                },
+                "body": {
+                    "loc-key": notificationBodyKey,
+                    "loc-args": notificationBodyArgs,
+                },
+                "sound": notificationSound
             }
 
             # Delete None values, causes issues with APNS

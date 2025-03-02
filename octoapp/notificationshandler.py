@@ -326,6 +326,11 @@ class NotificationsHandler:
         if self._shouldIgnoreEvent(fileName):
             return
         
+        # We sometimes get a resume event right after start, ignore
+        if (time.time() - self.PrintStartTimeSec) < 5:
+            return
+
+
         self._cancelDelayedPause()
         self._updateCurrentFileName(fileName)
         self._sendEvent(NotificationSender.EVENT_RESUME)
@@ -750,6 +755,7 @@ class NotificationsHandler:
 
             # Compute the progress
             printProgressFloat = float(currentDurationSecFloat) / float(totalPrintTimeSec) * float(100.0)
+            Sentry.Info("NOTIFICATION", "Computing progress: currentDurationSecFloat=%s totalPrintTimeSec=%s" % (currentDurationSecFloat, totalPrintTimeSec) )
 
             # Bounds check
             printProgressFloat = max(printProgressFloat, 0.0)
