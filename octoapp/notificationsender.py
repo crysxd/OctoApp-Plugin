@@ -347,8 +347,8 @@ class NotificationSender:
             notificationTitle = "Print on %s cancelled" % self.PrinterName
             notificationTitleKey = "print_notification___cancelled_title"
             notificationTitleArgs = [self.PrinterName]
-            notificationBody = "Print was cancelled"
-            notificationBodyKey = "print_notification___cancelled_message"
+            notificationBody = state.get(NotificationSender.STATE_FILE_NAME, None)
+            notificationBodyKey = state.get(NotificationSender.STATE_FILE_NAME, None)
             notificationBodyArgs = []
             notificationSound = "notification_filament_change.wav"
 
@@ -439,15 +439,15 @@ class NotificationSender:
             }
 
             data["activity-alert"] = {
-                # "title": {
-                #     "loc-key": notificationTitleKey,
-                #     "loc-args": notificationTitleArgs,
-                # },
-                # "body": {
-                #     "loc-key": notificationBodyKey,
-                #     "loc-args": notificationBodyArgs,
-                # },
-                #  "sound": notificationSound -> We send a notification alongside because iOS doesn't play this sound reliably, especially with Apple Watch connected
+                "title": {
+                    "loc-key": notificationTitleKey,
+                    "loc-args": notificationTitleArgs,
+                },
+                "body": {
+                    "loc-key": notificationBodyKey,
+                    "loc-args": notificationBodyArgs,
+                },
+                # "sound": notificationSound -> We send a notification alongside because iOS doesn't play this sound reliably, especially with Apple Watch connected
             }
 
             # Delete None values, causes issues with APNS
@@ -524,13 +524,13 @@ class NotificationSender:
                         activities.append(ios_app.WithToken(ios_app.ActivityAutoStartToken))
 
             if len(android):
-                 # If we have android...return any way. Handled all the same.
+                # If we have android...return any way. Handled all the same.
                 return android
             elif event in [self.EVENT_CUSTOM, self.EVENT_BEEP, self.EVENT_FIRST_LAYER_DONE, self.EVENT_THIRD_LAYER_DONE]:
-                   # If we have an evemt Live Activities can't handle send via notification
+                # If we have an event Live Activities can't handle send via notification
                  return ios
             elif event in [self.EVENT_STARTED, self.EVENT_FILAMENT_REQUIRED, self.EVENT_USER_INTERACTION_NEEDED, self.EVENT_CANCELLED, self.EVENT_DONE, self.EVENT_ERROR]:
-                 # If we have a important event, send to all targets
+                # If we have a important event, send to all targets
                 return activities + ios
             else:
                 # Send only to activities, might be empty
