@@ -66,18 +66,15 @@ class NotificationSender:
 
             self.LastPrintState = state
             Sentry.Info("SENDER", "Preparing notification for %s" % event)
-            eventFilter = self._filterEvents(event=event, state=state)
+            priority = self._determinePriority(event=event, state=state)
 
             # Skip this event
-            if  eventFilter == -1: 
+            if  priority == -1: 
                 return
 
-            onlyActivities = eventFilter == 1
-            targets = self._getPushTargets(
-                preferActivity=self._shouldPreferActivity(event),
-                canUseNonActivity=self._canUseNonActivity(event) and not onlyActivities
-            )
+            targets = self._getPushTargets(event = event)
 
+            onlyActivities = priority == 1
             if onlyActivities:
                 Sentry.Debug("SENDER", "Only activities allowed, filtering")
                 targets = helper.GetActivities(targets)
@@ -92,11 +89,7 @@ class NotificationSender:
             activity_targets = helper.GetActivities(targets)
             activity_auto_start_targets = helper.GetActivityAutoStarts(targets) if (event == self.EVENT_STARTED) else []
             android_targets = helper.GetAndroidApps(targets)
-            apnsData = self._createActivityStartData(event, state, activity_auto_start_targets[0]) if event == self.EVENT_STARTED and len(activity_auto_start_targets) > 0 else (self._createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None)
-
-            # Remove all ios_targets that also will get a LiveActivity as they will already receive the alert from the LiveActivity
-            auto_start_instance_ids = list(map(lambda target: target.InstanceId, activity_auto_start_targets))
-            ios_targets = list(filter(lambda target: target.InstanceId not in auto_start_instance_ids, ios_targets))
+            apnsData = self._createActivityStartData(event, state) if event == self.EVENT_STARTED and len(activity_auto_start_targets) > 0 else (self._createApnsPushData(event, state) if len(ios_targets) or len(activity_targets) else None)
 
             # Some clients might have user interaction disbaled. First send pause so all live activities etc
             if event == self.EVENT_USER_INTERACTION_NEEDED and target_count_before_filter != len(targets):
@@ -124,7 +117,7 @@ class NotificationSender:
         if event in [self.EVENT_DONE, self.EVENT_CANCELLED, self.EVENT_ERROR]:
             helper.RemoveTemporaryApps()
     
-    def _filterEvents(self, event, state):
+    def _determinePriority(self, event, state):
         if event == self.EVENT_STARTED:
             self.LastProgressUpdate = time.time()
             return 0
@@ -192,7 +185,7 @@ class NotificationSender:
             # priority status update
             body = dict(
                 targets=list(map(lambda x: {
-                    "fcmToken": x.ActivityAutoStartToken if x.ActivityAutoStartToken is not None and apnsData is not None and apnsData.get("event", None) == "start" else x.FcmToken,
+                    "fcmToken": x.FcmToken,
                     "fcmTokenFallback": x.FcmFallbackToken,
                     "instanceId": x.InstanceId
                 }, targets)),
@@ -353,6 +346,13 @@ class NotificationSender:
 
         elif event == self.EVENT_CANCELLED:
             liveActivityState = "cancelled"
+            notificationTitle = "Print on %s cancelled" % self.PrinterName
+            notificationTitleKey = "print_notification___cancelled_title"
+            notificationTitleArgs = [self.PrinterName]
+            notificationBody = state.get(NotificationSender.STATE_FILE_NAME, None)
+            notificationBodyKey = state.get(NotificationSender.STATE_FILE_NAME, None)
+            notificationBodyArgs = []
+            notificationSound = "notification_filament_change.wav"
 
         elif event == self.EVENT_DONE:
             notificationTitle = "%s is done!" % self.PrinterName
@@ -449,7 +449,7 @@ class NotificationSender:
                     "loc-key": notificationBodyKey,
                     "loc-args": notificationBodyArgs,
                 },
-                "sound": notificationSound
+                # "sound": notificationSound -> We send a notification alongside because iOS doesn't play this sound reliably, especially with Apple Watch connected
             }
 
             # Delete None values, causes issues with APNS
@@ -460,7 +460,7 @@ class NotificationSender:
         return data
     
 
-    def _createActivityStartData(self, event, state, firstTarget):
+    def _createActivityStartData(self, event, state):
         # Base: Activity state
         data = self._createActivityContentState(
             isEnd=False,
@@ -500,17 +500,8 @@ class NotificationSender:
             }
         }
 
-
-    def _shouldPreferActivity(self, event):
-        return event != self.EVENT_BEEP and event != self.EVENT_FIRST_LAYER_DONE and event != self.EVENT_THIRD_LAYER_DONE and event != self.EVENT_CUSTOM
-
-
-    def _canUseNonActivity(self, event):
-        return event != self.EVENT_PROGRESS and event != self.EVENT_PROGRESS and event != self.EVENT_RESUME and event != self.EVENT_TIME_PROGRESS
-
-
-    def _getPushTargets(self, preferActivity, canUseNonActivity):
-        Sentry.Info("SENDER", "Finding targets preferActivity=%s canUseNonActivity=%s" % (preferActivity, canUseNonActivity))
+    def _getPushTargets(self, event):
+        Sentry.Info("SENDER", "Finding targets for event=%s" % event)
         helper = AppStorageHelper.Get()
         apps = helper.GetAllApps()
         phones = {}
@@ -528,22 +519,24 @@ class NotificationSender:
             ios = helper.GetIosApps(apps)
             android = helper.GetAndroidApps(apps)
 
-            # If we have an activity and we should prefer it, use it
-            if len(activities) and preferActivity:
-                return activities[0:1]
-            
-            # If we have an iOS app and we can use non-activity targets, use it
-            # This means iOS might not be picked at all if we only can use activity but no activity is available!
-            elif len(ios) and canUseNonActivity:
-                return ios[0:1]
+            # For start events we can generate LiveActivity instances on the fly which will start a LiveActivity
+            if event == self.EVENT_STARTED:
+                for ios_app in ios:
+                    if ios_app.ActivityAutoStartToken:
+                        activities.append(ios_app.WithToken(ios_app.ActivityAutoStartToken))
 
-            # If we have any android devices, use all of them (might be watch + phone)
-            elif len(android):
+            if len(android):
+                # If we have android...return any way. Handled all the same.
                 return android
-            
-            # Oh no!
+            elif event in [self.EVENT_CUSTOM, self.EVENT_BEEP, self.EVENT_FIRST_LAYER_DONE, self.EVENT_THIRD_LAYER_DONE]:
+                # If we have an event Live Activities can't handle send via notification
+                 return ios
+            elif event in [self.EVENT_STARTED, self.EVENT_FILAMENT_REQUIRED, self.EVENT_USER_INTERACTION_NEEDED, self.EVENT_CANCELLED, self.EVENT_DONE, self.EVENT_ERROR]:
+                # If we have a important event, send to all targets
+                return activities + ios
             else:
-                return []
+                # Send only to activities, might be empty
+                return activities
 
         # Get apps per phone and flatten
         apps = list(map(lambda phone: pick_best_app(phone), phones.values()))

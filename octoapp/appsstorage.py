@@ -35,6 +35,22 @@ class AppInstance:
         self.ExpireAt = expireAt
         self.ExcludeNotifications = excludeNotifications
 
+    def WithToken(self, fcmToken: str):
+        return AppInstance(
+            fcmToken=fcmToken,
+            fcmFallbackToken=self.FcmFallbackToken,
+            activityAutoStartToken=self.ActivityAutoStartToken,
+            instanceId=self.InstanceId,
+            displayName=self.DisplayName,
+            displayDescription=self.DisplayDescription,
+            model=self.Model,
+            appVersion=self.AppVersion,
+            appBuild=self.AppBuild,
+            appLanguage=self.AppLanguage,
+            lastSeenAt=self.LastSeenAt,
+            expireAt=self.ExpireAt,
+            excludeNotifications=self.ExcludeNotifications,
+        )
 
     def ToDict(self): 
         return dict(
