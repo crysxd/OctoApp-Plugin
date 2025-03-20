@@ -63,9 +63,6 @@ class NotificationSender:
 
             if event == self.EVENT_DONE:
                 state[NotificationSender.STATE_PROGRESS_PERCENT] = 100
-            
-            if event == self.EVENT_STARTED:
-                helper.RemoveTemporaryApps()
 
             self.LastPrintState = state
             Sentry.Info("SENDER", "Preparing notification for %s" % event)
@@ -123,6 +120,9 @@ class NotificationSender:
             )
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to send notification", e)
+
+        if event in [self.EVENT_DONE, self.EVENT_CANCELLED, self.EVENT_ERROR]:
+            helper.RemoveTemporaryApps()
     
     def _filterEvents(self, event, state):
         if event == self.EVENT_STARTED:
