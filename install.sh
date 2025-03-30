@@ -286,7 +286,7 @@ install_or_update_python_env()
 
     if [[ $IS_K1_OS -ne 1 ]]
     then
-        log_info "Attempting to install optinal python libs..."
+        log_info "Attempting to install optional python libs..."
          "${OCTOAPP_ENV}"/bin/pip3 install -q -r "${OCTOAPP_REPO_DIR}"/requirements_try.txt || PIP_FAILED="true"
         if [ "$PIP_FAILED" = "true" ]
         then 
