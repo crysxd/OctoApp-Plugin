@@ -518,11 +518,13 @@ class NotificationSender:
             activities = helper.GetActivities(apps)
             ios = helper.GetIosApps(apps)
             android = helper.GetAndroidApps(apps)
+            hasActivityAutoStart = False
 
             # For start events we can generate LiveActivity instances on the fly which will start a LiveActivity
             if event == self.EVENT_STARTED:
                 for ios_app in ios:
                     if ios_app.ActivityAutoStartToken:
+                        hasActivityAutoStart = True
                         activities.append(ios_app.WithToken(ios_app.ActivityAutoStartToken))
 
             if len(android):
@@ -531,7 +533,10 @@ class NotificationSender:
             elif event in [self.EVENT_CUSTOM, self.EVENT_BEEP, self.EVENT_FIRST_LAYER_DONE, self.EVENT_THIRD_LAYER_DONE]:
                 # If we have an event Live Activities can't handle send via notification
                  return ios
-            elif event in [self.EVENT_STARTED, self.EVENT_FILAMENT_REQUIRED, self.EVENT_USER_INTERACTION_NEEDED, self.EVENT_CANCELLED, self.EVENT_DONE, self.EVENT_ERROR]:
+            elif event == self.EVENT_STARTED and hasActivityAutoStart:
+                # We can start the activity automatically, only push to Activity
+                return activities
+            elif event in [self.EVENT_FILAMENT_REQUIRED, self.EVENT_USER_INTERACTION_NEEDED, self.EVENT_CANCELLED, self.EVENT_DONE, self.EVENT_ERROR]:
                 # If we have a important event, send to all targets
                 return activities + ios
             else:
