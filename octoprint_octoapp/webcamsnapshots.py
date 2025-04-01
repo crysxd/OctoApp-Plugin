@@ -22,10 +22,6 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
         self.WebcamSnapshotCacheLock = threading.Lock()
         self.OctoPrintWebcamHelper = octoPrintWebcamHelper
 
-
-    def OnAfterStartup(self):
-        self._continuouslyUpdateSnapshots()
-
     
     def OnApiCommand(self, command, data):
         if command == "getWebcamSnapshot":
