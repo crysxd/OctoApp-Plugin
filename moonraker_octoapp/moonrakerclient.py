@@ -1222,7 +1222,11 @@ class MoonrakerCompat:
             inverseSpeedFactorFloat = 1.0/speedFactorFloat
             estimatedPrintTime = FileMetadataCache.Get().GetEstimatedPrintTimeSec(fileName)
             totalFilamentUse = FileMetadataCache.Get().GetEstimatedFilamentUsageMm(fileName)
-            def calcTimeLeftWithProgress(printTime, progress): return (printTime / progress) - printTime
+            def calcTimeLeftWithProgress(printTime, progress):
+                if progress == 0:
+                    return printTime
+                else:
+                    return (printTime / progress) - printTime
 
             # Can we calculate yet?
             if printTime > 0:
