@@ -43,7 +43,6 @@ then
     # /usr/share has very limited space, so we don't want to use it.
     # This is also where the github script installs moonraker and everything.
     HOME="/usr/data"
-    log_info "Running in K1 mode"
 fi
 
 # Next, we try to detect if this OS is the Sonic Pad OS.
@@ -54,14 +53,12 @@ then
     IS_SONIC_PAD_OS=1
     # On the K1, we always want the path to be /usr/share, this is where the rest of the klipper stuff is.
     HOME="/usr/share"
-    log_info "Running in Sonic Pad mode"
 fi
 
 # Also check for Sovol, venv is broken here and we need additional setup
 IS_SOVOL_OS=0
 if [[ -d /home/sovol/ ]]; then
     IS_SOVOL_OS=1
-    log_info "Running in Sovol mode"
 fi
 
 # Get the root path of the repo, aka, where this script is executing
@@ -434,6 +431,10 @@ fi
 if [[ $IS_K1_OS -eq 1 ]]
 then
     echo "Running in K1 and K1 Max OS mode"
+fi
+if [[ $IS_SOVOL_OS -eq 1 ]]
+then
+    echo "Running in Sovol mode"
 fi
 
 # Before anything, make sure this repo is cloned into the correct path on Creality OS devices.
