@@ -55,6 +55,11 @@ then
     HOME="/usr/share"
 fi
 
+# Also check for Sovol, venv is broken here and we need additional setup
+IS_SOVOL_OS=0
+if [[ -d /home/sovol/ ]]; then
+    IS_SOVOL_OS=1
+fi
 
 # Get the root path of the repo, aka, where this script is executing
 OCTOAPP_REPO_DIR=$(readlink -f $(dirname "$0"))
@@ -295,6 +300,17 @@ install_or_update_python_env()
             log_info "Python libs installed."  
         fi;
     fi;
+
+    if [[ $IS_SOVOL_OS -eq 1 ]]
+    then
+        log_info "Running additional pip install for Sovol..."
+        "${OCTOAPP_ENV}"/bin/pip install --no-cache-dir --force-reinstall requests certifi || PIP_FAILED="true"
+        if [ "$PIP_FAILED" = "true" ]; then
+            log_error "Failed to install additional python libraries for Sovol. Continuing..."
+        else
+            log_info "Additional python libs for Sovol installed."
+        fi
+fi
 }
 
 #
@@ -415,6 +431,10 @@ fi
 if [[ $IS_K1_OS -eq 1 ]]
 then
     echo "Running in K1 and K1 Max OS mode"
+fi
+if [[ $IS_SOVOL_OS -eq 1 ]]
+then
+    echo "Running in Sovol mode"
 fi
 
 # Before anything, make sure this repo is cloned into the correct path on Creality OS devices.
