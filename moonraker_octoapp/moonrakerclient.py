@@ -316,6 +316,7 @@ class MoonrakerClient:
                 "webhooks": None,
                 "virtual_sdcard": None,
                 "history" : None,
+                "gcode_macro _OCTOAPP_STATUS": None,
             }
         })
 
@@ -403,6 +404,15 @@ class MoonrakerClient:
                     elif state == "complete":
                         self.MoonrakerCompat.OnDone()
                         return
+            
+            # Check for notifications
+            octoAppStatusContainerObj = self._GetWsMsgParam(msg, "gcode_macro _OCTOAPP_STATUS")
+            if octoAppStatusContainerObj is not None:
+                # Split text at ~~~ and take the first element (second half is CPU time to make the value change with same message repeated)
+                gcodeNotification = octoAppStatusContainerObj["gcode_macro _OCTOAPP_STATUS"].get("notify_message", None)
+                message = gcodeNotification.split("~~~")[0] if "~~~" in gcodeNotification else gcodeNotification
+                if message != "":
+                    self.MoonrakerCompat.OnCustomNotification(message)
 
             # Report progress. Do this after the others so they will report before a potential progress update.
             # Progress updates super frequently (like once a second) so there's plenty of chances.
@@ -911,6 +921,14 @@ class MoonrakerCompat:
         if stats is not None:
             fileName = stats["filename"]
         self.NotificationHandler.OnPaused(fileName)
+
+     # Called the the print is paused.
+    def OnCustomNotification(self, message):
+        # Only process notifications when ready, aka after state sync.
+        if self.IsReadyToProcessNotifications is False:
+            return
+
+        self.NotificationHandler.OnCustomNotification(message)
 
 
     # Called the the print is resumed.
