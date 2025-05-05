@@ -116,7 +116,7 @@ class OctoAppWebcamSnapshotsSubPlugin(OctoAppSubPlugin):
     def _updateSnapshotCache(self, webcamIndex, log):
         try:
             webcamSettings = self._getWebcamSettingsItem(webcamIndex)
-            snapshotUrl = webcamSettings.SnapshotUrl
+            snapshotUrl = webcamSettings.SnapshotUrl if webcamSettings is not None else ""
 
             if snapshotUrl == "" or snapshotUrl is None or (not snapshotUrl.startswith("http://") and not snapshotUrl.startswith("https://")):
                 return True
