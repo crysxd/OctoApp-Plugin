@@ -201,7 +201,15 @@ ensure_py_venv()
                 virtualenv -p /opt/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
             fi
         else
-            python3 /usr/lib/python3.8/site-packages/virtualenv.py -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
+            # Find the virtualenv.py file regardless of Python version
+            VIRTUALENV_PATH=$(find /usr/lib/python* -name virtualenv.py -type f | head -n 1)
+            if [[ -n "$VIRTUALENV_PATH" ]]; then
+                python3 "$VIRTUALENV_PATH" -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
+            else
+                log_info "ERROR: Could not find virtualenv.py, trying alternative approach"
+                # Fallback to try using the virtualenv module
+                python3 -m virtualenv -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
+            fi
         fi
     else
         # Everything else can use this more modern style command.
