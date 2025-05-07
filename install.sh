@@ -42,7 +42,7 @@ then
     # On the K1, we always want the path to be /usr/data
     # /usr/share has very limited space, so we don't want to use it.
     # This is also where the github script installs moonraker and everything.
-    HOME="/usr/data"
+    HOME="mnt/data/.klipper_mod/chroot/root/printer_software/"
 fi
 
 # Next, we try to detect if this OS is the Sonic Pad OS.
