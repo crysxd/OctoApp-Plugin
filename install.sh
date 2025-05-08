@@ -282,7 +282,7 @@ install_or_update_python_env()
     log_info "Updating PIP if needed... (this can take a few seconds or so)"
     if [[ $IS_K1_OS -eq 1 ]]
     then
-        "${OCTOAPP_ENV}"/bin/python -m pip install --trusted-host pypi.python.org --trusted-host pypi.org --trusted-host=files.pythonhosted.org --no-cache-dir --upgrade pip
+        "${OCTOAPP_ENV}"/bin/python -m pip install --trusted-host pypi.python.org --trusted-host pypi.org --trusted-host=files.pythonhosted.org --no-cache-dir --retries 50 --upgrade pip
     else
         "${OCTOAPP_ENV}"/bin/python -m pip install --upgrade pip
     fi
