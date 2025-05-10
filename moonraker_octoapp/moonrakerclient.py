@@ -906,7 +906,7 @@ class MoonrakerCompat:
         # The API expects the duration as a float of seconds, as a string.
         # The API expects either cancelled or error for the reason. This is the only two strings OctoPrint produces.
         # We can't differentiate between printer errors and user canceling the print right now, so we always use cancelled.
-        self.NotificationHandler.OnFailed(fileName, str(totalDurationSecFloat), "cancelled")
+        self.NotificationHandler.OnFailed(fileName, str(totalDurationSecFloat), "cancelled", 3)
 
 
     # Called the the print is paused.

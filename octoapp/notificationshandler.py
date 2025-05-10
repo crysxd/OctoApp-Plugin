@@ -58,6 +58,7 @@ class NotificationsHandler:
         self.ProgressTimer = None
         self.FinalSnapObj:FinalSnap = None
         self.PauseThread = None
+        self.CancelThread = None
         # self.Gadget = Gadget(logger, self, self.PrinterStateInterface)
 
         # Define all the vars
@@ -199,6 +200,12 @@ class NotificationsHandler:
             self.PauseThread.stop()
             self.PauseThread = None
 
+    def _cancelDelayedCancel(self):
+        if self.CancelThread is not None and self.CancelThread.is_alive():
+            Sentry.Info("NOTIFICATION", "Cancelling delayed cancel")
+            self.CancelThread.stop()
+            self.CancelThread = None
+
     # Only used for testing.
     def OnTest(self):
         if self._shouldIgnoreEvent():
@@ -247,14 +254,41 @@ class NotificationsHandler:
 
 
     # Fired when a print fails
-    def OnFailed(self, fileName, durationSecStr, reason):
+    def OnFailed(self, fileName, durationSecStr, reason, delay = 0):
+        # Some printers (anycubic kobra s1) save config in the print start phase which causes a cancel and then a resume a second later.
+        # We now delay the cancel 3s to debounce
+        def doCancel(reason):
+            self._updateToKnownDuration(durationSecStr)
+            self.StopTimers()
+            self._cancelDelayedPause()
+            self._sendEvent(NotificationSender.EVENT_CANCELLED, { "Reason": reason})
+
+        def fireCancel(delay, reason):
+            _self = self.CancelThread 
+            Sentry.Info("NOTIFICATION", "Delaying cancel for %d seconds" % delay)
+            time.sleep(delay)
+            if _self.stopped() is False:
+                Sentry.Info("NOTIFICATION", "Delayed cancel not stopped, executing")
+                doCancel(reason)
+                self.CancelThread = None
+            else: 
+                 Sentry.Info("NOTIFICATION", "Delayed cancel was stopped, dropping")
+            
+        def scheduleSent(delay, reason):
+            if self.CancelThread is None or self.CancelThread.is_alive() is False:
+                if delay == 0:
+                    doCancel(reason)
+                else:
+                    self.CancelThread = StoppableThread(target=fireCancel, args=(delay, reason))
+                    self.CancelThread.start()
+            else:
+                Sentry.Error("NOTIFICATION", "Skipping cancel, already scheduled")
+
         if self._shouldIgnoreEvent(fileName):
-            return
+            return   
+
         self._updateCurrentFileName(fileName)
-        self._updateToKnownDuration(durationSecStr)
-        self.StopTimers()
-        self._cancelDelayedPause()
-        self._sendEvent(NotificationSender.EVENT_CANCELLED, { "Reason": reason})
+        scheduleSent(delay, reason)
 
 
     # Fired when a print done
@@ -266,6 +300,7 @@ class NotificationsHandler:
         self._updateToKnownDuration(durationSecStr_CanBeNone)
         self.StopTimers()
         self._cancelDelayedPause()
+        self._cancelDelayedCancel()
         self._sendEvent(NotificationSender.EVENT_DONE, useFinalSnapSnapshot=True)
 
 
@@ -332,6 +367,7 @@ class NotificationsHandler:
 
 
         self._cancelDelayedPause()
+        self._cancelDelayedCancel()
         self._updateCurrentFileName(fileName)
         self._sendEvent(NotificationSender.EVENT_RESUME)
 
