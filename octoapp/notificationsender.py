@@ -34,7 +34,7 @@ class NotificationSender:
     STATE_DURATION_SEC = "duration_sec"
     STATE_FILE_NAME = "file_name"
     STATE_ERROR = "error"
-    STATE_FILE_PATH = "file_name"
+    STATE_FILE_PATH = "file_path"
     STATE_PRINT_ID = "print_id"
 
 
