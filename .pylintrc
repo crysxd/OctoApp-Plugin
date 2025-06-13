@@ -21,7 +21,14 @@ disable=
     R0915, # Too many statements
     R1702, # Too many nested blocks
     R0801, # duplicate-code
-    R0916, # Too many booleans in one if statment.
+    R0916, # Too many booleans in one if statement.
+    R1730, # consider-using-min-builtin
+    R1731, # consider-using-max-builtin
+    R1724, # Unnecessary "else" after "break"
+    R1715, # consider-using-get for dict gets.
+    R1711, # Useless return at end of function or method (useless-return)
+    E1136, # Value 'CaseInsensitiveDict' is unsubscriptable (unsubscriptable-object) - pyright and ruff will catch these.
+
 
 
 # A comma-separated list of package or module names from where C extensions may
@@ -77,7 +84,7 @@ persistent=yes
 
 # Min Python version to use for version dependend checks. Will default to the
 # version used to run pylint.
-py-version=3.9
+# py-version=3.9
 
 # When enabled, pylint would attempt to guess common misconfiguration and emit
 # user-friendly hints instead of false-positive error messages.
@@ -120,7 +127,7 @@ disable=raw-checker-failed,
 # either give multiple identifier separated by comma (,) or put this option
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once). See also the "--disable" option for examples.
-enable=c-extension-no-member
+enable=c-extension-no-member,trailing-whitespace
 
 
 [REPORTS]

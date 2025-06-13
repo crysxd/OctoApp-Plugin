@@ -3,11 +3,12 @@ import threading
 import requests
 import json
 import time
-import sys
+from typing import Dict, List, Optional, Tuple, Any, cast
+
 import base64
 import hashlib
 from .sentry import Sentry
-from .appsstorage import AppStorageHelper
+from .appsstorage import AppStorageHelper, AppInstance
 
 class NotificationSender:
 
@@ -39,7 +40,7 @@ class NotificationSender:
 
 
     def __init__(self):
-        self.LastPrintState = {}
+        self.LastPrintState:Dict[str,Any] = {}
         self.LastProgressUpdate = 0
         self.PrinterName = "Printer"
         self.DefaultConfig = dict(
@@ -54,7 +55,8 @@ class NotificationSender:
         self._continuouslyCheckActivitiesExpired()
         self._continuouslyUpdateConfig()
 
-    def SendNotification(self, event, state=None):
+    def SendNotification(self, event:str, state:Optional[Dict[str,Any]]=None):
+        helper: Optional[AppStorageHelper] = None
         try:
             helper = AppStorageHelper.Get()
 
@@ -101,7 +103,7 @@ class NotificationSender:
                 Sentry.Info("SENDER", "Skipping push, no Android targets and no APNS data, skipping notification")
                 return
             
-            if not len(android_targets) and not len(activity_targets) and apnsData.get("alert", None) is None:
+            if not len(android_targets) and not len(activity_targets) and (apnsData or {}).get("alert", None) is None:
                 Sentry.Info("SENDER", "Skipping push, no Android targets, no iOS targets and APNS data has no alert, skipping notification")
                 return
 
@@ -114,10 +116,10 @@ class NotificationSender:
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to send notification", e)
 
-        if event in [self.EVENT_DONE, self.EVENT_CANCELLED, self.EVENT_ERROR]:
+        if event in [self.EVENT_DONE, self.EVENT_CANCELLED, self.EVENT_ERROR] and helper is not None:
             helper.RemoveTemporaryApps()
     
-    def _determinePriority(self, event, state):
+    def _determinePriority(self, event:str, state:Dict[str,Any]):
         if event == self.EVENT_STARTED:
             self.LastProgressUpdate = time.time()
             return 0
@@ -131,10 +133,10 @@ class NotificationSender:
             Sentry.Warn("SENDER", "No config cached!")
             return 1
         
-        modulus = self.CachedConfig["updatePercentModulus"]
-        highPrecisionStart = self.CachedConfig["highPrecisionRangeStart"]
-        highPrecisionEnd = self.CachedConfig["highPrecisionRangeEnd"]
-        minIntervalSecs = self.CachedConfig["minIntervalSecs"]
+        modulus = int(self.CachedConfig["updatePercentModulus"])
+        highPrecisionStart = int(self.CachedConfig["highPrecisionRangeStart"])
+        highPrecisionEnd = int(self.CachedConfig["highPrecisionRangeEnd"])
+        minIntervalSecs = int(self.CachedConfig["minIntervalSecs"])
         time_since_last = time.time() - self.LastProgressUpdate
         progress = int(state[NotificationSender.STATE_PROGRESS_PERCENT])
         if progress < 100 and progress > 0 and (
@@ -156,7 +158,7 @@ class NotificationSender:
             Sentry.Debug("SENDER", "Skipping progress update, only %s seconds passed since last" % int(time_since_last))
             return -1
     
-    def _processFilters(self, targets, event):
+    def _processFilters(self, targets:List[AppInstance], event:str):
         filterName = None
         if event == self.EVENT_FIRST_LAYER_DONE:
             filterName = "layer_1"
@@ -175,7 +177,7 @@ class NotificationSender:
     
         return list(filter(lambda target: filterName not in target.ExcludeNotifications, targets))
 
-    def _doSendNotification(self, targets, highProiroty, apnsData, androidData):
+    def _doSendNotification(self, targets:List[AppInstance], highProiroty:bool, apnsData:Optional[Dict[str,Any]], androidData:str):
         try:
             if not len(targets): 
                 Sentry.Info("SENDER", "No targets, skipping send")
@@ -198,7 +200,7 @@ class NotificationSender:
 
             # Make request and check 200
             r = requests.post(
-                self.CachedConfig["sendNotificationUrl"],
+                str(self.CachedConfig["sendNotificationUrl"]),
                 timeout=float(10), 
                 json=body
             )
@@ -220,7 +222,7 @@ class NotificationSender:
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to send notification %s", e)
 
-    def _createAndroidPushData(self, event, state):
+    def _createAndroidPushData(self, event:str, state:Dict[str,Any]):
         data = {}
         if event == self.EVENT_BEEP:
             data = { "type": "beep" }
@@ -275,7 +277,7 @@ class NotificationSender:
             return json.dumps(data)
         
     
-    def _createApnsPushData(self, event, state):
+    def _createApnsPushData(self, event:str, state:Dict[str,Any]) -> Optional[Dict[str,Any]]:
         Sentry.Info("SENDER", "Targets contain iOS devices, generating texts for '%s'" % event)
         notificationTitle = None
         notificationBody = None
@@ -460,7 +462,7 @@ class NotificationSender:
         return data
     
 
-    def _createActivityStartData(self, event, state):
+    def _createActivityStartData(self, event:str, state:Dict[str,Any]) -> Dict[str,Any]:
         # Base: Activity state
         data = self._createActivityContentState(
             isEnd=False,
@@ -468,7 +470,9 @@ class NotificationSender:
             liveActivityState="printing"
         )
         # Add alert
-        data.update(self._createApnsPushData(event, state))
+        notification = self._createApnsPushData(event, state)
+        if notification is not None:
+            data.update(notification)
 
         # Add attributes needed for start
         # ! the node JS server will set attributes.instanceId
@@ -485,26 +489,26 @@ class NotificationSender:
         return data
 
 
-    def _createActivityContentState(self, isEnd, state, liveActivityState):
+    def _createActivityContentState(self, isEnd:bool, state:Dict[str,Any], liveActivityState:str) -> Dict[str,Any]:
         return {
             "event": "end" if isEnd else "update",
             "content-state": {
                 "fileName": state.get(NotificationSender.STATE_FILE_NAME, None),
                 "filePath": state.get(NotificationSender.STATE_FILE_PATH, None),
-                "progress": int(float(state.get(NotificationSender.STATE_PROGRESS_PERCENT, None))),
+                "progress": int(float(state.get(NotificationSender.STATE_PROGRESS_PERCENT, 0))),
                 "sourceTime": int(time.time() * 1000),
                 "state": liveActivityState,
                 "error": state.get(self.STATE_ERROR, None),
-                "timeLeft": int(float(state.get(NotificationSender.STATE_TIME_REMAINING_SEC, None))),
-                "printTime": int(float(state.get(NotificationSender.STATE_DURATION_SEC, None))),
+                "timeLeft": int(float(state.get(NotificationSender.STATE_TIME_REMAINING_SEC, 0))),
+                "printTime": int(float(state.get(NotificationSender.STATE_DURATION_SEC, 0))),
             }
         }
 
-    def _getPushTargets(self, event):
+    def _getPushTargets(self, event:str):
         Sentry.Info("SENDER", "Finding targets for event=%s" % event)
         helper = AppStorageHelper.Get()
         apps = helper.GetAllApps()
-        phones = {}
+        phones:Dict[str, List[AppInstance]] = {}
 
         # Group all apps by phone
         for app in apps:
@@ -514,7 +518,7 @@ class NotificationSender:
             phones[instance_id] = phone
 
         # Pick activity if available, otherwise any other app
-        def pick_best_app(apps):
+        def pick_best_app(apps: List[AppInstance]):
             activities = helper.GetActivities(apps)
             ios = helper.GetIosApps(apps)
             android = helper.GetAndroidApps(apps)
@@ -635,10 +639,10 @@ class NotificationSender:
 class AESCipher(object):
     _ready = None
 
-    def __init__(self, key):
+    def __init__(self, key:str):
         self.key = hashlib.sha256(key.encode()).digest()
 
-    def prepare(self):
+    def prepare(self) -> bool:
         global AES, Random
 
         if AESCipher._ready is None:
@@ -652,15 +656,15 @@ class AESCipher(object):
         
         return AESCipher._ready
 
-    def encrypt(self, raw):
+    def encrypt(self, raw:str):
         global AES, Random
         bs = AES.block_size
 
-        def _pad(s):
+        def _pad(s:str):
             return s + (bs - len(s) % bs) * chr(bs - len(s) % bs)
 
         raw = _pad(raw)
         iv = Random.new().read(bs)
-        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        cipher = AES.new(self.key, AES.MODE_CBC, iv) # type: ignore
         return base64.b64encode(iv + cipher.encrypt(raw.encode())).decode("utf-8")
             

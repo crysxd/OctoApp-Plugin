@@ -3,6 +3,7 @@ from __future__ import absolute_import
 import threading
 import socket
 from datetime import datetime
+from typing import List, Dict, Any
 
 import time
 import flask
@@ -16,11 +17,11 @@ from flask_babel import gettext
 from octoprint.access.permissions import ADMIN_GROUP, USER_GROUP, READONLY_GROUP
 from octoprint.events import Events
 
-from octoapp.webcamhelper import WebcamHelper
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
 from octoapp.compat import Compat
 from octoapp.appsstorage import AppStorageHelper
+from subplugin import OctoAppSubPlugin
 
 from .octoprintappstorage import OctoPrintAppStorageSubPlugin
 from .notifications import OctoAppNotificationsSubPlugin
@@ -29,7 +30,6 @@ from .printerfirmware import OctoAppPrinterFirmwareSubPlugin
 from .mmu2filamentselect import OctoAppMmu2FilamentSelectSubPlugin
 from .webcamsnapshots import OctoAppWebcamSnapshotsSubPlugin
 from .printerstateobject import PrinterStateObject
-from .octoprintwebcamhelper import OctoPrintWebcamHelper
 from .layerprocessor import LayerProcessor
 
 class OctoAppPlugin(octoprint.plugin.AssetPlugin,
@@ -45,7 +45,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
     def __init__(self):
         # Update logger
         self._logger = logging.getLogger("octoprint.plugins.octoapp")
-        self.PluginState = {}
+        self.PluginState:Dict[str,Any] = {}
         self.SubPlugins = []
         self.LastSentPluginState = {}
         # Default the handler to None since that will make the var name exist
@@ -61,47 +61,44 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
     #
 
      # Mixin method
-    def on_startup(self, host, port):
+    def on_startup(self, host:str, port:int):
         # Setup Sentry to capture issues.
         self._initLogger()
-        Sentry.Init(self._logger, self._plugin_version, False)
+        Sentry.SetLogger(self._logger)
         Sentry.Info("PLUGIN", "OctoApp starting %s" % self._plugin_version)
 
-        # Init the static snapshot helper
-        octoPrintWebcamHelper = OctoPrintWebcamHelper(self._settings)
-        WebcamHelper.Init(octoPrintWebcamHelper, self.get_plugin_data_folder())
-
         # Setup our printer state object, that implements the interface.
-        printerStateObject = PrinterStateObject(self._printer)
+        octoPrintPrinterObj:octoprint.printer.PrinterInterface = self._printer #pyright: ignore[reportAssignmentType]
+        printerStateObject = PrinterStateObject(self._logger, octoPrintPrinterObj)
 
         # Setup App storage
         octoPrintAppStorage = OctoPrintAppStorageSubPlugin(self)
         AppStorageHelper.Init(octoPrintAppStorage)
 
         # Create the notification object now that we have the logger.
-        self.NotificationHandler = NotificationsHandler(printerStateObject)
+        self.NotificationHandler = NotificationsHandler(self._logger, printerStateObject)
         printerStateObject.SetNotificationHandler(self.NotificationHandler)
 
-        self.SubPlugins = [
+        self.SubPlugins:List[OctoAppSubPlugin] = [
             octoPrintAppStorage,
             OctoAppNotificationsSubPlugin(self, self.NotificationHandler),
             OctoAppPrinterMessageSubPlugin(self),
             OctoAppPrinterFirmwareSubPlugin(self),
             OctoAppMmu2FilamentSelectSubPlugin(self, self.NotificationHandler),
-            OctoAppWebcamSnapshotsSubPlugin(self, octoPrintWebcamHelper)
+            OctoAppWebcamSnapshotsSubPlugin(self)
         ]
 
         # Indicate this has been called and things have been inited.
         self.HasOnStartupBeenCalledYet = True
 
         # Hook up events
-        self._printer.register_callback(self)
+        self._printer.register_callback(self)  # type: ignore
 
 
     # Mixin method
     def on_after_startup(self):
         Sentry.Info("PLUGIN", "OctoApp started, version is %s" % self._plugin_version)
-        self._settings.set(["version"], self._plugin_version)
+        self._settings.set(["version"], self._plugin_version)  # type: ignore
 
         for sp in self.SubPlugins:
             try:
@@ -111,7 +108,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
 
     # Mixin method
-    def on_api_command(self, command, data):
+    def on_api_command(self, command:str, data:Dict[str,Any]) -> flask.Response: # type: ignore
         Sentry.Info("PLUGIN", "Recevied command %s" % command)
 
         for sp in self.SubPlugins:
@@ -137,7 +134,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
 
     # Mixin method
-    def get_api_commands(self):
+    def get_api_commands(self) -> Any:
         return dict(
             registerForNotifications=[],
             getPrinterFirmware=[],
@@ -155,7 +152,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
     
     
     # Mixin method
-    def on_print_progress(self, storage, path, progress):
+    def on_print_progress(self, storage:str, path:str, progress:int):
         for sp in self.SubPlugins:
             try:
                 sp.OnPrintProgress(storage=storage, path=path, progress=progress)
@@ -163,7 +160,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 Sentry.ExceptionNoSend("Failed to handle progress", e)
 
 
-    def on_printer_send_current_data(self, data):
+    def on_printer_send_current_data(self, data:Dict[str,Any]):
         for sp in self.SubPlugins:
             try:
                 sp.OnCurrentData(data=data)
@@ -172,7 +169,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
 
     # Mixin method
-    def on_event(self, event, payload):
+    def on_event(self, event:str, payload:Dict[str,Any]):
         for sp in self.SubPlugins:
             try:
                 sp.OnEvent(event=event, payload=payload)
@@ -187,7 +184,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
     # EVENTS
     #
 
-    def OnFirmwareInfoReceived(self, comm_instance, firmware_name, firmware_data, *args, **kwargs):
+    def OnFirmwareInfoReceived(self, comm_instance:Any, firmware_name:str, firmware_data:Dict[str,Any], *args:Any, **kwargs:Any):
         for sp in self.SubPlugins:
             try:
                 sp.OnFirmwareInfoReceived(comm_instance, firmware_name, firmware_data, args, kwargs)
@@ -195,7 +192,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 Sentry.ExceptionNoSend("Failed to handle firmware info", e)
 
 
-    def OnEmitWebsocketMessage(self, user, message, type, data):
+    def OnEmitWebsocketMessage(self, user:str, message:str, type:str, data:Dict[str,Any]):
         for sp in self.SubPlugins:
             try:
                 sp.OnEmitWebsocketMessage(user=user, message=message, type=type, data=data)
@@ -206,7 +203,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         return True
 
 
-    def OnGcodeQueued(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+    def OnGcodeQueued(self, comm_instance:Any, phase:Any, cmd:str, cmd_type:str, gcode:str, *args:Any, **kwargs:Any):
         send = True
         for sp in self.SubPlugins:
             try:
@@ -220,7 +217,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
             return None,
 
 
-    def OnGcodeSent(self, comm_instance, phase, cmd, cmd_type, gcode, *args, **kwargs):
+    def OnGcodeSent(self, comm_instance:Any, phase:Any, cmd:str, cmd_type:str, gcode:str, *args:Any, **kwargs:Any):
         for sp in self.SubPlugins:
             try:
                 sp.OnGcodeSent(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
@@ -228,7 +225,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 Sentry.ExceptionNoSend("Failed to handle gcode sent", e)
 
 
-    def OnGcodeReceived(self, comm_instance, line, *args, **kwargs):
+    def OnGcodeReceived(self, comm_instance:Any, line:str, *args:Any, **kwargs:Any):
         for sp in self.SubPlugins:
             try:
                 sp.OnGcodeReceived(comm_instance=comm_instance, line = line, args=args, kwargs=kwargs)
@@ -243,7 +240,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         # Only send if we are forced to update or the state actually changed
         if forced or self.LastSentPluginState != self.PluginState:
             self.LastSentPluginState = self.PluginState.copy()
-            self._plugin_manager.send_plugin_message(self._identifier, self.PluginState)
+            self._plugin_manager.send_plugin_message(self._identifier, self.PluginState)  # type: ignore
 
 
     #
@@ -264,7 +261,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         )
 
 
-    def GetAdditionalPermissions(self, *args, **kwargs):
+    def GetAdditionalPermissions(self, *args:Any, **kwargs:Any) -> Any:
         return [
             dict(key="RECEIVE_NOTIFICATIONS",
                  name="Receive push notifications",
@@ -287,7 +284,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
     def _initLogger(self):
         self._logger_handler = logging.handlers.RotatingFileHandler(
-            self._settings.get_plugin_logfile_path(), 
+            self._settings.get_plugin_logfile_path(),   # type: ignore
             maxBytes=512 * 1024,
             backupCount=1
         )

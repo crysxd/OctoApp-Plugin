@@ -1,5 +1,7 @@
+import os
 import random
 import string
+from typing import Optional
 
 # Common functions that the hosts might need to use.
 class HostCommon:
@@ -16,5 +18,14 @@ class HostCommon:
         return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(HostCommon.c_OctoAppPrinterIdMaxLength))
 
     @staticmethod
-    def IsPrinterIdValid(printerId):
+    def IsPrinterIdValid(printerId:Optional[str]) -> bool:
         return printerId is not None and len(printerId) >= HostCommon.c_OctoAppPrinterIdMinLength and len(printerId) <= HostCommon.c_OctoAppPrinterIdMaxLength
+    
+
+    # This will restart the plugin or if running in OctoPrint restart OctoPrint!
+    # Only use if absolutely needed!
+    @staticmethod
+    def RestartPlugin():
+        # Use os exit, to ensure the process is killed and restarted.
+        # pylint: disable=protected-access
+        os._exit(0)

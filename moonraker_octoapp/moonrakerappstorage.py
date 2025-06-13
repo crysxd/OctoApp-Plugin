@@ -1,11 +1,13 @@
+from typing import List
+
 from octoapp.sentry import Sentry
 from .moonrakerdatabase import MoonrakerDatabase
-from octoapp.appsstorage import AppInstance, AppStorageHelper
-import uuid
+from octoapp.appsstorage import AppInstance
+from octoapp.appsstorage import AppStoragePlatformHelper
 
-class MoonrakerAppStorage:
+class MoonrakerAppStorage(AppStoragePlatformHelper):
 
-    def __init__(self, database):
+    def __init__(self, database: MoonrakerDatabase):
         self.First = False
         self.Database = database
 
@@ -14,7 +16,7 @@ class MoonrakerAppStorage:
     #
     # This must return a list of AppInstance
     #
-    def GetAllApps(self) -> [AppInstance]:
+    def GetAllApps(self) -> List[AppInstance]:
         apps = self.Database.GetAppsEntry()
         return list(map(lambda app: AppInstance.FromDict(app), apps))        
 
@@ -23,9 +25,9 @@ class MoonrakerAppStorage:
     #
     # This must receive a lsit of AppInstnace
     #
-    def RemoveApps(self, apps:[AppInstance]):
-        apps = list(map(lambda app: app.FcmToken, apps))
-        self.Database.RemoveAppEntries(apps)
+    def RemoveApps(self, apps:List[AppInstance]):
+        tokens = list(map(lambda app: app.FcmToken, apps))
+        self.Database.RemoveAppEntries(tokens)
 
     # !! Platform Command Handler Interface Function !!
     #

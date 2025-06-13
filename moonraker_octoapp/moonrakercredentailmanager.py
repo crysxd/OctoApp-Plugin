@@ -5,9 +5,13 @@ import json
 import logging
 import time
 
+from typing import Any, Optional
+
 import configparser
 
 from octoapp.sentry import Sentry
+from octoapp.Proto.PathTypes import PathTypes
+from octoapp.octohttprequest import OctoHttpRequest
 
 # A class that handles trying to get user credentials from Moonraker if needed.
 #
@@ -27,34 +31,66 @@ class MoonrakerCredentialManager:
     c_MoonrakerUnixSocketFileNameWithCommsFolder = "comms/moonraker.sock"
 
     # The static instance.
-    _Instance = None
+    _Instance:"MoonrakerCredentialManager" = None #pyright: ignore[reportAssignmentType]
 
 
     @staticmethod
-    def Init(moonrakerConfigFilePath:str, isObserverMode:bool):
-        MoonrakerCredentialManager._Instance = MoonrakerCredentialManager(moonrakerConfigFilePath, isObserverMode)
+    def Init(logger:logging.Logger, moonrakerConfigFilePath:Optional[str], isCompanionMode:bool):
+        MoonrakerCredentialManager._Instance = MoonrakerCredentialManager(logger, moonrakerConfigFilePath, isCompanionMode)
 
 
     @staticmethod
-    def Get():
+    def Get() -> "MoonrakerCredentialManager":
         return MoonrakerCredentialManager._Instance
 
 
-    def __init__(self, moonrakerConfigFilePath:str, isObserverMode:bool):
+    def __init__(self, logger:logging.Logger, moonrakerConfigFilePath:Optional[str], isCompanionMode:bool) -> None:
+        self.Logger = logger
         self.MoonrakerConfigFilePath = moonrakerConfigFilePath
-        self.IsObserverMode = isObserverMode
+        self.IsCompanionMode = isCompanionMode
 
 
-    def TryToGetApiKey(self) -> str or None:
-        # If this is an observer plugin, we dont' have the moonraker config file nor can we access the UNIX socket.
-        if self.IsObserverMode:
-            Sentry.Info("Credetials", "OctoApp Companion Plugins dont' support Moonraker setups with auth.")
+    # Attempts to get the API key from moonraker. If it fails, it will return None.
+    def TryToGetOneshotToken(self, apiKey:Optional[str]=None) -> Optional[str]:
+        try:
+            # If we got an API key, try to set it.
+            headers = {}
+            if apiKey is not None:
+                headers["X-Api-Key"] = apiKey
+
+            # Make the call
+            result = OctoHttpRequest.MakeHttpCall(self.Logger, "/access/oneshot_token", PathTypes.Relative, "GET", headers)
+            if result is None:
+                raise Exception("Failed to get the oneshot token from moonraker.")
+            if result.StatusCode != 200:
+                raise Exception("Failed to get the oneshot token from moonraker. "+str(result.StatusCode))
+
+            # Read the response.
+            result.ReadAllContentFromStreamResponse(self.Logger)
+            buf = result.FullBodyBuffer
+            if buf is None:
+                raise Exception("Failed to get the oneshot token from moonraker. No content.")
+
+            # Decode & parse the response.
+            jsonMsg = json.loads(buf.GetBytesLike().decode(encoding="utf-8"))
+            token = jsonMsg.get("result", None)
+            if token is None:
+                raise Exception("Failed to get the oneshot token from moonraker. No result.")
+            return str(token)
+        except Exception as e:
+            Sentry.OnException("TryToGetOneshotToken failed to get the token.", e)
+        return None
+
+
+    def TryToGetApiKey(self) -> Optional[str]:
+        # If this is an companion plugin, we dont' have the moonraker config file nor can we access the UNIX socket.
+        if self.IsCompanionMode:
             return None
 
         # First, we need to find the unix socket to connect to
         moonrakerSocketFilePath = self._TryToFindUnixSocket()
         if moonrakerSocketFilePath is None:
-            Sentry.Warn("Credetials", "No moonraker unix socket file could be found.")
+            self.Logger.warning("No moonraker unix socket file could be found.")
             return None
 
         try:
@@ -90,7 +126,7 @@ class MoonrakerCredentialManager:
                 # Only messages with the ID field are responses, so we don't care about the others.
                 if "id" not in jsonRpcResponse:
                     if time.time() - startTime > 20.0:
-                        Sentry.Warn("Credetials", "TryToGetCredentials timeout waiting for db query response after "+str(msgCount)+" messages.")
+                        self.Logger.warning("TryToGetCredentials timeout waiting for db query response after "+str(msgCount)+" messages.")
                         return None
                     continue
 
@@ -100,16 +136,16 @@ class MoonrakerCredentialManager:
                     continue
                 # Check for error.
                 if "error" in jsonRpcResponse:
-                    Sentry.Warn("Credetials", "TryToGetCredentials got a response but it had an error. "+str(jsonRpcResponse["error"]))
+                    self.Logger.warning("TryToGetCredentials got a response but it had an error. "+str(jsonRpcResponse["error"]))
                     return None
 
                 # Look for the result string.
                 if "result" not in jsonRpcResponse:
-                    Sentry.Warn("Credetials", "TryToGetCredentials got a response but with no result object.")
+                    self.Logger.warning("TryToGetCredentials got a response but with no result object.")
                     return None
                 result  = jsonRpcResponse["result"]
                 if isinstance(result, str) is False:
-                    Sentry.Warn("Credetials", "TryToGetCredentials got a response but result is not a str. "+str(result))
+                    self.Logger.warning("TryToGetCredentials got a response but result is not a str. "+str(result))
                     return None
 
                 # We got it!
@@ -117,11 +153,16 @@ class MoonrakerCredentialManager:
                 return result
 
         except Exception as e:
-            Sentry.Exception("TryToGetCredentials failed to open the unix socket.", e)
+            Sentry.OnException("TryToGetCredentials failed to open the unix socket.", e)
             return None
 
 
-    def _TryToFindUnixSocket(self) -> str or None:
+    def _TryToFindUnixSocket(self) -> Optional[str]:
+
+        # This is required to find the socket.
+        if self.MoonrakerConfigFilePath is None:
+            self.Logger.error("_TryToFindUnixSocket - No moonraker config file path provided - Is this a companion plugin?")
+            return None
 
         # First, try to parse the moonraker config to find the klipper socket path, since the moonraker socket should be similar.
         try:
@@ -144,8 +185,11 @@ class MoonrakerCredentialManager:
                     if os.path.exists(possibleMoonrakerSocketFilePath):
                         Sentry.Info("Credetials", "Moonraker socket path found from moonraker config klippy socket path. :"+possibleMoonrakerSocketFilePath)
                         return possibleMoonrakerSocketFilePath
+        except configparser.ParsingError as e:
+            if "Source contains parsing errors" in str(e):
+                self.Logger.error("_TryToFindUnixSocket failed to handle moonraker config. "+str(e))
         except Exception as e:
-            Sentry.Exception("_TryToFindUnixSocket failed to handle moonraker config.", e)
+            Sentry.OnException("_TryToFindUnixSocket failed to handle moonraker config.", e)
 
         # If that failed, try to find the path by stepping back from the moonraker config a few times.
         moonrakerConfigFolderPath = self._GetParentDirectory(self.MoonrakerConfigFilePath)
@@ -175,11 +219,11 @@ class MoonrakerCredentialManager:
 
 
     # Returns the parent directory of the passed directory or file path.
-    def _GetParentDirectory(self, path):
+    def _GetParentDirectory(self, path:str) -> str:
         return os.path.abspath(os.path.join(path, os.pardir))
 
 
-    def _ReadSingleJsonObject(self, sock) -> str or None:
+    def _ReadSingleJsonObject(self, sock:Any) -> Optional[str]:
         # Since sock.recv blocks, we must read each char one by one so we know when the message ends.
         # This is messy, but since it only happens very occasionally, it's fine.
         message = bytearray()

@@ -1,5 +1,8 @@
+from typing import IO, Dict, Any
+
 from .sentry import Sentry
 from .layerutils import LayerUtils
+from .notificationshandler import NotificationsHandler
 
 class NotificationUtils:
     
@@ -8,13 +11,13 @@ class NotificationUtils:
     ThirdLayerCompletedAt = "ThirdLayerCompletedAt" 
 
     @staticmethod
-    def CreateNotificationCommand(message):
+    def CreateNotificationCommand(message:str):
         return NotificationUtils.NotificationCommand + " MESSAGE=" + message
     
 
     @staticmethod
-    def GetMessageIfNotifyCommand(line):
-        def removeQuotes(s):
+    def GetMessageIfNotifyCommand(line:str):
+        def removeQuotes(s:str):
             if s.startswith('"') and s.endswith('"'):
                 return s[1:-1]
             elif s.startswith("'") and s.endswith("'"):
@@ -29,7 +32,7 @@ class NotificationUtils:
                 return removeQuotes(line[len(command):])
         
     @staticmethod
-    def SendScheduledNotifications(notifications, notificationHandler, filePos, lastFilePos):
+    def SendScheduledNotifications(notifications: Dict[int, str], notificationHandler: NotificationsHandler, filePos:int, lastFilePos:int):
         for notificationFilePos in notifications:
             if notificationFilePos > lastFilePos and filePos >= notificationFilePos:
                 message = notifications[notificationFilePos]
@@ -42,13 +45,13 @@ class NotificationUtils:
                     notificationHandler.OnCustomNotification(message)
     
     @staticmethod
-    def ExtractNotifications(response, stopAfterLayer3 = False):
+    def ExtractNotifications(response:IO[Any], stopAfterLayer3:bool = False) -> Dict[int, str]:
         buffer = ""
         filePos = 0
-        context = {}
-        notifications = {}
+        context:Dict[str,Any] = {}
+        notifications:Dict[int, str] = {}
     
-        def processLine(line):
+        def processLine(line:str) -> bool:
             context['layerCounter'] = context.get('layerCounter', 0)
             
             try:
@@ -78,11 +81,13 @@ class NotificationUtils:
 
         # Do not read by line! We need to keep track of \r and \n because they are part of the filePos
         # later used. If read by line we do not know if \r\n or \n was used
+        line = ""
         while True:
-            chunk = response.read(4096)
+            chunk: Any = response.read(4096)
             if not chunk:
                 break
 
+           
             buffer += chunk if type(chunk) == str else chunk.decode('utf-8')
             while '\n' in buffer:
                 line, buffer = buffer.split('\n', 1)
@@ -91,7 +96,7 @@ class NotificationUtils:
                     Sentry.Info("NOTIFICATIONS", "Processing stopped prematurely, all notifications extracted")
                     return notifications
 
-        if buffer:
+        if buffer and len(line) > 0:
             processLine(line)
         
         return notifications

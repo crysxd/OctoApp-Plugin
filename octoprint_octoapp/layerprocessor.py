@@ -1,23 +1,27 @@
+from typing import Dict, Any, Optional
+from io import RawIOBase
+
+import octoprint.filemanager
+import octoprint.filemanager.util
+
 from .subplugin import OctoAppSubPlugin
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
-import octoprint.plugin
-import octoprint.filemanager
-import octoprint.filemanager.util
 from octoapp.layerutils import LayerUtils
+
 
 from octoprint.util.comm import strip_comment
 
 class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
 
-    def __init__(self, input_stream):
+    def __init__(self, input_stream:RawIOBase):
         super().__init__(input_stream)
         self.LayerCounter = 0
         self.FirstLine = True
         self.Disabled = False
-        self.Context = {}
+        self.Context:Dict[str,Any] = {}
 
-    def process_line(self, line):
+    def process_line(self, line:bytes):
         try:
             decodedLine = line.decode()
 
@@ -42,12 +46,12 @@ class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
             raise e
     
     @staticmethod
-    def InsertLayerChanges(path, file_object, links=None, printer_profile=None, allow_overwrite=True, *args, **kwargs):
-        if not octoprint.filemanager.valid_file_type(path, type="gcode"):
+    def InsertLayerChanges(path:str, file_object: Any, links:Optional[Any]=None, printer_profile:Optional[Any]=None, allow_overwrite:bool=True, *args:Any, **kwargs:Any) -> octoprint.filemanager.util.StreamWrapper:
+        if not octoprint.filemanager.valid_file_type(path, type="gcode"):  # type: ignore
             return file_object
 
         Sentry.Info("Layers", "Processing " + path)
 
         
-        return octoprint.filemanager.util.StreamWrapper(file_object.filename, LayerProcessor(file_object.stream()))
+        return octoprint.filemanager.util.StreamWrapper(file_object.filename, LayerProcessor(file_object.stream()))  # type: ignore
 

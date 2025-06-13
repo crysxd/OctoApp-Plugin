@@ -2,6 +2,7 @@ import json
 import time
 import threading
 import uuid
+from typing import List, Dict, Any
 
 from octoapp.sentry import Sentry
 from octoapp.appsstorage import AppInstance
@@ -19,7 +20,7 @@ class MoonrakerDatabase:
         self._continuouslyAnnouncePresence()
        
 
-    def GetAppsEntry(self):
+    def GetAppsEntry(self) -> List[Dict[str,Any]]:
         Sentry.Debug("Database", "Getting apps")
         result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.get_item",
         {
@@ -34,7 +35,7 @@ class MoonrakerDatabase:
             Sentry.Error("Database", "Ensure database entry item post failed. "+result.GetLoggingErrorStr())
             raise Exception("Unable to fetch apps: %s" % result.GetLoggingErrorStr())
 
-        out = []
+        out:List[Dict[str,Any]] = []
         value = result.GetResult()["value"]
         for key in value.keys(): out.append(value[key])
         return out
@@ -95,7 +96,7 @@ class MoonrakerDatabase:
         return self.CachedEncryptionKey
 
 
-    def RemoveAppEntries(self, apps: []):
+    def RemoveAppEntries(self, apps:List[str]):
         Sentry.Info("Database", "Removing apps: %s" % apps)
 
         for appId in apps:
@@ -136,7 +137,7 @@ class MoonrakerDatabase:
                     return
                 Sentry.Debug("Database", "Database namespace "+n+" : "+json.dumps(result.GetResult(), indent=4, separators=(", ", ": ")))
         except Exception as e:
-            Sentry.Exception("_Debug_EnumerateDataBase exception.", e)
+            Sentry.ExceptionNoSend("_Debug_EnumerateDataBase exception.", e)
 
     def _continuouslyAnnouncePresence(self):
         t = threading.Thread(target=self._doContinuouslyAnnouncePresence)

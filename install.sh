@@ -1,12 +1,29 @@
 #!/bin/bash
 
-
-
 #
 # OctoApp for Klipper!
 #
-# Use this script to install the plugin on a normal device or a Creality device, or to install the companion!
+#
+# If you don't know what you're doing, start the link think below, which will help you determine which plugin to install.
+# https://github.com/crysxd/OctoApp-Plugin/wiki
+#
+#
+# This script is a can be used to install the OctoApp plugin directly on any Debian based Linux system.
+# OctoApp can also set up using a Docker image, see this link for details:
+# https://github.com/crysxd/OctoApp-Plugin/wiki
+#
+#
+# Use this script to install the OctoApp plugin for:
+#    OctoApp for Klipper    - The plugin is connected to Moonraker running on this device.
+#    OctoApp for Creality   - The plugin is being installed on a Creality device (Sonic Pad, K1, etc)
+#    OctoApp Companion      - The plugin will connect to Moonraker running on a different device on the same LAN
+#    OctoApp Bambu Connect  - The plugin will connect to A Bambu Lab printer running on the save LAN.
+#    OctoApp Elegoo Connect - The plugin will connect to A Elegoo printer running on the save LAN.
+#
+# For local Klipper or Creality devices, no arguments are required.
 # For a companion install, use the -companion argument.
+# For a Bambu Connect install, use the -bambu argument.
+# For a Elegoo Connect install, use the -elegoo argument.
 #
 # Simply run ./install.sh from the git repo root directory to get started!
 #
@@ -15,16 +32,13 @@
 
 
 
-
-
 #
 # The responsibility of this script is to bootstrap the setup by installing the required system libs,
 # virtual environment, and py requirements. The core of the setup logic is done by the PY install script.
 #
 
-# Set this to terminate on error.
-set -e
-
+# We don't do this anymore, because some commands return non-zero exit codes, but still are successful.
+# set -e
 
 #
 # First things first, we need to detect what kind of OS we are running on. The script works by default with all
@@ -61,6 +75,26 @@ if [[ -d /home/sovol/ ]]; then
     IS_SOVOL_OS=1
 fi
 
+# Next, we try to detect if this OS is the K2 Plus.
+# The K2 runs an openwrt distro called Tina. We detect that by looking at the openwrt_release file.
+# But this also seems to overlap with the sonic pad, so we also check for the webrtc binary.
+IS_K2_OS=0
+if [[ $IS_SONIC_PAD_OS -eq 0 ]]
+then
+    # Only check for the K2 if we aren't already in the sonic pad OS.
+    if grep -Fiqs "tina" /etc/openwrt_release
+    then
+        if [[ -f /usr/bin/webrtc ]]
+        then
+            IS_K2_OS=1
+            # On the K2, we always want the path to be /mnt/UDISK, since it has a lot of space there.
+            HOME="/mnt/UDISK"
+        fi
+    fi
+fi
+
+
+
 # Get the root path of the repo, aka, where this script is executing
 OCTOAPP_REPO_DIR=$(readlink -f $(dirname "$0"))
 
@@ -74,16 +108,22 @@ OCTOAPP_ENV="${HOME}/octoapp-env"
 # For python packages, the `requirements.txt` package is used on update.
 # This var name MUST BE `PKGLIST`!!
 #
+# Note! This was deprecated in newer versions of moonraker, instead the deps are in the moonraker-system-dependencies.json file.
+# For now we will keep both around AND IN SYNC so we can support older versions of moonraker.
+#
 # The python requirements are for the installer and plugin
 # The virtualenv is for our virtual package env we create
 # The curl requirement is for some things in this bootstrap script.
-PKGLIST="python3 python3-pip virtualenv curl"
+# python3-venv is required for teh virtualenv command to fully work.
+# This must stay in sync with the dockerfile package installs
+PKGLIST="python3 python3-pip virtualenv python3-venv curl"
 # For the Creality OS, we only need to install these.
 # We don't override the default name, since that's used by the Moonraker installer
 # Note that we DON'T want to use the same name as above (not even in this comment) because some parsers might find it.
+# Note we exclude virtualenv python3-venv curl because they can't be installed on the sonic pad via the package manager.
+CREALITY_DEP_LIST="python3 python3-pip python3-pillow"
 SONIC_PAD_DEP_LIST="python3 python3-pip"
 CREALITY_DEP_LIST="python3 python3-pillow python3-pip"
-
 
 #
 # Console Write Helpers
@@ -128,12 +168,11 @@ log_blank()
 }
 
 #
-# It's important for consistency that the repo root is in set $HOME for the K1 and Sonic Pad
+# It's important for consistency that the repo root is in set $HOME for the K1, K2, and Sonic Pad
 # To enforce that, we will move the repo where it should be.
 ensure_creality_os_right_repo_path()
 {
-    # TODO - re-enable this for the  || [[ $IS_K1_OS -eq 1 ]] after the github script updates.
-    if [[ $IS_SONIC_PAD_OS -eq 1 ]]
+    if [[ $IS_SONIC_PAD_OS -eq 1 ]] || [[ $IS_K1_OS -eq 1 ]] || [[ $IS_K2_OS -eq 1 ]]
     then
         # Due to the K1 shell, we have to use grep rather than any bash string contains syntax.
         if echo $OCTOAPP_REPO_DIR |grep "$HOME" - > /dev/null
@@ -188,24 +227,23 @@ ensure_py_venv()
 
     log_info "No virtual environment found, creating one now."
     mkdir -p "${OCTOAPP_ENV}"
-    if [[ $IS_K1_OS -eq 1 ]]
+    if [[ $IS_K1_OS -eq 1 ]] || [[ $IS_K2_OS -eq 1 ]]
     then
         # The K1 requires we setup the virtualenv like this.
+        # --system-site-packages is important for the K1, since it doesn't have much disk space.
+        # Ideally we use /opt/bin/python3, since that version of python will be updated over time.
+        # It installs with the opkg command, if opkg is there.
+        # If not, we will use the version of python built into the system for the existing Creality stuff.
         if [[ -f /opt/bin/python3 ]]
         then
-            # virtualenv path is broken for a few K1 one, for other /opt/bin/virtualenv doesn't exist
-            if [[ -f /opt/bin/virtualenv ]]
-            then
-                /opt/bin/virtualenv -p /opt/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
-            else
-                virtualenv -p /opt/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
-            fi
+            /opt/bin/virtualenv -p /opt/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
         else
             python3 /usr/lib/python3.8/site-packages/virtualenv.py -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
         fi
     else
         # Everything else can use this more modern style command.
-        virtualenv -p /usr/bin/python3 --system-site-packages "${OCTOAPP_ENV}"
+        # We don't want to use --system-site-packages, so we don't consume whatever packages are on the system.
+        virtualenv -p /usr/bin/python3 "${OCTOAPP_ENV}"
     fi
 }
 
@@ -220,21 +258,51 @@ install_or_update_system_dependencies()
     then
         # The K1 by default doesn't have any package manager. In some cases
         # the user might install opkg via the 3rd party moonraker installer script.
-        # But in general, PY will already be installed, so there's no need to try.
-        # On the K1, the only we thing we ensure is that virtualenv is installed via pip.
+        # But in general, PY will already be installed.
+        # We will try to update python from the package manager if possible, otherwise, we will ignore it.
         if [[ -f /opt/bin/opkg ]]
         then
+            # Use the full path to ensure it's found, since it might not be in the path if you user didn't restart the printer.
             /opt/bin/opkg update || true
-            /opt/bin/opkg install ${CREALITY_DEP_LIST}
+            /opt/bin/opkg install ${CREALITY_DEP_LIST} || true
         fi
-        pip3 install --trusted-host pypi.python.org --trusted-host pypi.org --trusted-host=files.pythonhosted.org --no-cache-dir virtualenv
+        # On the K1, the only we thing we ensure is that virtualenv is installed via pip.
+        # We have had users report issues where this install gets stuck, using the no cache dir flag seems to fix it.
+        # 5/14/24 - The trusted hosts had to be added to fix a cert issue with pypi we aren't sure why it started happening all of the sudden.
+        pip3 install -q --trusted-host pypi.python.org --trusted-host pypi.org --trusted-host=files.pythonhosted.org --no-cache-dir virtualenv
+    elif [[ $IS_K2_OS -eq 1 ]]
+    then
+        # The K2 by default doesn't have any package manager.
+        # But without the package manager, we can't install the required packages, or even git.
+        # We we need the user to have opkg setup some how, usually from https://github.com/jamincollins/k2-improvements.
+        if [[ -f /opt/bin/opkg ]]
+        then
+            # Use the full path to ensure it's found, since it might not be in the path if you user didn't restart the printer.
+            /opt/bin/opkg update || true
+            /opt/bin/opkg install ${CREALITY_DEP_LIST} || true
+            # The K2 also needs ffmpeg.
+            /opt/bin/opkg install ffmpeg
+        else
+            log_blank
+            log_blank
+            log_error "This K2 is missing the required setup files for OctoApp."
+            log_important "Please visit https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-on-Creality for a step-by-step Creality K2 setup guide."
+            log_blank
+            log_blank
+            exit 1
+        fi
+        # On the K2, the only we thing we ensure is that virtualenv is installed via pip.
+        pip3 install -q --no-cache-dir virtualenv
     elif [[ $IS_SONIC_PAD_OS -eq 1 ]]
     then
         # The sonic pad always has opkg installed, so we can make sure these packages are installed.
+        # We have had users report issues where this install gets stuck, using the no cache dir flag seems to fix it.
         opkg update || true
-        opkg install ${SONIC_PAD_DEP_LIST}
-        pip3 install virtualenv
+        opkg install ${SONIC_PAD_DEP_LIST} || true
+        pip3 install -q --no-cache-dir virtualenv
     else
+        # Print this before the date update, since it might prompt for the user's password.
+        log_info "Installing required system packages..."
         log_important "You might be asked for your system password - this is required to install the required system packages."
 
         # It seems a lot of printer control systems don't have the date and time set correctly, and then the fail
@@ -247,19 +315,22 @@ install_or_update_system_dependencies()
 
         # These we require to be installed in the OS.
         # Note we need to do this before we create our virtual environment
-        sudo apt update || true
-        sudo apt install --yes ${PKGLIST}
+        sudo apt update 1>/dev/null 2>/dev/null || true
+        sudo apt install --yes ${PKGLIST} 2>/dev/null
 
         # The PY lib Pillow depends on some system packages that change names depending on the OS.
         # The easiest way to do this was just to try to install them and ignore errors.
         # Most systems already have the packages installed, so this only fixes edge cases.
         # Notes on Pillow deps: https://pillow.readthedocs.io/en/latest/installation.html
         log_info "Ensuring zlib is install for Pillow, it's ok if this package install fails."
-        sudo apt install --yes zlib1g-dev 2> /dev/null || true
-        sudo apt install --yes zlib-devel 2> /dev/null || true
+        sudo apt install --yes zlib1g-dev 2>/dev/null || true
+        sudo apt install --yes zlib-devel 2>/dev/null || true
+        sudo apt install --yes python-imaging 2>/dev/null || true
+        sudo apt install --yes python3-pil 2>/dev/null || true
+        sudo apt install --yes python3-pillow 2>/dev/null || true
     fi
 
-    log_info "System package install complete."
+    #log_info "System package install complete."
 }
 
 #
@@ -318,11 +389,18 @@ fi
 #
 check_for_octoprint()
 {
-    if [[ $IS_SONIC_PAD_OS -eq 1 ]] || [[ $IS_K1_OS -eq 1 ]]
+    if [[ $IS_SONIC_PAD_OS -eq 1 ]] || [[ $IS_K1_OS -eq 1 ]] || [[ $IS_K2_OS -eq 1 ]]
     then
         # Skip, there's no need and we don't have curl.
         return
     else
+        # Check if we are running in the Bambu Connect or Companion mode, if so, don't do this since
+        # The device could be running OctoPrint and that's fine.
+        if [[ "$*" == *"-bambu"* ]] || [[ "$*" == *"-companion"* ]]
+        then
+            return
+        fi
+
         # Do a basic check to see if OctoPrint is running on the standard port.
         # This obviously doesn't work for all OctoPrint setups, but it works for the default ones.
         if curl -s "http://127.0.0.1:5000" >/dev/null ; then
@@ -436,6 +514,10 @@ if [[ $IS_SOVOL_OS -eq 1 ]]
 then
     echo "Running in Sovol mode"
 fi
+if [[ $IS_K2_OS -eq 1 ]]
+then
+    echo "Running in K2 OS mode"
+fi
 
 # Before anything, make sure this repo is cloned into the correct path on Creality OS devices.
 # If this is Creality OS and the path is wrong, it will re-clone the repo, run the install again, and exit.
@@ -447,7 +529,7 @@ install_or_update_system_dependencies
 
 # Check that OctoPrint isn't found. If it is, we want to check with the user to make sure they are
 # not trying to setup OctoApp for OctoPrint.
-check_for_octoprint
+check_for_octoprint $*
 
 # Now make sure the virtual env exists, is updated, and all of our currently required PY packages are updated.
 install_or_update_python_env
@@ -473,12 +555,12 @@ cd ${OCTOAPP_REPO_DIR} > /dev/null
 # Disable the PY cache files (-B), since they will be written as sudo, since that's what we launch the PY
 # installer as. The PY installer must be sudo to write the service files, but we don't want the
 # complied files to stay in the repo with sudo permissions.
-if [[ $IS_SONIC_PAD_OS -eq 1 ]] || [[ $IS_K1_OS -eq 1 ]]
+if [[ $IS_SONIC_PAD_OS -eq 1 ]] || [[ $IS_K1_OS -eq 1 ]] || [[ $IS_K2_OS -eq 1 ]]
 then
     # Creality OS only has a root user and we can't use sudo.
-    ${OCTOAPP_ENV}/bin/python3 -B -m moonraker_installer ${PY_LAUNCH_JSON}
+    ${OCTOAPP_ENV}/bin/python3 -B -m py_installer ${PY_LAUNCH_JSON}
 else
-    sudo ${OCTOAPP_ENV}/bin/python3 -B -m moonraker_installer ${PY_LAUNCH_JSON}
+    sudo ${OCTOAPP_ENV}/bin/python3 -B -m py_installer ${PY_LAUNCH_JSON}
 fi
 
 cd ${CURRENT_DIR} > /dev/null

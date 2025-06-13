@@ -1,3 +1,6 @@
+from typing import Optional
+
+from .interfaces import IApiRouteHandler, ISmartPauseHandler, IRelayWebSocketProvider, ILocalAuth, IRelayWebcamStreamDetector, ISlipstreamHandler, IWebRequestHandler, ICommandWebsocketProviderBuilder
 
 # Some of the features we need to integrate into the octoapp package only exist on
 # some platforms. This is basically an interface that allows us to dynamically control
@@ -6,7 +9,9 @@ class Compat:
 
     _IsOctoPrintHost = False
     _IsMoonrakerHost = False
-    _IsObserverMode = False
+    _IsCompanionMode = False
+    _IsBambu = False
+    _IsElegooOs = False
     @staticmethod
     def IsOctoPrint() -> bool:
         return Compat._IsOctoPrintHost
@@ -14,77 +19,92 @@ class Compat:
     def IsMoonraker() -> bool:
         return Compat._IsMoonrakerHost
     @staticmethod
-    def IsObserverMode() -> bool:
-        return Compat._IsObserverMode
+    def IsCompanionMode() -> bool:
+        return Compat._IsCompanionMode
     @staticmethod
-    def SetIsOctoPrint(b):
+    def SetIsOctoPrint(b:bool):
         Compat._IsOctoPrintHost = b
     @staticmethod
-    def SetIsMoonraker(b):
+    def SetIsMoonraker(b:bool):
         Compat._IsMoonrakerHost = b
     @staticmethod
-    def SetIsObserverMode(b):
-        Compat._IsObserverMode = b
-
-
-    _LocalAuthObj = None
+    def SetIsCompanionMode(b:bool):
+        Compat._IsCompanionMode = b
     @staticmethod
-    def GetLocalAuth():
+    def SetIsBambu(b:bool):
+        Compat._IsBambu = b
+    @staticmethod
+    def SetIsElegooOs(b:bool):
+        Compat._IsElegooOs = b
+
+
+    _LocalAuthObj:Optional[ILocalAuth] = None
+    @staticmethod
+    def GetLocalAuth() -> Optional[ILocalAuth]:
         return Compat._LocalAuthObj
     @staticmethod
-    def SetLocalAuth(obj):
+    def SetLocalAuth(obj:ILocalAuth):
         Compat._LocalAuthObj = obj
-    @staticmethod
-    def HasLocalAuth():
-        return Compat._LocalAuthObj is not None
 
 
-    _SlipstreamObj = None
+    _SlipstreamObj:Optional[ISlipstreamHandler] = None
     @staticmethod
-    def GetSlipstream():
+    def GetSlipstream() -> Optional[ISlipstreamHandler]:
         return Compat._SlipstreamObj
     @staticmethod
-    def SetSlipstream(obj):
+    def SetSlipstream(obj:ISlipstreamHandler):
         Compat._SlipstreamObj = obj
-    @staticmethod
-    def HasSlipstream():
-        return Compat._SlipstreamObj is not None
 
-    # Must implement the smart pause interface.
-    #
-    # GetAndResetLastPauseNotificationSuppressionTimeSec - Returns None if there is no current suppression or the time of the last time it was requested
-    #
-    _SmartPauseInterfaceObj = None
+
+    _SmartPauseInterfaceObj:Optional[ISmartPauseHandler] = None
     @staticmethod
     def GetSmartPauseInterface():
         return Compat._SmartPauseInterfaceObj
     @staticmethod
-    def SetSmartPauseInterface(obj):
+    def SetSmartPauseInterface(obj:ISmartPauseHandler):
         Compat._SmartPauseInterfaceObj = obj
-    @staticmethod
-    def HasSmartPauseInterface():
-        return Compat._SmartPauseInterfaceObj is not None
 
 
-    _WebRequestResponseHandler = None
+    _WebRequestResponseHandler:Optional[IWebRequestHandler] = None
     @staticmethod
-    def GetWebRequestResponseHandler():
+    def GetWebRequestResponseHandler() -> Optional[IWebRequestHandler]:
         return Compat._WebRequestResponseHandler
     @staticmethod
-    def SetWebRequestResponseHandler(obj):
+    def SetWebRequestResponseHandler(obj:IWebRequestHandler):
         Compat._WebRequestResponseHandler = obj
-    @staticmethod
-    def HasWebRequestResponseHandler():
-        return Compat._WebRequestResponseHandler is not None
 
 
-    _ApiRouterHandler = None
+    _ApiRouterHandler:Optional[IApiRouteHandler] = None
     @staticmethod
-    def GetApiRouterHandler():
+    def GetApiRouterHandler() -> Optional[IApiRouteHandler]:
         return Compat._ApiRouterHandler
     @staticmethod
-    def SetApiRouterHandler(obj):
+    def SetApiRouterHandler(obj:IApiRouteHandler):
         Compat._ApiRouterHandler = obj
+
+
+    _RelayWebcamStreamDetector:Optional[IRelayWebcamStreamDetector] = None
     @staticmethod
-    def HasApiRouterHandler():
-        return Compat._ApiRouterHandler is not None
+    def GetRelayWebcamStreamDetector() -> Optional[IRelayWebcamStreamDetector]:
+        return Compat._RelayWebcamStreamDetector
+    @staticmethod
+    def SetRelayWebcamStreamDetector(obj:IRelayWebcamStreamDetector):
+        Compat._RelayWebcamStreamDetector = obj
+
+
+    _RelayWebsocketProvider:Optional[IRelayWebSocketProvider] = None
+    @staticmethod
+    def GetRelayWebsocketProvider() -> Optional[IRelayWebSocketProvider]:
+        return Compat._RelayWebsocketProvider
+    @staticmethod
+    def SetRelayWebsocketProvider(obj:IRelayWebSocketProvider):
+        Compat._RelayWebsocketProvider = obj
+
+
+    _MqttWebsocketProxyProviderBuilder:Optional[ICommandWebsocketProviderBuilder] = None
+    @staticmethod
+    def GetMqttWebsocketProxyProviderBuilder() -> Optional[ICommandWebsocketProviderBuilder]:
+        return Compat._MqttWebsocketProxyProviderBuilder
+    @staticmethod
+    def SetMqttWebsocketProxyProviderBuilder(obj:ICommandWebsocketProviderBuilder):
+        Compat._MqttWebsocketProxyProviderBuilder = obj

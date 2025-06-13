@@ -1,20 +1,22 @@
+from typing import Dict, Any
 
 from .subplugin import OctoAppSubPlugin
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
 from octoapp.notificationsender import NotificationSender
+from . import OctoAppPlugin
 
 class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
 
 
-    def __init__(self, parent, notification_handler: NotificationsHandler):
+    def __init__(self, parent:OctoAppPlugin, notification_handler: NotificationsHandler):
         super().__init__(parent)
         self.NotificationsHandler = notification_handler
 
 
-    def OnEmitWebsocketMessage(self, user, message, type, data):
+    def OnEmitWebsocketMessage(self, user:str, message:str, type, data:Dict[str,Any]):
         if type == "plugin" and data.get("plugin") in ["mmu2filamentselect", "prusammu"] and isinstance(data.get("data"), dict):
-            action = data.get("data").get("action")
+            action = data.get("data", {}).get("action", None)
 
             Sentry.Info("MMU", "Received event: %s" % action)
 
