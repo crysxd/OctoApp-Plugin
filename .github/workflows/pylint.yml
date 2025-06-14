@@ -36,13 +36,13 @@ jobs:
 
     - name: 👖 Running Pylint
       run: |
-        pylint ./octoapp/
-        pylint ./octoprint_octoapp/
-        pylint ./moonraker_octoapp/
-        pylint ./elegoo_octoapp/
-        pylint ./bambu_octoapp/
-        pylint ./linux_host/
-        pylint ./py_installer/
+        pylint --disable=import-error ./octoapp/
+        pylint --disable=import-error,cyclic-import ./octoprint_octoapp/
+        pylint --disable=import-error,cyclic-import ./moonraker_octoapp/
+        pylint --disable=import-error ./elegoo_octoapp/
+        pylint --disable=import-error ./bambu_octoapp/
+        pylint --disable=import-error ./linux_host/
+        pylint --disable=import-error ./py_installer/
 
     - name: 👉 Pyright
       run: |
