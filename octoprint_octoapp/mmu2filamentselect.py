@@ -1,17 +1,17 @@
 from typing import Dict, Any
+from logging import Logger
 
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
 from octoapp.notificationsender import NotificationSender
-
-from . import OctoAppPlugin, OctoAppSubPlugin
+from .subplugin import IOctoAppSubPluginParent, OctoAppSubPlugin
 
 class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
 
 
-    def __init__(self, parent:OctoAppPlugin, notification_handler: NotificationsHandler):
-        super().__init__(parent)
-        self.NotificationsHandler = notification_handler
+    def __init__(self, logger: Logger, parent:IOctoAppSubPluginParent, notificationHandler: NotificationsHandler):
+        super().__init__(logger, parent)
+        self.NotificationsHandler = notificationHandler
 
 
     def OnEmitWebsocketMessage(self, user:str, message:str, messageType:str, data:Dict[str,Any]):

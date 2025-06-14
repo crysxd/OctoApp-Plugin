@@ -3,6 +3,7 @@ import json
 import time
 import threading
 import uuid
+from logging import Logger
 from typing import List, Dict, Any, Optional
 
 import flask
@@ -12,13 +13,13 @@ from octoprint.events import Events
 from octoapp.sentry import Sentry
 from octoapp.appsstorage import AppInstance, AppStorageHelper, AppStoragePlatformHelper
 
-from . import OctoAppSubPlugin
+from .subplugin import OctoAppSubPlugin, IOctoAppSubPluginParent
 
 # pylint: disable=protected-access
 class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
 
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, logger: Logger, parent: IOctoAppSubPluginParent):
+        super().__init__(logger, parent)
         self.DataFile: Optional[str] = None
         self.Lock = threading.Lock()
         self.DataFile = os.path.join(self.parent.get_plugin_data_folder(), "apps.json")
@@ -121,7 +122,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
             return self._getOrCreateEncryptionKey()
 
     def _getOrCreateEncryptionKey(self) -> str:
-        key = self.parent._settings.get(["encryptionKey"]) #type: ignore
+        key: Optional[str] = self.parent._settings.get(["encryptionKey"]) #type: ignore
         if key is None:
             key = str(uuid.uuid4())
             Sentry.Info("NOTIFICATION", "Created new encryption key")

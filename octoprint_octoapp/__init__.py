@@ -25,24 +25,17 @@ from .mmu2filamentselect import OctoAppMmu2FilamentSelectSubPlugin
 from .webcamsnapshots import OctoAppWebcamSnapshotsSubPlugin
 from .printerstateobject import PrinterStateObject
 from .layerprocessor import LayerProcessor
+from .subplugin import OctoAppSubPlugin, IOctoAppSubPluginParent
 
-class OctoAppPlugin(octoprint.plugin.AssetPlugin,
-                    octoprint.plugin.ProgressPlugin,
-                    octoprint.plugin.StartupPlugin,
-                    octoprint.plugin.TemplatePlugin,
-                    octoprint.plugin.SimpleApiPlugin,
-                    octoprint.plugin.SettingsPlugin,
-                    octoprint.plugin.EventHandlerPlugin,
-                    octoprint.plugin.RestartNeedingPlugin,
-                    octoprint.printer.PrinterCallback):
+class OctoAppPlugin(IOctoAppSubPluginParent):
 
     def __init__(self):
         # Update logger
         self._logger_handler = None
         self._logger = logging.getLogger("octoprint.plugins.octoapp")
-        self.PluginState:Dict[str,Any] = {}
+        self.CurrentPluginState:Dict[str,Any] = {}
         self.SubPlugins = []
-        self.LastSentPluginState = {}
+        self.LastSentPluginState = self.CurrentPluginState
         # Default the handler to None since that will make the var name exist
         # but we can't actually create the class yet until the system is more initialized.
         self.NotificationHandler = None
@@ -50,6 +43,10 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         self.HasOnStartupBeenCalledYet = False
         # Let the compat system know this is an OctoPrint host.
         Compat.SetIsOctoPrint(True)
+
+    @property
+    def PluginState(self):
+        return self.CurrentPluginState
 
     #
     # Mixins
@@ -68,7 +65,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
         printerStateObject = PrinterStateObject(self._logger, octoPrintPrinterObj)
 
         # Setup App storage
-        octoPrintAppStorage = OctoPrintAppStorageSubPlugin(self)
+        octoPrintAppStorage = OctoPrintAppStorageSubPlugin(logger=self._logger, parent=self)
         AppStorageHelper.Init(octoPrintAppStorage)
 
         # Create the notification object now that we have the logger.
@@ -77,11 +74,11 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
         self.SubPlugins:List[OctoAppSubPlugin] = [
             octoPrintAppStorage,
-            OctoAppNotificationsSubPlugin(self, self.NotificationHandler),
-            OctoAppPrinterMessageSubPlugin(self),
-            OctoAppPrinterFirmwareSubPlugin(self),
-            OctoAppMmu2FilamentSelectSubPlugin(self, self.NotificationHandler),
-            OctoAppWebcamSnapshotsSubPlugin(self)
+            OctoAppNotificationsSubPlugin(logger=self._logger, parent=self, notificationHandler=self.NotificationHandler),
+            OctoAppPrinterMessageSubPlugin(logger=self._logger, parent=self),
+            OctoAppPrinterFirmwareSubPlugin(logger=self._logger, parent=self),
+            OctoAppMmu2FilamentSelectSubPlugin(logger=self._logger, parent=self, notificationHandler=self.NotificationHandler),
+            OctoAppWebcamSnapshotsSubPlugin(logger=self._logger, parent=self)
         ]
 
         # Indicate this has been called and things have been inited.
@@ -236,9 +233,9 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
     def SendPluginStateMessage(self, forced=False):
         # Only send if we are forced to update or the state actually changed
-        if forced or self.LastSentPluginState != self.PluginState:
-            self.LastSentPluginState = self.PluginState.copy()
-            self._plugin_manager.send_plugin_message(self._identifier, self.PluginState)  # type: ignore
+        if forced or self.LastSentPluginState != self.CurrentPluginState:
+            self.LastSentPluginState = self.CurrentPluginState.copy()
+            self._plugin_manager.send_plugin_message(self._identifier, self.CurrentPluginState)  # type: ignore
 
 
     #
@@ -295,53 +292,6 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
 __plugin_name__ = "OctoApp"
 __plugin_pythoncompat__ = ">=3.0,<4" # Only PY3
-
-class OctoAppSubPlugin():
-
-
-    def __init__(self, parent:OctoAppPlugin):
-        self.config:Dict[str,Any] = {}
-        self.parent = parent
-        self._logger = parent._logger
-
-
-    def OnAfterStartup(self):
-        pass
-
-    def OnFirmwareInfoReceived(self, comm_instance:Any, firmware_name:str, firmware_data:Dict[str,Any], *args:Any, **kwargs:Any):
-        pass
-
-
-    def OnApiCommand(self, command:str, data:Dict[str,Any]) -> Optional[flask.Response]:
-        return None
-
-
-    def OnEmitWebsocketMessage(self, user:str, message:str, messageType:str, data:Dict[str,Any]):
-        pass
-
-
-    def OnPrintProgress(self, storage:str, path:str, progress:int):
-        pass
-
-
-    def OnEvent(self, event:str, payload:Dict[str,Any]):
-        pass
-
-
-    def OnGcodeSent(self, comm_instance:Any, phase:Any, cmd:str, cmd_type:str, gcode:str, *args:Any, **kwargs:Any):
-        pass
-
-
-    def OnGcodeQueued(self, comm_instance:Any, phase:Any, cmd:str, cmd_type:str, gcode:str, *args:Any, **kwargs:Any) -> bool:
-        return True
-
-
-    def OnGcodeReceived(self, comm_instance:Any, line:str, *args:Any, **kwargs:Any):
-        pass
-
-
-    def OnCurrentData(self, data:Dict[str,Any]):
-        pass
 
 
 # pylint: disable=global-statement

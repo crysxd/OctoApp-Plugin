@@ -1,17 +1,18 @@
 from typing import Dict, Any, Optional
+from logging import Logger
 
 import flask
 
 from octoprint.access.permissions import Permissions
 from octoapp.sentry import Sentry
 
-from . import OctoAppPlugin, OctoAppSubPlugin
+from .subplugin import IOctoAppSubPluginParent, OctoAppSubPlugin
 
 
 class OctoAppPrinterFirmwareSubPlugin(OctoAppSubPlugin):
 
-    def __init__(self, parent: OctoAppPlugin):
-        super().__init__(parent)
+    def __init__(self, logger: Logger, parent: IOctoAppSubPluginParent):
+        super().__init__(logger, parent)
         self.firmware_info:Dict[str,Any] = {}
 
 

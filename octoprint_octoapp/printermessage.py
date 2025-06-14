@@ -2,7 +2,7 @@ from typing import Any
 
 from octoprint.events import Events
 
-from . import OctoAppSubPlugin
+from .subplugin import OctoAppSubPlugin
 
 
 class OctoAppPrinterMessageSubPlugin(OctoAppSubPlugin):

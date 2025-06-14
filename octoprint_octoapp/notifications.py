@@ -1,19 +1,20 @@
 from datetime import datetime, timedelta
 from time import sleep
 from typing import Optional, Dict, Any
+from logging import Logger
 
 from octoapp.notificationshandler import NotificationsHandler, StoppableThread
 from octoapp.sentry import Sentry
 from octoapp.layerutils import LayerUtils
 from octoapp.notificationutils import NotificationUtils
-from . import OctoAppPlugin, OctoAppSubPlugin
+from .subplugin import IOctoAppSubPluginParent, OctoAppSubPlugin
 
  # pylint: disable=protected-access
 class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
-    def __init__(self, parent:OctoAppPlugin, notification_handler: NotificationsHandler):
-        super().__init__(parent)
-        self.NotificationHandler = notification_handler
+    def __init__(self, logger: Logger, parent:IOctoAppSubPluginParent, notificationHandler: NotificationsHandler):
+        super().__init__(logger, parent)
+        self.NotificationHandler = notificationHandler
         self._hasPrintTimeGenius = self.parent._plugin_manager.get_plugin("PrintTimeGenius") is not None #type: ignore
         self.Progress = 0
         self.GcodeSentCount = 0
