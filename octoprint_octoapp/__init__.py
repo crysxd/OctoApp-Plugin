@@ -89,6 +89,10 @@ class OctoAppPlugin(IOctoAppSubPluginParent):
         # Indicate this has been called and things have been inited.
         self.HasOnStartupBeenCalledYet = True
 
+        # Init print info and utils
+        NotificationUtils.Init(TaggedLoggingAdapter(self._logger, "NOTIFICATIONS/UTILS"))
+        PrintInfoManager.Init(TaggedLoggingAdapter(self._logger, "PRINT"), self.get_plugin_data_folder())
+
         # Hook up events
         self._printer.register_callback(self)  # type: ignore
 
