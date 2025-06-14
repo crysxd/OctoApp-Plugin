@@ -4,17 +4,19 @@ from io import RawIOBase
 import octoprint.filemanager
 import octoprint.filemanager.util
 
+from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
 from octoapp.layerutils import LayerUtils
 
-
 class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
+    staticLogger: Optional[LoggerLike] = None
 
-    def __init__(self, input_stream:RawIOBase):
+    def __init__(self, logger:LoggerLike, input_stream:RawIOBase):
         super().__init__(input_stream)
         self.LayerCounter = 0
         self.FirstLine = True
         self.Disabled = False
+        self.__class__.staticLogger = logger
         self.Context:Dict[str,Any] = {}
 
     def process_line(self, line:bytes):
@@ -46,7 +48,7 @@ class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
         if not octoprint.filemanager.valid_file_type(path, type="gcode"):  # type: ignore
             return file_object
 
-        Sentry.Info("Layers", "Processing " + path)
-
+        if LayerProcessor.staticLogger is not None:
+            LayerProcessor.staticLogger.info("Processing " + path)
 
         return octoprint.filemanager.util.StreamWrapper(file_object.filename, LayerProcessor(file_object.stream()))  # type: ignore

@@ -4,6 +4,7 @@ import threading
 from typing import Optional
 
 from .sentry import Sentry
+from .logging import LoggerLike
 from .repeattimer import RepeatTimer
 from .interfaces import IPrinterStateReporter, INotificationHandler
 
@@ -19,7 +20,7 @@ class BedCooldownWatcher:
     c_maxWatcherRuntimeSec = 60 * 60
 
 
-    def __init__(self, logger:logging.Logger, notificationHandler:INotificationHandler, printerStateInterface:IPrinterStateReporter):
+    def __init__(self, logger:LoggerLike, notificationHandler:INotificationHandler, printerStateInterface:IPrinterStateReporter):
 
         # Default the  the bed is under ~100F, we will consider it cooled down.
         # This can be changed in the config by the user.

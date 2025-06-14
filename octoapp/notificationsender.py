@@ -1,14 +1,17 @@
 
-import threading
-import requests
-import json
-import time
-from typing import Dict, List, Optional, Tuple, Any, cast
-
 import base64
 import hashlib
+import json
+import threading
+import time
+from typing import Any, Dict, List, Optional, Tuple, cast
+
+import requests
+
+from .appsstorage import AppInstance, AppStorageHelper
+from .logging import LoggerLike
 from .sentry import Sentry
-from .appsstorage import AppStorageHelper, AppInstance
+
 
 class NotificationSender:
 
@@ -39,7 +42,7 @@ class NotificationSender:
     STATE_PRINT_ID = "print_id"
 
 
-    def __init__(self):
+    def __init__(self, logger: LoggerLike):
         self.LastPrintState:Dict[str,Any] = {}
         self.LastProgressUpdate = 0
         self.PrinterName = "Printer"
@@ -50,6 +53,7 @@ class NotificationSender:
             minIntervalSecs=300,
             sendNotificationUrl="https://europe-west1-octoapp-4e438.cloudfunctions.net/sendNotificationV2",
         )
+        self.Logger = logger
         self.CachedConfig = self.DefaultConfig
         self.CachedConfigAt = 0
         self._continuouslyCheckActivitiesExpired()
@@ -67,7 +71,7 @@ class NotificationSender:
                 state[NotificationSender.STATE_PROGRESS_PERCENT] = 100
 
             self.LastPrintState = state
-            Sentry.Info("SENDER", f"Preparing notification for {event}")
+            self.Logger.info(f"Preparing notification for {event}")
             priority = self._determinePriority(event=event, state=state)
 
             # Skip this event
@@ -78,11 +82,11 @@ class NotificationSender:
 
             onlyActivities = priority == 1
             if onlyActivities:
-                Sentry.Debug("SENDER", "Only activities allowed, filtering")
+                self.Logger.debug("Only activities allowed, filtering")
                 targets = helper.GetActivities(targets)
 
             if not targets:
-                Sentry.Debug("SENDER", "No targets, skipping notification")
+                self.Logger.debug("No targets, skipping notification")
                 return
 
             target_count_before_filter = len(targets)
@@ -95,16 +99,16 @@ class NotificationSender:
 
             # Some clients might have user interaction disbaled. First send pause so all live activities etc
             if event == self.EVENT_USER_INTERACTION_NEEDED and target_count_before_filter != len(targets):
-                Sentry.Info("SENDER", "User interaction needed, first sending pause")
+                self.Logger.info("User interaction needed, first sending pause")
                 self.SendNotification(self.EVENT_PAUSED)
                 time.sleep(2)
 
             if len(android_targets) == 0 and apnsData is None:
-                Sentry.Info("SENDER", "Skipping push, no Android targets and no APNS data, skipping notification")
+                self.Logger.info("Skipping push, no Android targets and no APNS data, skipping notification")
                 return
 
             if len(android_targets) == 0 and len(activity_targets) == 0 and (apnsData or {}).get("alert", None) is None:
-                Sentry.Info("SENDER", "Skipping push, no Android targets, no iOS targets and APNS data has no alert, skipping notification")
+                self.Logger.info("Skipping push, no Android targets, no iOS targets and APNS data has no alert, skipping notification")
                 return
 
             self._doSendNotification(
@@ -130,7 +134,7 @@ class NotificationSender:
 
         # Sanity check
         elif self.CachedConfig is None:
-            Sentry.Warn("SENDER", "No config cached!")
+            self.Logger.warning("No config cached!")
             return 1
 
         modulus = int(self.CachedConfig["updatePercentModulus"])
@@ -144,18 +148,18 @@ class NotificationSender:
             or progress <= highPrecisionStart
             or progress >= (100 - highPrecisionEnd)
         ):
-            Sentry.Debug("SENDER", f"Updating progress in main interval, sending high priotiy update: {progress}")
+            self.Logger.debug(f"Updating progress in main interval, sending high priotiy update: {progress}")
             self.LastProgressUpdate = time.time()
             return 0
         elif time_since_last > minIntervalSecs:
-            Sentry.Debug("SENDER", f"Over {time_since_last} sec passed since last progress update, sending high priority update")
+            self.Logger.debug(f"Over {time_since_last} sec passed since last progress update, sending high priority update")
             self.LastProgressUpdate = time.time()
             return 0
         elif time_since_last > (minIntervalSecs / 10):
-            Sentry.Debug("SENDER", f"Over {time_since_last} sec passed since last progress update, sending low priority update")
+            self.Logger.debug(f"Over {time_since_last} sec passed since last progress update, sending low priority update")
             return 1
         else:
-            Sentry.Debug("SENDER", f"Skipping progress update, only {time_since_last} seconds passed since last")
+            self.Logger.debug(f"Skipping progress update, only {time_since_last} seconds passed since last")
             return -1
 
     def _processFilters(self, targets:List[AppInstance], event:str):
@@ -180,7 +184,7 @@ class NotificationSender:
     def _doSendNotification(self, targets:List[AppInstance], highProiroty:bool, apnsData:Optional[Dict[str,Any]], androidData:str):
         try:
             if len(targets) == 0:
-                Sentry.Info("SENDER", "No targets, skipping send")
+                self.Logger.info("No targets, skipping send")
                 return
 
             # Base priority on onlyActivities. If the flag is set this is a low
@@ -196,7 +200,7 @@ class NotificationSender:
                 apnsData=apnsData,
             )
 
-            Sentry.Info("SENDER", f"Sending notification: {json.dumps(body)}")
+            self.Logger.info(f"Sending notification: {json.dumps(body)}")
 
             # Make request and check 200
             r = requests.post(
@@ -209,13 +213,13 @@ class NotificationSender:
             if r.status_code != requests.codes.ok:
                 raise Exception(f"Unexpected response code {r.status_code}: {r.text,} (Execution ID: {function_execution_id})")
             else:
-                Sentry.Info("SENDER", f"Send to {len(targets)} was success {r.json()} (Execution ID: {function_execution_id})")
+                self.Logger.info(f"Send to {len(targets)} was success {r.json()} (Execution ID: {function_execution_id})")
 
             # Delete invalid tokens
             apps = AppStorageHelper.Get().GetAllApps()
             invalid_tokens = r.json()["invalidTokens"]
             for fcmToken in invalid_tokens:
-                Sentry.Info("SENDER", f"Removing {fcmToken}, no longer valid")
+                self.Logger.info(f"Removing {fcmToken}, no longer valid")
                 apps = [app for app in apps if app.FcmToken == fcmToken or app.FcmFallbackToken == fcmToken]
                 AppStorageHelper.Get().RemoveApps(apps)
 
@@ -278,7 +282,7 @@ class NotificationSender:
 
 
     def _createApnsPushData(self, event:str, state:Dict[str,Any]) -> Optional[Dict[str,Any]]:
-        Sentry.Info("SENDER", f"Targets contain iOS devices, generating texts for '{event}")
+        self.Logger.info(f"Targets contain iOS devices, generating texts for '{event}")
         notificationTitle = None
         notificationBody = None
         notificationTitleKey = None
@@ -411,7 +415,7 @@ class NotificationSender:
             liveActivityState = "error"
 
         else:
-            Sentry.Warn("SENDER", f"Missing handling for '{event}'")
+            self.Logger.warning(f"Missing handling for '{event}'")
             return None
 
         # Let's only end the activity on cancel. If we end it on completed the alert isn't shown
@@ -505,7 +509,7 @@ class NotificationSender:
         }
 
     def _getPushTargets(self, event:str):
-        Sentry.Info("SENDER", f"Finding targets for event={event}")
+        self.Logger.info(f"Finding targets for event={event}")
         helper = AppStorageHelper.Get()
         apps = helper.GetAllApps()
         phones:Dict[str, List[AppInstance]] = {}
@@ -563,7 +567,7 @@ class NotificationSender:
 
 
     def _doContinuouslyCheckActivitiesExpired(self):
-        Sentry.Debug("SENDER", "Checking for expired apps every 60s")
+        self.Logger.debug("Checking for expired apps every 60s")
         while True:
             time.sleep(60)
 
@@ -571,7 +575,7 @@ class NotificationSender:
                 helper = AppStorageHelper.Get()
                 expired = helper.GetExpiredApps(helper.GetAllApps())
                 if len(expired):
-                    Sentry.Debug("SENDER", f"Found {len(expired)} expired apps")
+                    self.Logger.debug(f"Found {len(expired)} expired apps")
                     helper.LogApps()
 
                     expired_activities = helper.GetActivities(expired)
@@ -595,7 +599,7 @@ class NotificationSender:
                         )
 
                     helper.RemoveApps(expired)
-                    Sentry.Debug("SENDER", "Cleaned up expired apps")
+                    self.Logger.debug("Cleaned up expired apps")
 
 
             except Exception as e:
@@ -607,7 +611,7 @@ class NotificationSender:
     #
 
     def _continuouslyUpdateConfig(self):
-        Sentry.Info("SENDER", "Updating config")
+        self.Logger.info("Updating config")
         t = threading.Thread(target=self._doContinuouslyUpdateConfig)
         t.daemon = True
         t.start()
@@ -618,7 +622,7 @@ class NotificationSender:
             # If we have no config cached or the cache is older than a day, request new config
             cache_config_max_age = time.time() - 86400
             if self.CachedConfigAt > cache_config_max_age:
-                Sentry.Info("SENDER", "Config still valid")
+                self.Logger.info("Config still valid")
 
             # Request config, fall back to default
             try:
@@ -630,7 +634,7 @@ class NotificationSender:
                 self.CachedConfig = r.json()
                 self.CachedConfigAt = time.time()
 
-                Sentry.Info("SENDER", f"OctoApp loaded config: {self.CachedConfig}")
+                self.Logger.info(f"OctoApp loaded config: {self.CachedConfig}")
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to fetch config using defaults for 5 minutes", e)
                 self.CachedConfig = self.DefaultConfig
@@ -648,11 +652,11 @@ class AESCipher:
 
         if AESCipher._ready is None:
             try:
-                from Crypto.Cipher import AES
                 from Crypto import Random
+                from Crypto.Cipher import AES
                 AESCipher._ready = True
             except ImportError:
-                Sentry.Warn("SENDER", "Missing Crypto, notifications will not be encrypted. This happens on Sonic Pad and K1 (maybe others)")
+                Sentry.LogError("Missing Crypto, notifications will not be encrypted. This happens on Sonic Pad and K1 (maybe others)")
                 AESCipher._ready = False
 
         return AESCipher._ready

@@ -1,34 +1,32 @@
+import configparser
+import json
+import logging
+import math
 import os
+import queue
 import sys
 import threading
 import time
-import json
-import queue
-import logging
-import math
-import configparser
 from typing import Any, Dict, Optional, Tuple
-
 from urllib.parse import quote
 from urllib.request import urlopen
+
 import octowebsocket
 
-from octoapp.compat import Compat
-from octoapp.sentry import Sentry
-from octoapp.notificationutils import NotificationUtils
-from octoapp.websocketimpl import Client
-from octoapp.notificationshandler import NotificationsHandler
-from octoapp.exceptions import NoSentryReportException
-from octoapp.buffer import Buffer
-from octoapp.interfaces import IWebSocketClient, IPrinterStateReporter, WebSocketOpCode
-
 from linux_host.config import Config
+from octoapp.buffer import Buffer
+from octoapp.compat import Compat
+from octoapp.exceptions import NoSentryReportException
+from octoapp.interfaces import IPrinterStateReporter, IWebSocketClient, WebSocketOpCode
+from octoapp.notificationshandler import NotificationsHandler
+from octoapp.notificationutils import NotificationUtils
+from octoapp.sentry import Sentry
+from octoapp.websocketimpl import Client
 
 from .filemetadatacache import FileMetadataCache
-from .moonrakercredentailmanager import MoonrakerCredentialManager
-from .interfaces import IMoonrakerConnectionStatusHandler
+from .interfaces import IMoonrakerClient, IMoonrakerConnectionStatusHandler
 from .jsonrpcresponse import JsonRpcResponse
-from .interfaces import IMoonrakerClient
+from .moonrakercredentailmanager import MoonrakerCredentialManager
 from .moonrakerdatabase import MoonrakerDatabase
 
 
@@ -459,7 +457,7 @@ class MoonrakerClient(IMoonrakerClient):
             url = "http://" + self.MoonrakerHostAndPort + "/server/files/gcodes/" + path
             Sentry.Info("Client", f"Processing file at {url}")
             with urlopen(url) as response:
-                notifications = NotificationUtils.ExtractNotifications(response)
+                notifications = NotificationUtils.Get().ExtractNotifications(response)
                 self.MoonrakerCompat.ScheduleNotifications(notifications)
                 Sentry.Info("Client", "File processed")
                 self.ScheduledNotificationsCache[cacheKey] = notifications
@@ -1017,7 +1015,7 @@ class MoonrakerCompat(IPrinterStateReporter):
             return
 
         # Trigger scheduled notifications
-        NotificationUtils.SendScheduledNotifications(self.ScheduledNotifications, self.NotificationHandler, filePos, self.LastFilePos)
+        NotificationUtils.Get().SendScheduledNotifications(self.ScheduledNotifications, self.NotificationHandler, filePos, self.LastFilePos)
         self.LastFilePos = filePos
 
         # Moonraker sends about 3 of these per second, which is way faster than we need to process them.

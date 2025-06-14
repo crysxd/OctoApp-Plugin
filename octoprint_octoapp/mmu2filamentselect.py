@@ -1,15 +1,15 @@
 from typing import Dict, Any
 from logging import Logger
 
+from octoapp.logging import LoggerLike
 from octoapp.notificationshandler import NotificationsHandler
-from octoapp.sentry import Sentry
 from octoapp.notificationsender import NotificationSender
 from .subplugin import IOctoAppSubPluginParent, OctoAppSubPlugin
 
 class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
 
 
-    def __init__(self, logger: Logger, parent:IOctoAppSubPluginParent, notificationHandler: NotificationsHandler):
+    def __init__(self, logger: LoggerLike, parent:IOctoAppSubPluginParent, notificationHandler: NotificationsHandler):
         super().__init__(logger, parent)
         self.NotificationsHandler = notificationHandler
 
@@ -18,12 +18,12 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
         if type == "plugin" and data.get("plugin") in ["mmu2filamentselect", "prusammu"] and isinstance(data.get("data"), dict):
             action = data.get("data", {}).get("action", None)
 
-            Sentry.Info("MMU", f"Received event: {action}")
+            self.logger.info(f"Received event: {action}")
 
             if action == "show":
                 # If not currently active, send notification as we switched state
                 if self.parent.PluginState.get("mmuSelectionActive") is not True:
-                    Sentry.Info("MMU", "Trigger shown")
+                    self.logger.info("Trigger shown")
                     self.NotificationsHandler.NotificationSender.SendNotification(event=NotificationSender.EVENT_MMU2_FILAMENT_START)
 
                 self.parent.PluginState["mmuSelectionActive"] = True
@@ -32,7 +32,7 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
             elif action == "close":
                 # If currently active, send notification as we switched state
                 if self.parent.PluginState.get("mmuSelectionActive") is True:
-                    Sentry.Info("MMU", "Trigger closed")
+                    self.logger.info("Trigger closed")
                     self.NotificationsHandler.NotificationSender.SendNotification(event=NotificationSender.EVENT_MMU2_FILAMENT_DONE)
 
                 self.parent.PluginState["mmuSelectionActive"] = False

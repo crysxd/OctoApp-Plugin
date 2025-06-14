@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from octoprint.printer import PrinterInterface
 
+from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.interfaces import IPrinterStateReporter
@@ -11,7 +12,7 @@ from octoapp.interfaces import IPrinterStateReporter
 # Implements a common interface shared by OctoPrint and Moonraker.
 class PrinterStateObject(IPrinterStateReporter):
 
-    def __init__(self, logger:logging.Logger, octoPrintPrinterObject:PrinterInterface):
+    def __init__(self, logger:LoggerLike, octoPrintPrinterObject:PrinterInterface):
         self.Logger = logger
         self.OctoPrintPrinterObject = octoPrintPrinterObject
         self.NotificationHandler:Optional[NotificationsHandler] = None
