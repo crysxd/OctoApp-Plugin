@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional
 
 import dns.resolver
 
-from octoapp.sentry import Sentry
 from .localip import LocalIpHelper
 
 # A helper class to resolve mdns domain names to IP addresses, since the request lib doesn't support

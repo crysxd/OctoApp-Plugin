@@ -1,10 +1,10 @@
 from typing import Dict, Any
 
-from .subplugin import OctoAppSubPlugin
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
 from octoapp.notificationsender import NotificationSender
-from . import OctoAppPlugin
+
+from . import OctoAppPlugin, OctoAppSubPlugin
 
 class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
 
@@ -14,11 +14,11 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
         self.NotificationsHandler = notification_handler
 
 
-    def OnEmitWebsocketMessage(self, user:str, message:str, type, data:Dict[str,Any]):
+    def OnEmitWebsocketMessage(self, user:str, message:str, messageType:str, data:Dict[str,Any]):
         if type == "plugin" and data.get("plugin") in ["mmu2filamentselect", "prusammu"] and isinstance(data.get("data"), dict):
             action = data.get("data", {}).get("action", None)
 
-            Sentry.Info("MMU", "Received event: %s" % action)
+            Sentry.Info("MMU", f"Received event: {action}")
 
             if action == "show":
                 # If not currently active, send notification as we switched state

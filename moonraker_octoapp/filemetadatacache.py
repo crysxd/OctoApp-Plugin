@@ -112,8 +112,8 @@ class FileMetadataCache:
 
         # Return the value, which could still be -1 if it failed.
         return (self.LayerCount, self.LayerHeight, self.FirstLayerHeight, self.ObjectHeight)
-    
-    
+
+
     # If the file size can be gotten from the file metadata, this will return it.
     # Any of the values will return -1 if they are unknown.
     def GetModified(self, filename:str):
@@ -129,7 +129,7 @@ class FileMetadataCache:
 
         # Return the value, which could still be -1 if it failed.
         return self.Modified
-    
+
 
     # Does a refresh of the file name metadata cache.
     def _RefreshFileMetaDataCache(self, filename:str) -> None:

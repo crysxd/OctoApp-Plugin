@@ -4,13 +4,9 @@ from io import RawIOBase
 import octoprint.filemanager
 import octoprint.filemanager.util
 
-from .subplugin import OctoAppSubPlugin
-from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
 from octoapp.layerutils import LayerUtils
 
-
-from octoprint.util.comm import strip_comment
 
 class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
 
@@ -30,21 +26,21 @@ class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
 
             if self.Disabled is True:
                 return line
-            
+
             if LayerUtils.IsLayerChange(decodedLine, self.Context):
                 result = (decodedLine + LayerUtils.CreateLayerChangeCommands(self.LayerCounter)[0] + "\r\n").encode()
                 self.LayerCounter += 1
                 return result
-            
+
             if self.FirstLine:
                 self.FirstLine = False
                 return (LayerUtils.DisableLegacyLayerCommands[0] + "\r\n" + decodedLine).encode()
-            
+
             return line
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to process", e)
             raise e
-    
+
     @staticmethod
     def InsertLayerChanges(path:str, file_object: Any, links:Optional[Any]=None, printer_profile:Optional[Any]=None, allow_overwrite:bool=True, *args:Any, **kwargs:Any) -> octoprint.filemanager.util.StreamWrapper:
         if not octoprint.filemanager.valid_file_type(path, type="gcode"):  # type: ignore
@@ -52,6 +48,5 @@ class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
 
         Sentry.Info("Layers", "Processing " + path)
 
-        
-        return octoprint.filemanager.util.StreamWrapper(file_object.filename, LayerProcessor(file_object.stream()))  # type: ignore
 
+        return octoprint.filemanager.util.StreamWrapper(file_object.filename, LayerProcessor(file_object.stream()))  # type: ignore

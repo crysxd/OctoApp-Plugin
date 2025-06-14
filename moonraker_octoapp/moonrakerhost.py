@@ -1,4 +1,3 @@
-import time
 import logging
 import traceback
 from typing import Any, Dict, List, Optional
@@ -7,7 +6,6 @@ from octoapp.mdns import MDns
 from octoapp.sentry import Sentry
 from octoapp.deviceid import DeviceId
 from octoapp.hostcommon import HostCommon
-from octoapp.linkhelper import LinkHelper
 from octoapp.httpsessions import HttpSessions
 from octoapp.printinfo import PrintInfoManager
 from octoapp.octohttprequest import OctoHttpRequest
@@ -21,14 +19,12 @@ from linux_host.secrets import Secrets
 from linux_host.version import Version
 from linux_host.logger import LoggerInit
 
-from .smartpause import SmartPause
 from .systemconfigmanager import SystemConfigManager
 from .moonrakerclient import MoonrakerClient
 from .moonrakerdatabase import MoonrakerDatabase
 from .moonrakercredentailmanager import MoonrakerCredentialManager
 from .moonrakerappstorage import MoonrakerAppStorage
 from .filemetadatacache import FileMetadataCache
-from .uiinjector import UiInjector
 from .interfaces import IMoonrakerConnectionStatusHandler
 
 
@@ -81,7 +77,7 @@ class MoonrakerHost(IMoonrakerConnectionStatusHandler, IHostCommandHandler, ISta
 
             # Find the version of the plugin, this is required and it will throw if it fails.
             pluginVersionStr = Version.GetPluginVersion(repoRoot)
-            Sentry.Info("Host", "Plugin Version: %s" % pluginVersionStr)
+            Sentry.Info("Host", f"Plugin Version: {pluginVersionStr}")
 
             # Setup the HttpSession cache early, so it can be used whenever
             HttpSessions.Init(self.Logger)
@@ -116,7 +112,7 @@ class MoonrakerHost(IMoonrakerConnectionStatusHandler, IHostCommandHandler, ISta
             # Unpack any dev vars that might exist
             DevLocalServerAddress_CanBeNone = self.GetDevConfigStr(devConfig, "LocalServerAddress")
             if DevLocalServerAddress_CanBeNone is not None:
-                Sentry.Warn("Host", "~~~ Using Local Dev Server Address: %s ~~~" % DevLocalServerAddress_CanBeNone)
+                Sentry.Warn("Host", "~~~ Using Local Dev Server Address: {DevLocalServerAddress_CanBeNone} ~~~")
 
             # Init the mdns client
             MDns.Init(self.Logger, localStorageDir)
@@ -167,7 +163,7 @@ class MoonrakerHost(IMoonrakerConnectionStatusHandler, IHostCommandHandler, ISta
             #WebcamHelper.Init(self.MoonrakerWebcamHelper, localStorageDir)
 
             # Setup our smart pause helper
-            SmartPause.Init()
+            # SmartPause.Init()
 
             # When everything is setup, start the moonraker client object.
             # This also creates the Notifications Handler and Gadget objects.
@@ -217,14 +213,14 @@ class MoonrakerHost(IMoonrakerConnectionStatusHandler, IHostCommandHandler, ISta
                 # If there is no printer id, we consider this the first run.
                 isFirstRun = True
             else:
-                Sentry.Info("Host", "An invalid printer id was found [%s], regenerating!" % str(printerId))
+                Sentry.Info("Host", f"An invalid printer id was found [{printerId}], regenerating!")
 
             # Make a new, valid, key
             printerId = HostCommon.GeneratePrinterId()
 
             # Save it
             self.Secrets.SetPrinterId(printerId)
-            Sentry.Info("Host", "New printer id created: %s" % printerId)
+            Sentry.Info("Host", f"New printer id created: {printerId}")
 
         # If this is the first run, do other stuff as well.
         if isFirstRun:

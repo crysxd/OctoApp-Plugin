@@ -135,40 +135,24 @@ class Sentry:
         # Return the event to be reported.
         return event
 
-        # Check the stack
-        try:
-            stack = traceback.extract_stack((exc_info[2]).tb_frame)
-            for s in stack:
-                # Check for any "octoapp". The main source should be our package folder, which is
-                # "octoprint_octoapp".
-                filenameLower = s.filename.lower()
-                if "octoapp" in filenameLower:
-                    # If found, return the event so it's reported.
-                    return event
-        except Exception as e:
-            Sentry.Logger.error("Failed to extract exception stack in sentry before send. "+str(e))
-
-        # Return none to prevent sending.
-        return None
-    
     @staticmethod
     def Info(tag:str, msg:str):
-        paddedTag = "{:<15}".format(tag).upper()
+        paddedTag = f"{tag:<15}"
         Sentry._Logger.info(paddedTag + " | " + msg)
 
     @staticmethod
     def Debug(tag:str, msg:str):
-        paddedTag = "{:<15}".format(tag).upper()
+        paddedTag = f"{tag:<15}"
         Sentry._Logger.debug(paddedTag + " | " + msg)
 
     @staticmethod
     def Warn(tag:str, msg:str):
-        paddedTag = "{:<15}".format(tag).upper()
+        paddedTag = f"{tag:<15}"
         Sentry._Logger.warning(paddedTag + " | " + msg)
 
     @staticmethod
     def Error(tag:str, msg:str):
-        paddedTag = "{:<15}".format(tag).upper()
+        paddedTag = f"{tag:<15}"
         Sentry._Logger.error(paddedTag + " | " + msg)
 
     # Adds a breadcrumb to the sentry log, which is helpful to figure out what happened before an exception.
@@ -205,7 +189,7 @@ class Sentry:
     # Only logs an exception, without reporting.
     @staticmethod
     def ExceptionNoSend(msg:str, exception:Exception):
-        Sentry.Error("SENTRY", "Exception no send: %s" % exception)
+        Sentry.Error("SENTRY", f"Exception no send: {exception}")
         Sentry._handleException(msg, exception, False)
 
     # Only logs an exception, without reporting.

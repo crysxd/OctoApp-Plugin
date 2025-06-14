@@ -24,7 +24,7 @@ class PrinterStateObject(IPrinterStateReporter):
 
     def GetCurrentProgress(self) -> int:
         try:
-            return (self.currentData or {}).get("progress", -1) 
+            return (self.currentData or {}).get("progress", -1)
         except Exception as e:
             Sentry.OnExceptionNoSend("Failed to get current progress ", e)
             return -1

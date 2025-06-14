@@ -1,16 +1,14 @@
 from datetime import datetime, timedelta
 from time import sleep
-from typing import Optional, Dict, Any, BinaryIO
+from typing import Optional, Dict, Any
 
-from octoprint.filemanager import FileManager
-
-from . import OctoAppPlugin
-from .subplugin import OctoAppSubPlugin
 from octoapp.notificationshandler import NotificationsHandler, StoppableThread
 from octoapp.sentry import Sentry
 from octoapp.layerutils import LayerUtils
 from octoapp.notificationutils import NotificationUtils
+from . import OctoAppPlugin, OctoAppSubPlugin
 
+ # pylint: disable=protected-access
 class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def __init__(self, parent:OctoAppPlugin, notification_handler: NotificationsHandler):
@@ -39,9 +37,9 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def OnAfterStartup(self):
         self.NotificationHandler.NotificationSender.PrinterName = self._getPrinterName()
-        Sentry.Info("NOTIFICATION",  "Has PrintTimeGenius: %s" % self._hasPrintTimeGenius)
+        Sentry.Info("NOTIFICATION",  f"Has PrintTimeGenius: {self._hasPrintTimeGenius}")
 
-    
+
     def OnCurrentData(self, data:Dict[str,Any]):
         filePos = data.get("progress", {}).get("filepos", None)
         if filePos != self.LastFilePos and self.ScheduledNotifications is not None and self.NotificationHandler is not None:
@@ -53,7 +51,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         self._updateProgressAndSendIfChanged()
 
 
-    def OnEvent(self, event, payload):       
+    def OnEvent(self, event, payload):
         self._updateProgressAndSendIfChanged()
 
         # Only check the event after the notification handler has been created.
@@ -135,19 +133,19 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         if cmd in self.FirstLayerDoneCommands and self.NotificationHandler:
             self.NotificationHandler.OnFirstLayerDone()
             return False
-        
+
         if cmd in self.ThirdLayerDoneCommands and self.NotificationHandler:
             self.NotificationHandler.OnThirdLayerDone()
             return False
-        
+
         message = NotificationUtils.GetMessageIfNotifyCommand(cmd)
         if message is not None and self.NotificationHandler:
             self.NotificationHandler.OnCustomNotification(message)
             return False
-        
+
         if LayerUtils.IsOctoAppCommand(cmd):
             return False
-        
+
         return True
 
 
@@ -155,7 +153,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         # Blocking will block the printer commands from being handled so we can't block here!
 
         # Check for progress updates every 250 gcode commands. If we have PrintTimeGenius the
-        # progress shown to the user might update outside of OctoPrint's progress updates, so 
+        # progress shown to the user might update outside of OctoPrint's progress updates, so
         # to keep up we regularly check during the print
         self.GcodeSentCount = self.GcodeSentCount + 1
         if self.GcodeSentCount % 250 == 0 and self._hasPrintTimeGenius:
@@ -199,17 +197,17 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                 progress = self.NotificationHandler.PrinterStateInterface.GetCurrentProgress()
 
                 if timeLeft > 30 or (progress < 95 and progress >= 0):
-                    Sentry.Debug("NOTIFICATION", "Performing beep, %s seconds left and %s percent" % (timeLeft, progress))    
+                    Sentry.Debug("NOTIFICATION", f"Performing beep, {timeLeft} seconds left and {progress} percent")
                     self.NotificationHandler.OnBeep()
                 else:
-                    Sentry.Debug("NOTIFICATION", "Skipping beep, only %s seconds left and %s percent" % (timeLeft, progress)) 
+                    Sentry.Debug("NOTIFICATION", f"Skipping beep, only {timeLeft} seconds left and {progress} percent")
 
             # Look for a line indicating user interaction is needed.
             elif self.isPauseCommand(lineLower):
-                Sentry.Info("NOTIFICATION", "Firing On User Interaction Required From GcodeReceived: "+str(line))
+                Sentry.Info("NOTIFICATION", f"Firing On User Interaction Required From GcodeReceived: {line}")
                 # No need to use a thread since all events are handled on a new thread.
                 self.NotificationHandler.OnUserInteractionNeeded()
-    
+
     def isPauseCommand(self, line: str):
         lineLower = line.lower() if line is not None else ""
         return "paused for user" in lineLower or "// action:paused" in lineLower or "//action:pause" in lineLower or "@pause" in lineLower or "m0" == lineLower
@@ -225,7 +223,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     # Gets the current setting or the default value.
     def GetBoolFromSettings(self, name:str, default:bool) ->bool:
-        value = self._settings.get([name]) # type: ignore
+        value = self.parent._settings.get([name]) # type: ignore
         if value is None:
             return default
         return value is True
@@ -233,13 +231,13 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     # Gets the current setting or the default value.
     def GetFromSettings(self, name:str, default:Any) -> Any:
-        value = self._settings.get([name])  # type: ignore
+        value = self.parent._settings.get([name])  # type: ignore
         if value is None:
             return default
         return value
-    
 
-    # Depending on if we have PrintTimeGenius, use OctoPrints progress or emulate the PrintTimeGenius calculation 
+
+    # Depending on if we have PrintTimeGenius, use OctoPrints progress or emulate the PrintTimeGenius calculation
     # (based on the printTimeLeft which is modified by PrintTimeGenius)
     def _updateProgressAndSendIfChanged(self):
         progressDict = self.parent._printer.get_current_data().get("progress", {}) # type: ignore
@@ -257,7 +255,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self.Progress = int(completion)
 
         if self.Progress != lastProgress and self.NotificationHandler is not None:
-            Sentry.Debug("NOTIFICATION", "Progress change: %s -> %s" % (lastProgress, self.Progress))
+            Sentry.Debug("NOTIFICATION", f"Progress change: {lastProgress} -> {self.Progress}")
             self.NotificationHandler.OnPrintProgress(self.Progress, None)
 
 
@@ -265,17 +263,17 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         def doLoad():
             try:
                 if origin != "local":
-                    Sentry.Info("NOTIFICATION", "Unsupported origin for layer magic: %s" % origin)
+                    Sentry.Info("NOTIFICATION", f"Unsupported origin for layer magic: {origin}")
                     return
-            
+
                 sleep(5)
                 if (datetime.now() - self.LayerMagicDisabledAt) < timedelta(seconds=10):
                     Sentry.Info("NOTIFICATION", "Layer magic was disabled, stopping")
                     return
-            
-           
+
+
                 diskPath = self.parent._file_manager.path_on_disk(origin, path) # type: ignore
-                Sentry.Info("NOTIFICATION", "Processing file at %s for layer magic" % path)
+                Sentry.Info("NOTIFICATION", f"Processing file at {path} for layer magic")
                 with open(diskPath, 'rb') as stream:
                     self.ScheduledNotifications = NotificationUtils.ExtractNotifications(stream, stopAfterLayer3 = True)
             except Exception as e:
@@ -287,5 +285,3 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         self.ScheduledNotifications = None
         self.ScheduledNotificationsThread = StoppableThread(target = doLoad, daemon=True)
         self.ScheduledNotificationsThread.start()
-        
-    

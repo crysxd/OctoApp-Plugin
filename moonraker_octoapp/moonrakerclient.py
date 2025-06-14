@@ -6,27 +6,19 @@ import json
 import queue
 import logging
 import math
-
-import octowebsocket
+import configparser
+from typing import Any, Dict, Optional, Tuple
 
 from urllib.parse import quote
 from urllib.request import urlopen
-from typing import Any, Dict, Optional, Tuple
+import octowebsocket
 
-import configparser
 from octoapp.compat import Compat
 from octoapp.sentry import Sentry
 from octoapp.notificationutils import NotificationUtils
 from octoapp.websocketimpl import Client
 from octoapp.notificationshandler import NotificationsHandler
-from .moonrakercredentailmanager import MoonrakerCredentialManager
-
-from octoapp.compat import Compat
-from octoapp.sentry import Sentry
-from octoapp.websocketimpl import Client
-from octoapp.notificationshandler import NotificationsHandler
 from octoapp.exceptions import NoSentryReportException
-from octoapp.debugprofiler import DebugProfiler, DebugProfilerFeatures
 from octoapp.buffer import Buffer
 from octoapp.interfaces import IWebSocketClient, IPrinterStateReporter, WebSocketOpCode
 
@@ -104,7 +96,6 @@ class MoonrakerClient(IMoonrakerClient):
         self.WebSocketConnected = False
         self.WebSocketKlippyReady = False
         self.WebSocketLock = threading.Lock()
-        self.WebSocketDebugProfiler:Optional[DebugProfiler] = None # Must be created on the thread.
 
 
     def GetNotificationHandler(self) -> NotificationsHandler:
@@ -435,7 +426,7 @@ class MoonrakerClient(IMoonrakerClient):
                     elif state == "complete":
                         self.MoonrakerCompat.OnDone()
                         return
-            
+
             # Check for notifications
             octoAppStatusContainerObj = self._GetWsMsgParam(msg, "gcode_macro _OCTOAPP_STATUS")
             if octoAppStatusContainerObj is not None:
@@ -459,14 +450,14 @@ class MoonrakerClient(IMoonrakerClient):
             modified = FileMetadataCache.Get().GetModified(fileName)
             cacheKey = fileName + ":" + str(modified)
 
-            if cacheKey in self.ScheduledNotificationsCache.keys():
+            if cacheKey in self.ScheduledNotificationsCache:
                 Sentry.Info("Client", "Reusing cached notifications for " + fileName)
                 self.MoonrakerCompat.ScheduleNotifications(self.ScheduledNotificationsCache[cacheKey])
                 return
 
             path = '/'.join(list(map(quote, fileName.split("/"))))
             url = "http://" + self.MoonrakerHostAndPort + "/server/files/gcodes/" + path
-            Sentry.Info("Client", "Processing file at %s" % url)
+            Sentry.Info("Client", f"Processing file at {url}")
             with urlopen(url) as response:
                 notifications = NotificationUtils.ExtractNotifications(response)
                 self.MoonrakerCompat.ScheduleNotifications(notifications)
@@ -488,7 +479,7 @@ class MoonrakerClient(IMoonrakerClient):
                 return float(progress)
         return None
 
-    
+
     # If the message has a progress contained in the virtual_sdcard, this returns it
     # Otherwise None
     def _GetFilePosFromMsg(self, msg:Dict[str, Any]) -> Optional[int]:
@@ -514,7 +505,6 @@ class MoonrakerClient(IMoonrakerClient):
 
     def RunBlocking(self) -> None:
         self.Logger.info("Moonraker client starting websocket connection thread.")
-        self.WebSocketDebugProfiler = DebugProfiler(self.Logger, DebugProfilerFeatures.MoonrakerWsThread)
         while True:
             try:
                 # Every time we connect, call the function to update the host and port if required.
@@ -731,7 +721,7 @@ class MoonrakerClient(IMoonrakerClient):
                 # Exclude this really chatty message.
                 msgStr = msgBytes.GetBytesLike().decode(encoding="utf-8")
                 if "moonraker_stats" not in msgStr:
-                    Sentry.Debug("Client WS", "<- %s" % msgStr)
+                    Sentry.Debug("Client WS", f"<- {msgStr}")
 
             # Check if this is a response to a request
             # info: https://moonraker.readthedocs.io/en/latest/web_api/#json-rpc-api-overview
@@ -769,22 +759,15 @@ class MoonrakerClient(IMoonrakerClient):
             # Raise again which will cause the websocket to close and reset.
             raise e
 
-        finally:
-            if self.WebSocketDebugProfiler is not None:
-                self.WebSocketDebugProfiler.ReportIfNeeded()
-
 
     def _NonResponseMsgQueueWorker(self) -> None:
         try:
-            # The profiler will do nothing if it's not enabled.
-            with DebugProfiler(self.Logger, DebugProfilerFeatures.MoonrakerWsMsgThread) as profiler:
-                while True:
-                    # Wait for a message to process.
-                    msg:dict = self.NonResponseMsgQueue.get()
-                    # Process and then wait again.
-                    self._OnWsNonResponseMessage(msg)
-                    # Let the profiler report if needed
-                    profiler.ReportIfNeeded()
+            while True:
+                # Wait for a message to process.
+                msg:dict = self.NonResponseMsgQueue.get()
+                # Process and then wait again.
+                self._OnWsNonResponseMessage(msg)
+                # Let the profiler report if needed
         except Exception as e:
             Sentry.OnException("_NonReplyMsgQueueWorker got an exception while handing messages. Killing the websocket. ", e)
         self._RestartWebsocket()
@@ -847,7 +830,7 @@ class MoonrakerCompat(IPrinterStateReporter):
 
         # We get progress updates super frequently, we don't need to handle them all.
         self.TimeSinceLastProgressUpdate = time.time()
-
+        self.LastPogress = 0
         self.LastFilePos = sys.maxsize
         self.ScheduledNotifications = {}
 
@@ -934,10 +917,10 @@ class MoonrakerCompat(IPrinterStateReporter):
         # Only process notifications when ready, aka after state sync.
         if self.IsReadyToProcessNotifications is False:
             return
-        
+
         # Get our name
         self._updatePrinterName()
-    
+
         # Since this is a new print, reset the cache. The file name might be the same as the last, but have
         # different props, so we will always reset. We know when we are printing the same file name will have the same props.
         FileMetadataCache.Get().ResetCache()
@@ -960,7 +943,7 @@ class MoonrakerCompat(IPrinterStateReporter):
             # Get our name
             name = MoonrakerClient.Get().MoonrakerDatabase.GetPrinterName()
             self.NotificationHandler.NotificationSender.PrinterName = name
-            Sentry.Info("Client", "Printer is called %s" % name)
+            Sentry.Info("Client", f"Printer is called {name}")
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to update printer name", e)
 
@@ -1032,7 +1015,7 @@ class MoonrakerCompat(IPrinterStateReporter):
         # Only process notifications when ready, aka after state sync.
         if self.IsReadyToProcessNotifications is False:
             return
-        
+
         # Trigger scheduled notifications
         NotificationUtils.SendScheduledNotifications(self.ScheduledNotifications, self.NotificationHandler, filePos, self.LastFilePos)
         self.LastFilePos = filePos
@@ -1043,6 +1026,7 @@ class MoonrakerCompat(IPrinterStateReporter):
         if timeDeltaSec < 5.0:
             return
         self.TimeSinceLastProgressUpdate = nowSec
+        self.LastPogress  = int(progress * 100)
 
         # Moonraker uses from 0->1 to progress while we assume 100->0
         self.NotificationHandler.OnPrintProgress(None, progress * 100.0)
@@ -1097,6 +1081,8 @@ class MoonrakerCompat(IPrinterStateReporter):
             Sentry.OnException("GetCurrentZOffsetMm exception. ", e)
         return -1
 
+    def GetCurrentProgress(self) -> int:
+        return self.LastPogress
 
     # ! Interface Function ! The entire interface must change if the function is changed.
     # Returns:
@@ -1242,6 +1228,7 @@ class MoonrakerCompat(IPrinterStateReporter):
 
 
 
+
     #
     # Helpers
     #
@@ -1376,12 +1363,12 @@ class MoonrakerCompat(IPrinterStateReporter):
 
             # Can we calculate yet?
             if printTime > 0:
-                all = [
+                allValues = [
                     calcTimeLeftWithProgress(printTime=printTime, progress=progressFloat) if progressFloat is not None else None,
                     calcTimeLeftWithProgress(printTime=printTime, progress=filamentUsed/totalFilamentUse) if filamentUsed is not None and totalFilamentUse > 0 else None,
                     calcTimeLeftWithProgress(printTime=printTime, progress=printTime/estimatedPrintTime) if printTime is not None and estimatedPrintTime > 0 else None,
                 ]
-                available = [x for x in all if x is not None]
+                available = [x for x in allValues if x is not None]
                 if len(available) > 0:
                     timeLeft = sum(available) / len(available)
                 else:

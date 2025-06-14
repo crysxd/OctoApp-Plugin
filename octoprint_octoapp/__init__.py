@@ -1,28 +1,22 @@
 # coding=utf-8
 from __future__ import absolute_import
-import threading
-import socket
-from datetime import datetime
-from typing import List, Dict, Any
-
-import time
-import flask
-import octoprint.printer
-import requests
-import octoprint.plugin
+from typing import List, Dict, Any, Optional
 import logging
 import logging.handlers
+
+import flask
 from flask_babel import gettext
 
+import octoprint.printer
+import octoprint.plugin
 from octoprint.access.permissions import ADMIN_GROUP, USER_GROUP, READONLY_GROUP
 from octoprint.events import Events
+
 
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
 from octoapp.compat import Compat
 from octoapp.appsstorage import AppStorageHelper
-from subplugin import OctoAppSubPlugin
-
 from .octoprintappstorage import OctoPrintAppStorageSubPlugin
 from .notifications import OctoAppNotificationsSubPlugin
 from .printermessage import OctoAppPrinterMessageSubPlugin
@@ -41,9 +35,10 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                     octoprint.plugin.EventHandlerPlugin,
                     octoprint.plugin.RestartNeedingPlugin,
                     octoprint.printer.PrinterCallback):
-    
+
     def __init__(self):
         # Update logger
+        self._logger_handler = None
         self._logger = logging.getLogger("octoprint.plugins.octoapp")
         self.PluginState:Dict[str,Any] = {}
         self.SubPlugins = []
@@ -63,9 +58,10 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
      # Mixin method
     def on_startup(self, host:str, port:int):
         # Setup Sentry to capture issues.
+        self._logger_handler = None
         self._initLogger()
         Sentry.SetLogger(self._logger)
-        Sentry.Info("PLUGIN", "OctoApp starting %s" % self._plugin_version)
+        Sentry.Info("PLUGIN", f"OctoApp starting {self._plugin_version}")
 
         # Setup our printer state object, that implements the interface.
         octoPrintPrinterObj:octoprint.printer.PrinterInterface = self._printer #pyright: ignore[reportAssignmentType]
@@ -97,7 +93,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
     # Mixin method
     def on_after_startup(self):
-        Sentry.Info("PLUGIN", "OctoApp started, version is %s" % self._plugin_version)
+        Sentry.Info("PLUGIN", f"OctoApp started, version is {self._plugin_version}")
         self._settings.set(["version"], self._plugin_version)  # type: ignore
 
         for sp in self.SubPlugins:
@@ -109,12 +105,12 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 
     # Mixin method
     def on_api_command(self, command:str, data:Dict[str,Any]) -> flask.Response: # type: ignore
-        Sentry.Info("PLUGIN", "Recevied command %s" % command)
+        Sentry.Info("PLUGIN", f"Recevied command {command}")
 
         for sp in self.SubPlugins:
             try:
                 res = sp.OnApiCommand(command=command, data=data)
-                if res != None:
+                if res is not None:
                     return res
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to handle api request", e)
@@ -149,8 +145,8 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 "js/octoapp.js"
             ]
         )
-    
-    
+
+
     # Mixin method
     def on_print_progress(self, storage:str, path:str, progress:int):
         for sp in self.SubPlugins:
@@ -175,10 +171,10 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 sp.OnEvent(event=event, payload=payload)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to handle event", e)
-        
+
         if event == Events.CLIENT_OPENED:
             self.SendPluginStateMessage(forced=True)
-    
+
 
     #
     # EVENTS
@@ -192,10 +188,10 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 Sentry.ExceptionNoSend("Failed to handle firmware info", e)
 
 
-    def OnEmitWebsocketMessage(self, user:str, message:str, type:str, data:Dict[str,Any]):
+    def OnEmitWebsocketMessage(self, user:str, message:str, messageType:str, data:Dict[str,Any]):
         for sp in self.SubPlugins:
             try:
-                sp.OnEmitWebsocketMessage(user=user, message=message, type=type, data=data)
+                sp.OnEmitWebsocketMessage(user=user, message=message, messageType=messageType, data=data)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to handle websocket message", e)
 
@@ -210,11 +206,13 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 send = send and sp.OnGcodeQueued(comm_instance=comm_instance, phase=phase, cmd=cmd, cmd_type=cmd_type, gcode=gcode, args=args, kwargs=kwargs)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to handle gcode queued", e)
-        
+
         # If we should not send the ocmmand to the printer, return a None, value
         if send is False:
             Sentry.Debug("Main", "Supressing Gcode: " + cmd)
-            return None,
+            return None, # pylint: disable=trailing-comma-tuple
+
+        return None
 
 
     def OnGcodeSent(self, comm_instance:Any, phase:Any, cmd:str, cmd_type:str, gcode:str, *args:Any, **kwargs:Any):
@@ -231,7 +229,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                 sp.OnGcodeReceived(comm_instance=comm_instance, line = line, args=args, kwargs=kwargs)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to handle gcode received", e)
-        
+
         # We must return line the line won't make it to OctoPrint!
         return line
 
@@ -280,7 +278,7 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
                  dangerous=False,
                  default_groups=[ADMIN_GROUP, USER_GROUP, READONLY_GROUP])
         ]
-    
+
 
     def _initLogger(self):
         self._logger_handler = logging.handlers.RotatingFileHandler(
@@ -298,6 +296,55 @@ class OctoAppPlugin(octoprint.plugin.AssetPlugin,
 __plugin_name__ = "OctoApp"
 __plugin_pythoncompat__ = ">=3.0,<4" # Only PY3
 
+class OctoAppSubPlugin():
+
+
+    def __init__(self, parent:OctoAppPlugin):
+        self.config:Dict[str,Any] = {}
+        self.parent = parent
+        self._logger = parent._logger
+
+
+    def OnAfterStartup(self):
+        pass
+
+    def OnFirmwareInfoReceived(self, comm_instance:Any, firmware_name:str, firmware_data:Dict[str,Any], *args:Any, **kwargs:Any):
+        pass
+
+
+    def OnApiCommand(self, command:str, data:Dict[str,Any]) -> Optional[flask.Response]:
+        return None
+
+
+    def OnEmitWebsocketMessage(self, user:str, message:str, messageType:str, data:Dict[str,Any]):
+        pass
+
+
+    def OnPrintProgress(self, storage:str, path:str, progress:int):
+        pass
+
+
+    def OnEvent(self, event:str, payload:Dict[str,Any]):
+        pass
+
+
+    def OnGcodeSent(self, comm_instance:Any, phase:Any, cmd:str, cmd_type:str, gcode:str, *args:Any, **kwargs:Any):
+        pass
+
+
+    def OnGcodeQueued(self, comm_instance:Any, phase:Any, cmd:str, cmd_type:str, gcode:str, *args:Any, **kwargs:Any) -> bool:
+        return True
+
+
+    def OnGcodeReceived(self, comm_instance:Any, line:str, *args:Any, **kwargs:Any):
+        pass
+
+
+    def OnCurrentData(self, data:Dict[str,Any]):
+        pass
+
+
+# pylint: disable=global-statement
 def __plugin_load__():
     global __plugin_pythoncompat__
     __plugin_pythoncompat__ = ">=3,<4"

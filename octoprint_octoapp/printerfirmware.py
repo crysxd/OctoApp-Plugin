@@ -1,14 +1,16 @@
 from typing import Dict, Any, Optional
 
-from .subplugin import OctoAppSubPlugin
+import flask
 
 from octoprint.access.permissions import Permissions
 from octoapp.sentry import Sentry
-import flask
+
+from . import OctoAppPlugin, OctoAppSubPlugin
+
 
 class OctoAppPrinterFirmwareSubPlugin(OctoAppSubPlugin):
 
-    def __init__(self, parent):
+    def __init__(self, parent: OctoAppPlugin):
         super().__init__(parent)
         self.firmware_info:Dict[str,Any] = {}
 
@@ -23,5 +25,5 @@ class OctoAppPrinterFirmwareSubPlugin(OctoAppSubPlugin):
             if not Permissions.PLUGIN_OCTOAPP_GET_DATA.can(): # type: ignore
                 return flask.make_response("Insufficient rights", 403)
             return flask.jsonify(self.firmware_info)
-        else: 
+        else:
             return None

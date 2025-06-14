@@ -5,7 +5,6 @@ import uuid
 from typing import List, Dict, Any
 
 from octoapp.sentry import Sentry
-from octoapp.appsstorage import AppInstance
 
 from .moonrakerclient import MoonrakerClient
 
@@ -18,7 +17,7 @@ class MoonrakerDatabase:
         self.PresenceAnnouncementRunning = False
         self.CachedEncryptionKey = None
         self._continuouslyAnnouncePresence()
-       
+
 
     def GetAppsEntry(self) -> List[Dict[str,Any]]:
         Sentry.Debug("Database", "Getting apps")
@@ -33,11 +32,12 @@ class MoonrakerDatabase:
 
         if result.HasError():
             Sentry.Error("Database", "Ensure database entry item post failed. "+result.GetLoggingErrorStr())
-            raise Exception("Unable to fetch apps: %s" % result.GetLoggingErrorStr())
+            raise Exception(f"Unable to fetch apps: {result.GetLoggingErrorStr()}")
 
         out:List[Dict[str,Any]] = []
         value = result.GetResult()["value"]
-        for key in value.keys(): out.append(value[key])
+        for key in value.keys():
+            out.append(value[key])
         return out
 
     def GetPrinterName(self) -> str:
@@ -64,7 +64,7 @@ class MoonrakerDatabase:
             Sentry.Error("Database", "Failed to load Fluidd printer name"+fluiddResult.GetLoggingErrorStr())
 
         return "Klipper"
-    
+
 
     def GetOrCreateEncryptionKey(self):
         if self.CachedEncryptionKey is None:
@@ -78,8 +78,8 @@ class MoonrakerDatabase:
             elif result.HasError() is False and result.GetResult() is not None:
                 self.CachedEncryptionKey = result.GetResult()["value"]
             else:
-                raise Exception("Failed to get encryption key %s" % result.GetErrorStr())
-        
+                raise Exception(f"Failed to get encryption key {result.GetErrorStr()}")
+
         if self.CachedEncryptionKey is None:
             self.CachedEncryptionKey = str(uuid.uuid4())
             Sentry.Info("Database", "Created new encryption key")
@@ -91,22 +91,22 @@ class MoonrakerDatabase:
             })
             if result.HasError() is True:
                 # Just log. Should be flushed over time.
-                Sentry.Error("Database", "Failed to set encryption key %s" % result.GetErrorStr())
-        
+                Sentry.Error("Database", f"Failed to set encryption key {result.GetErrorStr()}")
+
         return self.CachedEncryptionKey
 
 
     def RemoveAppEntries(self, apps:List[str]):
-        Sentry.Info("Database", "Removing apps: %s" % apps)
+        Sentry.Info("Database", f"Removing apps: {apps}")
 
         for appId in apps:
             result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.delete_item",
             {
                 "namespace": "octoapp",
-                "key": "apps.%s" % appId,
+                "key": f"apps.{appId}",
             })
             if result.HasError():
-                Sentry.Error("Database", "Unable to remove app %s: %s" % (appId, result.GetLoggingErrorStr()))
+                Sentry.Error("Database", f"Unable to remove app {appId}: {result.GetLoggingErrorStr()}")
 
 
     def EnsureOctoAppDatabaseEntry(self):

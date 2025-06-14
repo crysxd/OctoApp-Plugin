@@ -1,29 +1,18 @@
 import math
 import time
-import io
 import threading
 import logging
-from typing import Dict, List, Optional, Tuple, Any, cast
+from typing import Dict, List, Optional, Tuple, Any
 
 from .sentry import Sentry
 from .compat import Compat
 from .notificationsender import NotificationSender
 from .repeattimer import RepeatTimer
-from .httpsessions import HttpSessions
-from .buffer import Buffer, BufferOrNone, ByteLikeOrMemoryView
+from .buffer import ByteLikeOrMemoryView
 from .interfaces import IPrinterStateReporter, INotificationHandler
 from .printinfo import PrintInfoManager, PrintInfo
 from .snapshotresizeparams import SnapshotResizeParams
 from .bedcooldownwatcher import BedCooldownWatcher
-
-try:
-    # On some systems this package will install but the import will fail due to a missing system .so.
-    # Since most setups don't use this package, we will import it with a try catch and if it fails we
-    # won't use it.
-    from PIL import Image
-    from PIL import ImageFile
-except Exception as _:
-    pass
 
 class ProgressCompletionReportItem:
     def __init__(self, value:float, reported:bool):
@@ -301,7 +290,7 @@ class NotificationsHandler(INotificationHandler):
             self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: message })
         elif self.CustomNotificationCounter == self.CustomNotificationLimit:
             self.CustomNotificationCounter += 1
-            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: "You reached the limit of %d Gcode notifications for this print" % self.CustomNotificationLimit })
+            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: f"You reached the limit of {self.CustomNotificationLimit} Gcode notifications for this print"})
 
 
     # Fired when a print fails
@@ -335,19 +324,20 @@ class NotificationsHandler(INotificationHandler):
     def OnPaused(self, fileName:Optional[str]=None):
         if self._shouldIgnoreEvent(fileName):
             return
-        
+
         def firePause(delay:int, event:str):
             _self = self.PauseThread
-            if _self is None: return
-            self.Logger.info("Delaying pause for %d seconds" % delay)
+            if _self is None:
+                return
+            self.Logger.info(f"Delaying pause for {delay} seconds")
             time.sleep(delay)
             if _self.stopped() is False:
                 self.Logger.info("Delayed pause not stopped, executing")
                 self._sendEvent(event)
                 self.PauseThread = None
-            else: 
-                 self.Logger.info("Delayed pause was stopped, dropping")
-            
+            else:
+                self.Logger.info("Delayed pause was stopped, dropping")
+
         def scheduleSent(delay:int, event:str):
             if self.PauseThread is None or self.PauseThread.is_alive() is False:
                 if delay == 0:
@@ -390,7 +380,7 @@ class NotificationsHandler(INotificationHandler):
         Sentry.Breadcrumb("OnResume called.", {"filename":fileName})
         if self._shouldIgnoreEvent(fileName):
             return
-        
+
         # We sometimes get a resume event right after start, ignore
         if (time.time() - self.GetPrintStartTimeSec()) < 5:
             return
@@ -468,12 +458,12 @@ class NotificationsHandler(INotificationHandler):
      # Fired when the third layer is completed
     def OnThirdLayerDone(self):
         self._sendEvent(NotificationSender.EVENT_THIRD_LAYER_DONE)
-    
+
      # Fired when the printer needs user interaction to continue
     def OnBeep(self):
         if self._shouldIgnoreEvent():
             return
-        
+
         # This event might fire over and over or might be paired with a filament change event.
         # In any case, we only want to fire it every so often.
         # It's important to use the same key to make sure we de-dup the possible OnUserInteractionNeeded that might fire second.
@@ -649,7 +639,7 @@ class NotificationsHandler(INotificationHandler):
 
             # Compute the progress
             printProgressFloat = float(currentDurationSecFloat) / float(totalPrintTimeSec) * float(100.0)
-            self.Logger.info("Computing progress: currentDurationSecFloat=%s totalPrintTimeSec=%s" % (currentDurationSecFloat, totalPrintTimeSec) )
+            self.Logger.info(f"Computing progress: currentDurationSecFloat={currentDurationSecFloat} totalPrintTimeSec={totalPrintTimeSec}")
 
             # Bounds check
             printProgressFloat = max(printProgressFloat, 0.0)
@@ -699,7 +689,7 @@ class NotificationsHandler(INotificationHandler):
                     # Since we are sending the snapshot, we must send a multipart form.
                     # Thus we must use the data and files fields, the json field will not work.
                     #r = requests.post(eventApiUrl, data=args, files=files, timeout=5*60)
-                    Sentry.Info("NOTIFICATIONS", "Sending %s (%s)" % (event, args))
+                    Sentry.Info("NOTIFICATIONS", f"Sending {event} ({args})")
                     self.NotificationSender.SendNotification(event=event, state=args)
 
                     # If success
@@ -757,7 +747,7 @@ class NotificationsHandler(INotificationHandler):
         pi = PrintInfoManager.Get().GetPrintInfo(self.PrintCookie)
         if pi is not None:
             args[NotificationSender.STATE_PRINT_ID] = pi.GetPrintId()
-            args[NotificationSender.STATE_FILE_NAME] = str(pi.GetFileName()).split("/")[-1]
+            args[NotificationSender.STATE_FILE_NAME] = str(pi.GetFileName()).rsplit('/', maxsplit=1)[-1]
             args[NotificationSender.STATE_FILE_PATH] = str(pi.GetFileName())
             args["FileSizeKb"] = str(pi.GetFileSizeKBytes())
             args["FilamentUsageMm"] = str(pi.GetEstFilamentUsageMm())
@@ -917,7 +907,7 @@ class StoppableThread(threading.Thread):
     regularly for the stopped() condition."""
 
     def __init__(self,  *args: Any, **kwargs: Any):
-        super(StoppableThread, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self._stop_event = threading.Event()
 
     def stop(self):

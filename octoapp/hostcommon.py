@@ -20,7 +20,7 @@ class HostCommon:
     @staticmethod
     def IsPrinterIdValid(printerId:Optional[str]) -> bool:
         return printerId is not None and len(printerId) >= HostCommon.c_OctoAppPrinterIdMinLength and len(printerId) <= HostCommon.c_OctoAppPrinterIdMaxLength
-    
+
 
     # This will restart the plugin or if running in OctoPrint restart OctoPrint!
     # Only use if absolutely needed!

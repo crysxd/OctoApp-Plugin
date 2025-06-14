@@ -1,13 +1,11 @@
 from typing import Any
 
-from .subplugin import OctoAppSubPlugin
-
 from octoprint.events import Events
 
-class OctoAppPrinterMessageSubPlugin(OctoAppSubPlugin):
+from . import OctoAppSubPlugin
 
-    def __init__(self, parent):
-        super().__init__(parent)
+
+class OctoAppPrinterMessageSubPlugin(OctoAppSubPlugin):
 
 
     def OnGcodeQueued(self, comm_instance:Any, phase:Any, cmd:str, cmd_type:str, gcode:str, *args:Any, **kwargs:Any):
@@ -18,11 +16,11 @@ class OctoAppPrinterMessageSubPlugin(OctoAppSubPlugin):
             #self._logger.debug("MESSAGE      | M117 message changed: %s" % message)
             self.parent.SendPluginStateMessage()
             return True
-        
+
         return True
 
-    
-    def OnEvent(self, event, payload):    
+
+    def OnEvent(self, event, payload):
         if event == Events.PRINT_STARTED or event == Events.PRINT_DONE or event == Events.PRINT_FAILED or event == Events.PRINT_CANCELLED:
             self.parent.PluginState["m117"] = None
             self.parent.SendPluginStateMessage()

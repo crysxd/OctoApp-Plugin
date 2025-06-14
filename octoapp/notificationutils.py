@@ -5,15 +5,15 @@ from .layerutils import LayerUtils
 from .notificationshandler import NotificationsHandler
 
 class NotificationUtils:
-    
+
     NotificationCommand = "OCTOAPP_NOTIFY"
-    FirstLayerCompletedAt = "FirstLayerCompletedAt" 
-    ThirdLayerCompletedAt = "ThirdLayerCompletedAt" 
+    FirstLayerCompletedAt = "FirstLayerCompletedAt"
+    ThirdLayerCompletedAt = "ThirdLayerCompletedAt"
 
     @staticmethod
     def CreateNotificationCommand(message:str):
         return NotificationUtils.NotificationCommand + " MESSAGE=" + message
-    
+
 
     @staticmethod
     def GetMessageIfNotifyCommand(line:str):
@@ -23,37 +23,37 @@ class NotificationUtils:
             elif s.startswith("'") and s.endswith("'"):
                 return s[1:-1]
             return s
-        
+
         base = NotificationUtils.CreateNotificationCommand("")
         commands = [ base, ";" + base, "; " + base, "M118 E1 " + base]
-        
+
         for command in commands:
             if line.startswith(command):
                 return removeQuotes(line[len(command):])
-        
+
     @staticmethod
     def SendScheduledNotifications(notifications: Dict[int, str], notificationHandler: NotificationsHandler, filePos:int, lastFilePos:int):
         for notificationFilePos in notifications:
             if notificationFilePos > lastFilePos and filePos >= notificationFilePos:
                 message = notifications[notificationFilePos]
-                Sentry.Info("NOTIFICATIONS", "Sending scheduled notification at %d: %s" % (filePos, message))
+                Sentry.Info("NOTIFICATIONS", f"Sending scheduled notification at {filePos}: {message}")
                 if message == NotificationUtils.FirstLayerCompletedAt:
                     notificationHandler.OnFirstLayerDone()
                 elif message == NotificationUtils.ThirdLayerCompletedAt:
                     notificationHandler.OnThirdLayerDone()
                 else:
                     notificationHandler.OnCustomNotification(message)
-    
+
     @staticmethod
     def ExtractNotifications(response:IO[Any], stopAfterLayer3:bool = False) -> Dict[int, str]:
         buffer = ""
         filePos = 0
         context:Dict[str,Any] = {}
         notifications:Dict[int, str] = {}
-    
+
         def processLine(line:str) -> bool:
             context['layerCounter'] = context.get('layerCounter', 0)
-            
+
             try:
                 if LayerUtils.IsLayerChange(line, context):
                     if context['layerCounter'] <= 4:
@@ -68,7 +68,7 @@ class NotificationUtils:
                             return False
 
                     context['layerCounter'] += 1
-                
+
                 notifyMessage = NotificationUtils.GetMessageIfNotifyCommand(line)
                 if notifyMessage is not None:
                     Sentry.Info("NOTIFICATIONS", "Custom notification at " + str(filePos))
@@ -87,8 +87,8 @@ class NotificationUtils:
             if not chunk:
                 break
 
-           
-            buffer += chunk if type(chunk) == str else chunk.decode('utf-8')
+
+            buffer += chunk if isinstance(chunk, str) else chunk.decode('utf-8')
             while '\n' in buffer:
                 line, buffer = buffer.split('\n', 1)
                 filePos += len(line) + 1 # +1 for \n
@@ -98,5 +98,5 @@ class NotificationUtils:
 
         if buffer and len(line) > 0:
             processLine(line)
-        
+
         return notifications

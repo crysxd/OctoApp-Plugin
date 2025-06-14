@@ -1,9 +1,9 @@
 from typing import List
 
-from octoapp.sentry import Sentry
-from .moonrakerdatabase import MoonrakerDatabase
 from octoapp.appsstorage import AppInstance
 from octoapp.appsstorage import AppStoragePlatformHelper
+
+from .moonrakerdatabase import MoonrakerDatabase
 
 class MoonrakerAppStorage(AppStoragePlatformHelper):
 
@@ -18,7 +18,7 @@ class MoonrakerAppStorage(AppStoragePlatformHelper):
     #
     def GetAllApps(self) -> List[AppInstance]:
         apps = self.Database.GetAppsEntry()
-        return list(map(lambda app: AppInstance.FromDict(app), apps))        
+        return list(map(AppInstance.FromDict, apps))
 
 
     # !! Platform Command Handler Interface Function !!

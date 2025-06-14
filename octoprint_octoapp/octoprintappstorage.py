@@ -1,21 +1,20 @@
-
 import os
 import json
 import time
-import flask
 import threading
 import uuid
 from typing import List, Dict, Any, Optional
 
-from flask import Response
-from Crypto import Random
-from Crypto.Cipher import AES
-from .subplugin import OctoAppSubPlugin
+import flask
+
 from octoprint.access.permissions import Permissions
 from octoprint.events import Events
 from octoapp.sentry import Sentry
 from octoapp.appsstorage import AppInstance, AppStorageHelper, AppStoragePlatformHelper
 
+from . import OctoAppSubPlugin
+
+# pylint: disable=protected-access
 class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
 
     def __init__(self, parent):
@@ -23,7 +22,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
         self.DataFile: Optional[str] = None
         self.Lock = threading.Lock()
         self.DataFile = os.path.join(self.parent.get_plugin_data_folder(), "apps.json")
-        Sentry.Info("OCTO STORAGE", "Using config file %s" % self.DataFile)
+        Sentry.Info("OCTO STORAGE", f"Using config file {self.DataFile}")
         Sentry.Debug("OCTO STORAGE", "-> __init__")
         with self.Lock:
             Sentry.Debug("OCTO STORAGE", "<- __init__")
@@ -61,7 +60,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
             Sentry.Debug("OCTO STORAGE", "<- RemoveApps")
             allApps = self._getAllApps()
             for appToRemove in apps:
-                allApps = list(filter(lambda app: app.FcmToken != appToRemove.FcmToken, allApps))
+                allApps = [app for app in allApps if app.FcmToken != appToRemove.FcmToken]
 
             self._setAllApps(allApps)
 
@@ -103,14 +102,14 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
                 )
 
                 # save
-                Sentry.Info("NOTIFICATION", "Registered app %s" % fcmToken)
+                Sentry.Info("NOTIFICATION", f"Registered app {fcmToken}")
                 self._setAllApps(apps)
                 self.parent._settings.save() #type: ignore
                 return flask.jsonify(dict())
-    
-        else: 
+
+        else:
             return None
-        
+
     # !! Platform Command Handler Interface Function !!
     #
     # This must receive a lsit of AppInstnace
@@ -120,7 +119,7 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
         with self.Lock:
             Sentry.Debug("OCTO STORAGE", "<- GetOrCreateEncryptionKey")
             return self._getOrCreateEncryptionKey()
-        
+
     def _getOrCreateEncryptionKey(self) -> str:
         key = self.parent._settings.get(["encryptionKey"]) #type: ignore
         if key is None:
@@ -128,29 +127,29 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
             Sentry.Info("NOTIFICATION", "Created new encryption key")
             self.parent._settings.set(["encryptionKey"], key) #type: ignore
         return key
-        
+
 
     def _getAllApps(self) -> List[AppInstance]:
-        try: 
+        try:
             if self.DataFile is not None and os.path.isfile(self.DataFile):
-                with open(self.DataFile, 'r') as file:
+                with open(self.DataFile, 'r',  encoding='utf-8') as file:
                     apps = json.load(file)
                 if apps is None:
                     apps = []
-                
-                return list(map(lambda x: AppInstance.FromDict(x), apps))
+
+                return list(map(AppInstance.FromDict, apps))
             else:
                 return []
-        except Exception as e: 
+        except Exception as e:
             Sentry.ExceptionNoSend("Failed to load apps", e)
             raise e
-        
+
 
     def _setAllApps(self, apps:List[AppInstance]):
         mapped_apps = list(map(lambda x: x.ToDict(), apps))
 
         if self.DataFile is not None:
-            with open(self.DataFile, 'w') as outfile:
+            with open(self.DataFile, 'w',  encoding='utf-8') as outfile:
                 json.dump(mapped_apps, outfile)
         else:
             Sentry.LogError("Tried to set all apps but DataFile is None")
@@ -173,12 +172,12 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
             def add_expiration(app:AppInstance):
                 before = app.ExpireAt
                 app.ExpireAt = app.ExpireAt or AppStorageHelper.Get().GetDefaultExpirationFromNow()
-                Sentry.Info("APPS", "Updating expire at for %s: %s => %s" % (app.InstanceId, before, app.ExpireAt))
+                Sentry.Info("APPS", f"Updating expire at for {app.InstanceId}: {before} => {app.ExpireAt}")
                 return app
 
             apps = self._getAllApps()
             Sentry.Info("APPS", "Ensuring all apps have expiration dates")
-            apps = list(map(lambda app: add_expiration(app), apps))
+            apps = list(map(add_expiration, apps))
             self._setAllApps(apps)
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to upgrade expiration", e)
@@ -193,4 +192,4 @@ class OctoPrintAppStorageSubPlugin(OctoAppSubPlugin, AppStoragePlatformHelper):
             appOutdated=x.AppBuild < 1_17_134
         ), apps))
         mapped_apps = sorted(mapped_apps, key=lambda d: d.get("expireAt", None) or float('inf'))
-        self.parent._plugin_manager.send_plugin_message("%s.settings" % self.parent._identifier, {"apps": mapped_apps}) #type:ignore
+        self.parent._plugin_manager.send_plugin_message(f"{self.parent._identifier}.settings", {"apps": mapped_apps}) #type:ignore

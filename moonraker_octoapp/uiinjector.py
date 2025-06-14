@@ -8,7 +8,6 @@ from typing import Optional, Tuple
 
 from octoapp.sentry import Sentry
 from octoapp.ostypeidentifier import OsTypeIdentifier
-from octoapp.debugprofiler import DebugProfiler, DebugProfilerFeatures
 
 from octoapp.Proto import OsType
 
@@ -48,12 +47,9 @@ class UiInjector():
     def _Worker(self):
         while True:
             try:
-                # The profiler will do nothing if it's not enabled.
-                with DebugProfiler(self.Logger, DebugProfilerFeatures.UiInjector):
-
-                    # Do our update logic before sleeping, so we activate right when the service loads.
-                    # This function has it's own try except, so it won't throw out.
-                    self._ExecuteOnce()
+                # Do our update logic before sleeping, so we activate right when the service loads.
+                # This function has it's own try except, so it won't throw out.
+                self._ExecuteOnce()
 
                 # Now wait on our event handle.
                 self.WorkerEvent.wait(UiInjector.c_UpdateCheckIntervalSec)

@@ -1,14 +1,15 @@
 from abc import abstractmethod
-from octoapp.sentry import Sentry
 from typing import List, Dict, Optional, Any
 import time
 
+from octoapp.sentry import Sentry
+
 class AppInstance:
-        
+
     def __init__(
-              self, 
-              fcmToken:str, 
-              fcmFallbackToken:Optional[str], 
+              self,
+              fcmToken:str,
+              fcmFallbackToken:Optional[str],
               activityAutoStartToken:Optional[str],
               instanceId:str,
               displayName:str,
@@ -52,7 +53,7 @@ class AppInstance:
             excludeNotifications=self.ExcludeNotifications,
         )
 
-    def ToDict(self): 
+    def ToDict(self):
         return dict(
             fcmToken=self.FcmToken,
             fcmTokenFallback=self.FcmFallbackToken,
@@ -70,34 +71,34 @@ class AppInstance:
         )
 
     @staticmethod
-    def FromDict(dict:Dict[str,Any]):
+    def FromDict(data:Dict[str,Any]):
         def ensure_string_list(value: Any) -> List[str]:
             if not isinstance(value, list):
                 return []
             return [str(item) for item in value]
 
         return AppInstance(
-            fcmToken=dict["fcmToken"],
-            fcmFallbackToken=dict.get("fcmTokenFallback", None),
-            instanceId=dict["instanceId"],
-            displayName=dict.get("displayName", "Unknown"),
-            displayDescription=dict.get("displayDescription", ""),
-            model=dict.get("model", "Unknown"),
-            activityAutoStartToken=dict.get("activityAutoStartToken", None),
-            appVersion=dict.get("appVersion", "Unknown"),
-            appBuild=int(dict.get("appBuild", 1)),
-            appLanguage=dict.get("appLanguage", "en"),
-            lastSeenAt=int(dict.get("lastSeenAt", 0)),
-            expireAt=int(dict.get("expireAt", 0)),
-            excludeNotifications=ensure_string_list(dict.get("excludeNotifications", []))
+            fcmToken=data["fcmToken"],
+            fcmFallbackToken=data.get("fcmTokenFallback", None),
+            instanceId=data["instanceId"],
+            displayName=data.get("displayName", "Unknown"),
+            displayDescription=data.get("displayDescription", ""),
+            model=data.get("model", "Unknown"),
+            activityAutoStartToken=data.get("activityAutoStartToken", None),
+            appVersion=data.get("appVersion", "Unknown"),
+            appBuild=int(data.get("appBuild", 1)),
+            appLanguage=data.get("appLanguage", "en"),
+            lastSeenAt=int(data.get("lastSeenAt", 0)),
+            expireAt=int(data.get("expireAt", 0)),
+            excludeNotifications=ensure_string_list(data.get("excludeNotifications", []))
         )
-       
+
 
 class AppStoragePlatformHelper:
     @abstractmethod
     def GetAllApps(self) -> List[AppInstance]:
         return []
-    
+
     @abstractmethod
     def RemoveApps(self, apps:List[AppInstance]):
         pass
@@ -105,7 +106,7 @@ class AppStoragePlatformHelper:
     @abstractmethod
     def GetOrCreateEncryptionKey(self) -> str:
         pass
-  
+
 class AppStorageHelper:
 
     # Logic for a static singleton
@@ -118,7 +119,7 @@ class AppStorageHelper:
     @staticmethod
     def Get() -> "AppStorageHelper":
         if AppStorageHelper._Instance is not None:
-            return AppStorageHelper._Instance 
+            return AppStorageHelper._Instance
         else:
             raise Exception("AppStorageHelper not intialized")
 
@@ -136,40 +137,40 @@ class AppStorageHelper:
 
     def GetActivities(self, apps:List[AppInstance]) -> List[AppInstance]:
         return list(sorted(filter(lambda app: app.FcmToken.startswith("activity:"), apps), key=lambda app: app.LastSeenAt, reverse=True))
-    
+
     def GetActivityAutoStarts(self, apps:List[AppInstance]) -> List[AppInstance]:
         return list(sorted(filter(lambda app: app.ActivityAutoStartToken is not None, apps), key=lambda app: app.LastSeenAt, reverse=True))
-    
-    def GetDefaultExpirationFromNow(self):
-        return (time.time() + 2592000)
+
+    def GetDefaultExpirationFromNow(self) -> float:
+        return time.time() + 2592000
 
     def LogApps(self):
         apps = self.GetAllApps()
-        Sentry.Debug("APPS", "Now %s apps registered" % len(apps))
+        Sentry.Debug("APPS", f"Now {len(apps)} apps registered")
         for app in apps:
-            Sentry.Debug("APPS", "     => %s" % app.FcmToken[0:100])
+            Sentry.Debug("APPS", f"     => {app.FcmToken[0:100]}")
 
     def RemoveTemporaryApps(self, for_instance_id:Optional[str]=None):
         apps = self.GetAllApps()
-        
+
         if for_instance_id is None:
             apps = list(filter(lambda app: app.FcmToken.startswith("activity:"), apps))
             Sentry.Debug("APPS", "Removed all temporary apps")
         else:
             apps = list(filter(lambda app: app.FcmToken.startswith("activity:") and app.InstanceId == for_instance_id , apps))
-            Sentry.Debug("APPS", "Removed all temporary apps for %s" % for_instance_id)
+            Sentry.Debug("APPS", f"Removed all temporary apps for {for_instance_id}")
 
         self.RemoveApps(apps)
 
     def GetAllApps(self) -> List[AppInstance]:
         apps = self.AppStoragePlatformHelper.GetAllApps()
-        Sentry.Debug("APPS", "Loading %s apps" % len(apps))
+        Sentry.Debug("APPS", f"Loading {len(apps)} apps")
         return apps
 
     def RemoveApps(self, apps: List[AppInstance]):
-        Sentry.Debug("APPS", "Removing %s apps" % len(apps))
+        Sentry.Debug("APPS", f"Removing {len(apps)} apps")
         self.AppStoragePlatformHelper.RemoveApps(apps)
         self.LogApps()
-     
+
     def GetOrCreateEncryptionKey(self):
         return self.AppStoragePlatformHelper.GetOrCreateEncryptionKey()
