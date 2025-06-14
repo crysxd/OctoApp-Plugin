@@ -1,18 +1,21 @@
-import math
-import time
-import threading
 import logging
-from typing import Dict, List, Optional, Tuple, Any
+import math
+import threading
+import time
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import uuid4
 
-from .sentry import Sentry
-from .compat import Compat
-from .notificationsender import NotificationSender
-from .repeattimer import RepeatTimer
-from .buffer import ByteLikeOrMemoryView
-from .interfaces import IPrinterStateReporter, INotificationHandler
-from .printinfo import PrintInfoManager, PrintInfo
-from .snapshotresizeparams import SnapshotResizeParams
 from .bedcooldownwatcher import BedCooldownWatcher
+from .buffer import ByteLikeOrMemoryView
+from .compat import Compat
+from .interfaces import INotificationHandler, IPrinterStateReporter
+from .logging import LoggerLike, TaggedLoggingAdapter
+from .notificationsender import NotificationSender
+from .printinfo import PrintInfo, PrintInfoManager
+from .repeattimer import RepeatTimer
+from .sentry import Sentry
+from .snapshotresizeparams import SnapshotResizeParams
+
 
 class ProgressCompletionReportItem:
     def __init__(self, value:float, reported:bool):
@@ -39,14 +42,14 @@ class NotificationsHandler(INotificationHandler):
     PrintIdLength = 60
 
 
-    def __init__(self, logger:logging.Logger, printerStateInterface:IPrinterStateReporter):
+    def __init__(self, logger:LoggerLike, printerStateInterface:IPrinterStateReporter):
         self.Logger = logger
         # On init, set the key to empty.
         self.OctoKey = None
         self.PrinterId = None
         self.ProtocolAndDomain = None
         self.PrinterStateInterface = printerStateInterface
-        self.NotificationSender = NotificationSender()
+        self.NotificationSender = NotificationSender(logger=TaggedLoggingAdapter(logger, "SENDER"))
         self.ProgressTimer = None
         self.FirstLayerTimer = None
         self.PauseThread:Optional[StoppableThread] = None
@@ -103,6 +106,36 @@ class NotificationsHandler(INotificationHandler):
         self.ProgressCompletionReported:List[ProgressCompletionReportItem] = []
         for x in range(1, 100):
             self.ProgressCompletionReported.append(ProgressCompletionReportItem(x, False))
+
+         # Reset our anti spam times.
+        self._clearSpammyEventContexts()
+
+        # Ensure the bed cooldown watcher is stopped.
+        self.BedCooldownWatcher.Stop()
+
+        # The print cookie can only be None on class init.
+        # We pass None so we don't call the PrintInfoManager, which might create a new print info on disk.
+        # There might be a print info on disk we want to restore when the host connects to the printer.
+        if printCookie is None:
+            return
+
+        # Always set the new print cookie
+        self.PrintCookie = printCookie
+
+        # See if we have an existing print that matches this cookie on disk.
+        if PrintInfoManager.Get().GetPrintInfo(printCookie) is not None:
+            self.Logger.info(f"Print Manager recovered a print info from disk matching cookie: {printCookie}")
+            return
+
+        # If we didn't find an existing print info, we need to make a new one.
+
+        # Each time a print starts, we generate a fixed length random id to identify it.
+        # This id is used to globally identify the print for the user, so it needs to have high entropy.
+        printId = uuid4().hex
+
+        # Always make a new print info for this new print.
+        # This is where we will store all of the vars for this print, and it's also written to disk if we need to recover the info.
+        PrintInfoManager.Get().CreateNewPrintInfo(printCookie, printId)
 
     # If there is an valid print cookie and we can get the info, this returns it.
     # Returns None if there's no current print info.
@@ -567,6 +600,7 @@ class NotificationsHandler(INotificationHandler):
         # if self._shouldIgnoreEvent():
         #     return
         # self._sendEvent("bedcooldowncomplete", { "BedTempC": str(round(float(bedTempCelsius), 2)) })
+        self.Logger.debug(f"Bed cooled down to {bedTempCelsius}, notfication not implemented -> skipping")
         pass
 
 
@@ -730,11 +764,6 @@ class NotificationsHandler(INotificationHandler):
     # The args and files will always contain any information that can be gathered at the time of the call.
     # Returns None if we don't have the printer id or octokey yet.
     def BuildCommonEventArgs(self, event:str, args:Optional[Dict[str,str]]=None, progressOverwriteFloat:Optional[float]=None, snapshotResizeParams:Optional[SnapshotResizeParams]=None, useFinalSnapSnapshot=False) -> Tuple[Optional[Dict[str,str]], Optional[Dict[str, Tuple[str, ByteLikeOrMemoryView]]]]:
-
-        # Ensure we have the required var set already. If not, get out of here.
-        if self.PrinterId is None or self.OctoKey is None:
-            return (None, None)
-
         # Default args
         if args is None:
             args = {}
@@ -756,8 +785,6 @@ class NotificationsHandler(INotificationHandler):
             self.Logger.error("NotificationsHandler failed to get the print info for the current print.", {"Cookie": self.PrintCookie, "Event": event})
 
         # Add the required vars
-        args["PrinterId"] = self.PrinterId
-        args["OctoKey"] = self.OctoKey
         args["Event"] = event
 
         # Always include the ETA, note this will be -1 if the time is unknown.

@@ -1,31 +1,36 @@
 # coding=utf-8
 from __future__ import absolute_import
-from typing import List, Dict, Any, Optional
+
 import logging
 import logging.handlers
+from typing import Any, Dict, List, Optional
 
 import flask
-from flask_babel import gettext
-
-import octoprint.printer
 import octoprint.plugin
-from octoprint.access.permissions import ADMIN_GROUP, USER_GROUP, READONLY_GROUP
+import octoprint.printer
+from flask_babel import gettext
+from octoprint.access.permissions import (ADMIN_GROUP, READONLY_GROUP,
+                                          USER_GROUP)
 from octoprint.events import Events
 
-
+from octoapp.appsstorage import AppStorageHelper
+from octoapp.compat import Compat
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.sentry import Sentry
-from octoapp.compat import Compat
-from octoapp.appsstorage import AppStorageHelper
-from .octoprintappstorage import OctoPrintAppStorageSubPlugin
-from .notifications import OctoAppNotificationsSubPlugin
-from .printermessage import OctoAppPrinterMessageSubPlugin
-from .printerfirmware import OctoAppPrinterFirmwareSubPlugin
-from .mmu2filamentselect import OctoAppMmu2FilamentSelectSubPlugin
-from .webcamsnapshots import OctoAppWebcamSnapshotsSubPlugin
-from .printerstateobject import PrinterStateObject
+from octoapp.logging import TaggedLoggingAdapter
+from octoapp.printinfo import PrintInfoManager
+from octoapp.notificationutils import NotificationUtils
+
 from .layerprocessor import LayerProcessor
-from .subplugin import OctoAppSubPlugin, IOctoAppSubPluginParent
+from .mmu2filamentselect import OctoAppMmu2FilamentSelectSubPlugin
+from .notifications import OctoAppNotificationsSubPlugin
+from .octoprintappstorage import OctoPrintAppStorageSubPlugin
+from .printerfirmware import OctoAppPrinterFirmwareSubPlugin
+from .printermessage import OctoAppPrinterMessageSubPlugin
+from .printerstateobject import PrinterStateObject
+from .subplugin import IOctoAppSubPluginParent, OctoAppSubPlugin
+from .webcamsnapshots import OctoAppWebcamSnapshotsSubPlugin
+
 
 class OctoAppPlugin(IOctoAppSubPluginParent):
 
@@ -58,31 +63,35 @@ class OctoAppPlugin(IOctoAppSubPluginParent):
         self._logger_handler = None
         self._initLogger()
         Sentry.SetLogger(self._logger)
-        Sentry.Info("PLUGIN", f"OctoApp starting {self._plugin_version}")
+        self.logger.info(f"OctoApp starting {self._plugin_version}")
 
         # Setup our printer state object, that implements the interface.
         octoPrintPrinterObj:octoprint.printer.PrinterInterface = self._printer #pyright: ignore[reportAssignmentType]
         printerStateObject = PrinterStateObject(self._logger, octoPrintPrinterObj)
 
         # Setup App storage
-        octoPrintAppStorage = OctoPrintAppStorageSubPlugin(logger=self._logger, parent=self)
-        AppStorageHelper.Init(octoPrintAppStorage)
+        octoPrintAppStorage = OctoPrintAppStorageSubPlugin(logger=TaggedLoggingAdapter(self._logger, "STORAGE"), parent=self)
+        AppStorageHelper.Init(logger=TaggedLoggingAdapter(self._logger, "APPS"), appStoragePlatformHelper=octoPrintAppStorage)
 
         # Create the notification object now that we have the logger.
-        self.NotificationHandler = NotificationsHandler(self._logger, printerStateObject)
+        self.NotificationHandler = NotificationsHandler(TaggedLoggingAdapter(self._logger, "NOTIFICATIONS"), printerStateObject)
         printerStateObject.SetNotificationHandler(self.NotificationHandler)
 
         self.SubPlugins:List[OctoAppSubPlugin] = [
             octoPrintAppStorage,
-            OctoAppNotificationsSubPlugin(logger=self._logger, parent=self, notificationHandler=self.NotificationHandler),
-            OctoAppPrinterMessageSubPlugin(logger=self._logger, parent=self),
-            OctoAppPrinterFirmwareSubPlugin(logger=self._logger, parent=self),
-            OctoAppMmu2FilamentSelectSubPlugin(logger=self._logger, parent=self, notificationHandler=self.NotificationHandler),
-            OctoAppWebcamSnapshotsSubPlugin(logger=self._logger, parent=self)
+            OctoAppNotificationsSubPlugin(logger=TaggedLoggingAdapter(self._logger, "NOTIFICATIONS/PLUGIN"), parent=self, notificationHandler=self.NotificationHandler),
+            OctoAppPrinterMessageSubPlugin(logger=TaggedLoggingAdapter(self._logger, "PRINTER_MESSAGE"), parent=self),
+            OctoAppPrinterFirmwareSubPlugin(logger=TaggedLoggingAdapter(self._logger, "PRINTER_FIRMWARE"), parent=self),
+            OctoAppMmu2FilamentSelectSubPlugin(logger=TaggedLoggingAdapter(self._logger, "MMU"), parent=self, notificationHandler=self.NotificationHandler),
+            OctoAppWebcamSnapshotsSubPlugin(logger=TaggedLoggingAdapter(self._logger, "WEBCAM"), parent=self)
         ]
 
         # Indicate this has been called and things have been inited.
         self.HasOnStartupBeenCalledYet = True
+
+        # Init print info and utils
+        NotificationUtils.Init(TaggedLoggingAdapter(self._logger, "NOTIFICATIONS/UTILS"))
+        PrintInfoManager.Init(TaggedLoggingAdapter(self._logger, "PRINT"), self.get_plugin_data_folder())
 
         # Hook up events
         self._printer.register_callback(self)  # type: ignore
@@ -90,7 +99,7 @@ class OctoAppPlugin(IOctoAppSubPluginParent):
 
     # Mixin method
     def on_after_startup(self):
-        Sentry.Info("PLUGIN", f"OctoApp started, version is {self._plugin_version}")
+        self.logger.info(f"OctoApp started, version is {self._plugin_version}")
         self._settings.set(["version"], self._plugin_version)  # type: ignore
 
         for sp in self.SubPlugins:
@@ -102,7 +111,7 @@ class OctoAppPlugin(IOctoAppSubPluginParent):
 
     # Mixin method
     def on_api_command(self, command:str, data:Dict[str,Any]) -> flask.Response: # type: ignore
-        Sentry.Info("PLUGIN", f"Recevied command {command}")
+        self.logger.info(f"Recevied command {command}")
 
         for sp in self.SubPlugins:
             try:
@@ -206,7 +215,7 @@ class OctoAppPlugin(IOctoAppSubPluginParent):
 
         # If we should not send the ocmmand to the printer, return a None, value
         if send is False:
-            Sentry.Debug("Main", "Supressing Gcode: " + cmd)
+            self.logger.debug("Supressing Gcode: " + cmd)
             return None, # pylint: disable=trailing-comma-tuple
 
         return None
@@ -288,6 +297,7 @@ class OctoAppPlugin(IOctoAppSubPluginParent):
         self._logger.addHandler(self._logger_handler)
         self._logger.setLevel(logging.DEBUG)
         self._logger.propagate = False
+        self.logger = TaggedLoggingAdapter(self._logger, "MAIN")
 
 
 __plugin_name__ = "OctoApp"

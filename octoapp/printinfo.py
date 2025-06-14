@@ -1,9 +1,10 @@
 import os
 import json
 import time
-import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+from .logging import LoggerLike
 
 
 # The goal of this class is to keep track of info about the current print.
@@ -26,7 +27,7 @@ class PrintInfo:
     # Given a file path, this loads a print info if possible.
     # Returns None on failure.
     @staticmethod
-    def LoadFromFile(logger:logging.Logger, filePath:str) -> Optional["PrintInfo"]:
+    def LoadFromFile(logger:LoggerLike, filePath:str) -> Optional["PrintInfo"]:
         try:
             with open(filePath, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -42,7 +43,7 @@ class PrintInfo:
     # Given a file path and required args, creates a new print context.
     # This will always return a PrintInfo! Even if it fails to write to disk.
     @staticmethod
-    def CreateNew(logger:logging.Logger, filePath:str, printCookie:str, printId:str) -> "PrintInfo":
+    def CreateNew(logger:LoggerLike, filePath:str, printCookie:str, printId:str) -> "PrintInfo":
         data = {
             PrintInfo.c_PrintCookieKey : printCookie,
             PrintInfo.c_PrintIdKey : printId,
@@ -54,7 +55,7 @@ class PrintInfo:
         return pi
 
 
-    def __init__(self, logger:logging.Logger, filePath:str, data:Dict[str,Any]) -> None:
+    def __init__(self, logger:LoggerLike, filePath:str, data:Dict[str,Any]) -> None:
         self.Logger = logger
         self.FilePath = filePath
         self.Data = data
@@ -157,7 +158,7 @@ class PrintInfoManager:
     _Instance:"PrintInfoManager" = None #pyright: ignore[reportAssignmentType]
 
     @staticmethod
-    def Init(logger:logging.Logger, localStorageFolderPath:str):
+    def Init(logger:LoggerLike, localStorageFolderPath:str):
         PrintInfoManager._Instance = PrintInfoManager(logger, localStorageFolderPath)
 
 
@@ -166,7 +167,7 @@ class PrintInfoManager:
         return PrintInfoManager._Instance
 
 
-    def __init__(self, logger:logging.Logger, localStorageFolderPath:str) -> None:
+    def __init__(self, logger:LoggerLike, localStorageFolderPath:str) -> None:
         self.Logger = logger
         self.ContextFolderPath = os.path.join(localStorageFolderPath, PrintInfoManager.c_ContextsFolder)
         Path(self.ContextFolderPath).mkdir(parents=True, exist_ok=True)

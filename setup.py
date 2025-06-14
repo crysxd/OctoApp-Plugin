@@ -91,7 +91,7 @@ plugin_additional_data = []
 
 # Any additional python packages you need to install with your plugin that are not contained in <plugin_package>.*
 # For OctoApp, we need to include or common packages shared between hosts, so OctoPrint copies them into the package folder as well.
-plugin_additional_packages = [ "octoapp", "octoapp.Proto",  "octoapp.WebStream", "octoapp.Webcam", "octoapp.Notifications" ]
+plugin_additional_packages = [ "octoapp", "octoapp.Proto" ]
 
 # Any python packages within <plugin_package>.* you do NOT want to install with your plugin
 plugin_ignored_packages = []

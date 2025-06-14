@@ -6,6 +6,8 @@ import octoprint.plugin
 import octoprint.printer
 import flask
 
+from octoapp.logging import LoggerLike
+
 
 class IOctoAppSubPluginParent(
     octoprint.plugin.AssetPlugin,
@@ -31,7 +33,7 @@ class IOctoAppSubPluginParent(
 
 class OctoAppSubPlugin():
 
-    def __init__(self, logger: Logger, parent: IOctoAppSubPluginParent):
+    def __init__(self, logger: LoggerLike, parent: IOctoAppSubPluginParent):
         self.config:Dict[str,Any] = {}
         self.logger = logger
         self.parent = parent

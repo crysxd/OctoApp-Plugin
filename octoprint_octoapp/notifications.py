@@ -1,18 +1,21 @@
 from datetime import datetime, timedelta
-from time import sleep
-from typing import Optional, Dict, Any
 from logging import Logger
+from time import sleep, time
+from typing import Any, Dict, Optional
 
-from octoapp.notificationshandler import NotificationsHandler, StoppableThread
-from octoapp.sentry import Sentry
 from octoapp.layerutils import LayerUtils
+from octoapp.logging import LoggerLike
+from octoapp.notificationshandler import NotificationsHandler, StoppableThread
 from octoapp.notificationutils import NotificationUtils
+from octoapp.sentry import Sentry
+
 from .subplugin import IOctoAppSubPluginParent, OctoAppSubPlugin
+
 
  # pylint: disable=protected-access
 class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
-    def __init__(self, logger: Logger, parent:IOctoAppSubPluginParent, notificationHandler: NotificationsHandler):
+    def __init__(self, logger: LoggerLike, parent:IOctoAppSubPluginParent, notificationHandler: NotificationsHandler):
         super().__init__(logger, parent)
         self.NotificationHandler = notificationHandler
         self._hasPrintTimeGenius = self.parent._plugin_manager.get_plugin("PrintTimeGenius") is not None #type: ignore
@@ -38,13 +41,13 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
 
     def OnAfterStartup(self):
         self.NotificationHandler.NotificationSender.PrinterName = self._getPrinterName()
-        Sentry.Info("NOTIFICATION",  f"Has PrintTimeGenius: {self._hasPrintTimeGenius}")
+        self.logger.info(f"Has PrintTimeGenius: {self._hasPrintTimeGenius}")
 
 
     def OnCurrentData(self, data:Dict[str,Any]):
         filePos = data.get("progress", {}).get("filepos", None)
         if filePos != self.LastFilePos and self.ScheduledNotifications is not None and self.NotificationHandler is not None:
-            NotificationUtils.SendScheduledNotifications(self.ScheduledNotifications, self.NotificationHandler, filePos, self.LastFilePos)
+            NotificationUtils.Get().SendScheduledNotifications(self.ScheduledNotifications, self.NotificationHandler, filePos, self.LastFilePos)
             self.LastFilePos = filePos
 
 
@@ -72,7 +75,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self.Progress = 0
             self.LastFilePos = 0
             self.GcodeSentCount = 0
-            Sentry.Info("NOTIFICATION", "Print started")
+            self.logger.info("Print started")
             fileName = self.GetDictStringOrEmpty(payload, "name")
             path = self.GetDictStringOrEmpty(payload, "path")
             origin = self.GetDictStringOrEmpty(payload, "origin")
@@ -85,7 +88,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             if self._exists(currentData, "job") and self._exists(currentData["job"], "filament") and self._exists(currentData["job"]["filament"], "tool0") and self._exists(currentData["job"]["filament"]["tool0"], "length"):
                 totalFilamentUsageMm = int(currentData["job"]["filament"]["tool0"]["length"])
             self._updateProgressAndSendIfChanged()
-            self.NotificationHandler.OnStarted(None, fileName=fileName, fileSizeKBytes=int(fileSizeKBytes), totalFilamentUsageMm=totalFilamentUsageMm)
+            self.NotificationHandler.OnStarted(f"{int(time())}", fileName=fileName, fileSizeKBytes=int(fileSizeKBytes), totalFilamentUsageMm=totalFilamentUsageMm)
             self._extractScheduledNotificationsIfNotStoppedBefore(origin, path)
 
         elif event == "PrintFailed" or event == "PrintCancelled":
@@ -127,7 +130,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
     def OnGcodeQueued(self, comm_instance:Any, phase:Any, cmd:str, cmd_type:str, gcode:str, *args:Any, **kwargs:Any) -> bool:
         # Check for our layer commands
         if cmd in LayerUtils.DisableLegacyLayerCommands:
-            Sentry.Info("NOTIFICATION", "Layer magic disabled")
+            self.logger.info("Layer magic disabled")
             self.LayerMagicDisabledAt = datetime.now()
             return False
 
@@ -139,7 +142,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self.NotificationHandler.OnThirdLayerDone()
             return False
 
-        message = NotificationUtils.GetMessageIfNotifyCommand(cmd)
+        message = NotificationUtils.Get().GetMessageIfNotifyCommand(cmd)
         if message is not None and self.NotificationHandler:
             self.NotificationHandler.OnCustomNotification(message)
             return False
@@ -165,7 +168,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         # We check for this both in sent and received, to make sure we cover all use cases. The OnFilamentChange will only allow one notification to fire every so often.
         # This M600 usually comes from filament change required commands embedded in the gcode, for color changes and such.
         if self.NotificationHandler is not None and gcode and gcode == "M600":
-            Sentry.Info("NOTIFICATION", "Firing On Filament Change Notification From GcodeSent: "+str(gcode))
+            self.logger.info("Firing On Filament Change Notification From GcodeSent: "+str(gcode))
             # No need to use a thread since all events are handled on a new thread.
             self.NotificationHandler.OnFilamentChange()
 
@@ -173,7 +176,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         # https://marlinfw.org/docs/gcode/M000-M001.html
         # We check for this both in sent and received, to make sure we cover all use cases. The OnUserInteractionNeeded will only allow one notification to fire every so often.
         if self.isPauseCommand(gcode):
-            Sentry.Info("NOTIFICATION", "Firing On User Interaction Required From GcodeSent: "+str(gcode))
+            self.logger.info("Firing On User Interaction Required From GcodeSent: "+str(gcode))
             # No need to use a thread since all events are handled on a new thread.
             self.NotificationHandler.OnUserInteractionNeeded()
 
@@ -190,7 +193,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             # We check for this both in sent and received, to make sure we cover all use cases. The OnFilamentChange will only allow one notification to fire every so often.
             # This m600 usually comes from when the printer sensor has detected a filament run out.
             if "m600" in lineLower or "fsensor_update" in lineLower:
-                Sentry.Info("NOTIFICATION", "Firing On Filament Change Notification From GcodeReceived: "+str(line))
+                self.logger.info("Firing On Filament Change Notification From GcodeReceived: "+str(line))
                 # No need to use a thread since all events are handled on a new thread.
                 self.NotificationHandler.OnFilamentChange()
             elif "m300" in lineLower:
@@ -198,14 +201,14 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
                 progress = self.NotificationHandler.PrinterStateInterface.GetCurrentProgress()
 
                 if timeLeft > 30 or (progress < 95 and progress >= 0):
-                    Sentry.Debug("NOTIFICATION", f"Performing beep, {timeLeft} seconds left and {progress} percent")
+                    self.logger.debug(f"Performing beep, {timeLeft} seconds left and {progress} percent")
                     self.NotificationHandler.OnBeep()
                 else:
-                    Sentry.Debug("NOTIFICATION", f"Skipping beep, only {timeLeft} seconds left and {progress} percent")
+                    self.logger.debug(f"Skipping beep, only {timeLeft} seconds left and {progress} percent")
 
             # Look for a line indicating user interaction is needed.
             elif self.isPauseCommand(lineLower):
-                Sentry.Info("NOTIFICATION", f"Firing On User Interaction Required From GcodeReceived: {line}")
+                self.logger.info(f"Firing On User Interaction Required From GcodeReceived: {line}")
                 # No need to use a thread since all events are handled on a new thread.
                 self.NotificationHandler.OnUserInteractionNeeded()
 
@@ -256,7 +259,7 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self.Progress = int(completion)
 
         if self.Progress != lastProgress and self.NotificationHandler is not None:
-            Sentry.Debug("NOTIFICATION", f"Progress change: {lastProgress} -> {self.Progress}")
+            self.logger.debug(f"Progress change: {lastProgress} -> {self.Progress}")
             self.NotificationHandler.OnPrintProgress(self.Progress, None)
 
 
@@ -264,19 +267,19 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         def doLoad():
             try:
                 if origin != "local":
-                    Sentry.Info("NOTIFICATION", f"Unsupported origin for layer magic: {origin}")
+                    self.logger.info(f"Unsupported origin for layer magic: {origin}")
                     return
 
                 sleep(5)
                 if (datetime.now() - self.LayerMagicDisabledAt) < timedelta(seconds=10):
-                    Sentry.Info("NOTIFICATION", "Layer magic was disabled, stopping")
+                    self.logger.info("Layer magic was disabled, stopping")
                     return
 
 
                 diskPath = self.parent._file_manager.path_on_disk(origin, path) # type: ignore
-                Sentry.Info("NOTIFICATION", f"Processing file at {path} for layer magic")
+                self.logger.info(f"Processing file at {path} for layer magic")
                 with open(diskPath, 'rb') as stream:
-                    self.ScheduledNotifications = NotificationUtils.ExtractNotifications(stream, stopAfterLayer3 = True)
+                    self.ScheduledNotifications = NotificationUtils.Get().ExtractNotifications(stream, stopAfterLayer3 = True)
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to process file for notifications", e)
 
