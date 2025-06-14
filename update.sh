@@ -68,21 +68,21 @@ runAsRepoOwner()
 repoDir=$(readlink -f $(dirname "$0"))
 cd $repoDir
 
-# Pull the repo to get the top of master.
+# Pull the repo to get the top of release.
 echo "Updating repo and fetching the latest released tag..."
 runAsRepoOwner "git fetch --tags"
 
 # Find the latest tag, just for stats now.
-# We have to make sure we are on the master branch or the Moonraker updater won't work.
-# The Moonraker updater will pull to master on to the latest tag, but we don't do that for now.
+# We have to make sure we are on the release branch or the Moonraker updater won't work.
+# The Moonraker updater will pull to release on to the latest tag, but we don't do that for now.
 latestTaggedCommit=$(runAsRepoOwner "git rev-list --tags --max-count=1")
 latestTag=$(runAsRepoOwner "git describe --tags ${latestTaggedCommit}")
 currentGitStatus=$(runAsRepoOwner "git describe")
 echo "Latest git tag found ${latestTag}, current status ${currentGitStatus}"
 
-# Reset any local changes and pull the head of master.
+# Reset any local changes and pull the head of release.
 runAsRepoOwner "git reset --hard --quiet"
-runAsRepoOwner "git checkout master --quiet"
+runAsRepoOwner "git checkout release --quiet"
 runAsRepoOwner "git pull --quiet"
 
 # Our installer script has all of the logic to update system deps, py deps, and the py environment.
