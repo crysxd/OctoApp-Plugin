@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-from logging import Logger
 from time import sleep, time
 from typing import Any, Dict, Optional
 

@@ -1,6 +1,5 @@
 import re
 import sys
-import logging
 import platform
 import subprocess
 from typing import Optional

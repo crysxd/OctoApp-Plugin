@@ -1,6 +1,5 @@
 import configparser
 import json
-import logging
 import math
 import os
 import queue
@@ -28,7 +27,6 @@ from .filemetadatacache import FileMetadataCache
 from .interfaces import IMoonrakerClient, IMoonrakerConnectionStatusHandler
 from .jsonrpcresponse import JsonRpcResponse
 from .moonrakercredentailmanager import MoonrakerCredentialManager
-from .interfaces import IMoonrakerClient
 from .printernameprovider import IPrinterNameProvider
 
 

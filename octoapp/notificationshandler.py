@@ -1,4 +1,3 @@
-import logging
 import math
 import threading
 import time
@@ -602,7 +601,6 @@ class NotificationsHandler(INotificationHandler):
         #     return
         # self._sendEvent("bedcooldowncomplete", { "BedTempC": str(round(float(bedTempCelsius), 2)) })
         self.Logger.debug(f"Bed cooled down to {bedTempCelsius}, notfication not implemented -> skipping")
-        pass
 
 
     # Assuming the current time is set at the start of the printer correctly.

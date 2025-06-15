@@ -1,5 +1,4 @@
 from typing import Dict, Any, Optional
-from logging import Logger
 
 import flask
 

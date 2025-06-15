@@ -1,5 +1,4 @@
 import platform
-import logging
 from typing import Dict, Optional
 
 from octoapp.logging import LoggerLike

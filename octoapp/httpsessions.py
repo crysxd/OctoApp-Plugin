@@ -1,11 +1,10 @@
-import logging
 import threading
 from typing import Dict
 
-from octoapp.logging import LoggerLike
-
 import requests
 from requests import Session
+
+from octoapp.logging import LoggerLike
 
 # A common class to cache http sessions per host.
 # This makes the connections more efficient as we can reuse the connections and the session isn't created every time.

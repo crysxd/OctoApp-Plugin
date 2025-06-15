@@ -38,6 +38,7 @@ class OctoAppPlugin(IOctoAppSubPluginParent):
         # Update logger
         self._logger_handler = None
         self._logger = logging.getLogger("octoprint.plugins.octoapp")
+        self.logger:TaggedLoggingAdapter
         self.CurrentPluginState:Dict[str,Any] = {}
         self.SubPlugins = []
         self.LastSentPluginState = self.CurrentPluginState

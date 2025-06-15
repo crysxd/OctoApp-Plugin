@@ -1,4 +1,3 @@
-import logging
 from typing import Any, Dict, Optional, Tuple
 
 from octoprint.printer import PrinterInterface

@@ -1,5 +1,4 @@
 import threading
-import logging
 from typing import Any, Callable
 
 from .logging import LoggerLike

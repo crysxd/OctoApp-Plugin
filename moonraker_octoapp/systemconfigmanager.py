@@ -1,6 +1,5 @@
 import os
 import subprocess
-import logging
 
 from octoapp.logging import LoggerLike
 

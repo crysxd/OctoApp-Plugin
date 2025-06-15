@@ -51,4 +51,4 @@ class LayerProcessor(octoprint.filemanager.util.LineProcessorStream):
         if LayerProcessor.staticLogger is not None:
             LayerProcessor.staticLogger.info("Processing " + path)
 
-        return octoprint.filemanager.util.StreamWrapper(file_object.filename, LayerProcessor(file_object.stream()))  # type: ignore
+        return octoprint.filemanager.util.StreamWrapper(file_object.filename, LayerProcessor(LayerProcessor.staticLogger, file_object.stream()))  # type: ignore

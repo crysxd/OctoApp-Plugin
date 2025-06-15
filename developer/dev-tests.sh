@@ -6,9 +6,9 @@ echo ""
 echo "Running pylint on the OctoApp Module..."
 pylint --disable=import-error ./octoapp/
 echo "Running pylint on the OctoPrint Module..."
-pylint --disable=import-error,cyclic-import ./octoprint_octoapp/
+pylint --disable=import-error ./octoprint_octoapp/
 echo "Running pylint on the Moonraker Module..."
-pylint --disable=import-error,cyclic-import ./moonraker_octoapp/
+pylint --disable=import-error ./moonraker_octoapp/
 # echo "Running pylint on the Elegoo Module..."
 # pylint ./elegoo_octoapp/
 # echo "Running pylint on the Bambu Module..."
