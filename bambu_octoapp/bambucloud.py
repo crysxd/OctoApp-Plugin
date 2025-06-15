@@ -10,7 +10,8 @@ import requests
 
 from linux_host.config import Config
 
-from octoeverywhere.sentry import Sentry
+from octoapp.sentry import Sentry
+from octoapp.logging import LoggerLike
 
 
 # The result of a login request.
@@ -39,7 +40,7 @@ class BambuCloud:
 
 
     @staticmethod
-    def Init(logger:logging.Logger, config:Config):
+    def Init(logger:LoggerLike, config:Config):
         BambuCloud._Instance = BambuCloud(logger, config)
 
 
@@ -48,7 +49,7 @@ class BambuCloud:
         return BambuCloud._Instance
 
 
-    def __init__(self, logger:logging.Logger, config:Config) -> None:
+    def __init__(self, logger:LoggerLike, config:Config) -> None:
         self.Logger = logger
         self.Config = config
         self.AccessToken = None

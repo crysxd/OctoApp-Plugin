@@ -135,25 +135,6 @@ class Sentry:
         # Return the event to be reported.
         return event
 
-    @staticmethod
-    def Info(tag:str, msg:str):
-        paddedTag = f"{tag:<15}"
-        Sentry._Logger.info(paddedTag + " | " + msg)
-
-    @staticmethod
-    def Debug(tag:str, msg:str):
-        paddedTag = f"{tag:<15}"
-        Sentry._Logger.debug(paddedTag + " | " + msg)
-
-    @staticmethod
-    def Warn(tag:str, msg:str):
-        paddedTag = f"{tag:<15}"
-        Sentry._Logger.warning(paddedTag + " | " + msg)
-
-    @staticmethod
-    def Error(tag:str, msg:str):
-        paddedTag = f"{tag:<15}"
-        Sentry._Logger.error(paddedTag + " | " + msg)
 
     # Adds a breadcrumb to the sentry log, which is helpful to figure out what happened before an exception.
     @staticmethod
@@ -189,7 +170,7 @@ class Sentry:
     # Only logs an exception, without reporting.
     @staticmethod
     def ExceptionNoSend(msg:str, exception:Exception):
-        Sentry.Error("SENTRY", f"Exception no send: {exception}")
+        Sentry._Logger.error(f"Exception no send: {exception}")
         Sentry._handleException(msg, exception, False)
 
     # Only logs an exception, without reporting.

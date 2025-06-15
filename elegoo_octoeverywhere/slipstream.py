@@ -3,18 +3,18 @@ import threading
 import time
 from typing import Optional, Dict
 
-from octoeverywhere.buffer import Buffer
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.compat import Compat
-from octoeverywhere.octohttprequest import OctoHttpRequest
-from octoeverywhere.octohttprequest import PathTypes
-from octoeverywhere.httpresult import HttpResult, HttpResultOrNone
-from octoeverywhere.WebStream.octoheaderimpl import HeaderHelper
-from octoeverywhere.WebStream.octoheaderimpl import BaseProtocol
-from octoeverywhere.octostreammsgbuilder import OctoStreamMsgBuilder
-from octoeverywhere.compression import Compression, CompressionContext
-from octoeverywhere.Proto.HttpInitialContext import HttpInitialContext
-from octoeverywhere.interfaces import ISlipstreamHandler
+from octoapp.buffer import Buffer
+from octoapp.sentry import Sentry
+from octoapp.compat import Compat
+from octoapp.octohttprequest import OctoHttpRequest
+from octoapp.octohttprequest import PathTypes
+from octoapp.httpresult import HttpResult, HttpResultOrNone
+from octoapp.WebStream.octoheaderimpl import HeaderHelper
+from octoapp.WebStream.octoheaderimpl import BaseProtocol
+from octoapp.octostreammsgbuilder import OctoStreamMsgBuilder
+from octoapp.compression import Compression, CompressionContext
+from octoapp.Proto.HttpInitialContext import HttpInitialContext
+from octoapp.interfaces import ISlipstreamHandler
 
 
 # This class caches the web relay resources, since some of them can take a bit to load.

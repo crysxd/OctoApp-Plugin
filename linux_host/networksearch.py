@@ -5,7 +5,6 @@ import json
 import random
 import string
 import socket
-import logging
 import threading
 from typing import Any, Callable, Dict, List, Optional
 
@@ -14,6 +13,7 @@ import paho.mqtt.client as mqtt
 from octoapp.buffer import Buffer
 from octoapp.websocketimpl import Client
 from octoapp.interfaces import IWebSocketClient, WebSocketOpCode
+from octoapp.logging import LoggerLike
 
 # A helper class that's the result of a network search.
 class ElegooNetworkSearchResult:
@@ -70,7 +70,7 @@ class NetworkSearch:
     # Scans the local IP LAN subset for Bambu servers that successfully authorize given the access code and printer sn.
     # Thread count and delay can be used to control how aggressive the scan is.
     @staticmethod
-    def ScanForInstances_Bambu(logger:logging.Logger, accessCode:str, printerSn:str, portStr:Optional[str]=None, threadCount:Optional[int]=None, delaySec:float=0.0) -> List[str]:
+    def ScanForInstances_Bambu(logger:LoggerLike, accessCode:str, printerSn:str, portStr:Optional[str]=None, threadCount:Optional[int]=None, delaySec:float=0.0) -> List[str]:
         def callback(ip:str):
             return NetworkSearch.ValidateConnection_Bambu(logger, ip, accessCode, printerSn, portStr, timeoutSec=5)
         # We want to return if any one IP is found, since there can only be one printer that will match the printer 100% correct.
@@ -81,7 +81,7 @@ class NetworkSearch:
     # Thread count and delay can be used to control how aggressive the scan is.
     # If a mainboardMac is specified, only printers with that mainboardMac will be considered.
     @staticmethod
-    def ScanForInstances_Elegoo(logger:logging.Logger, mainboardMac:Optional[str]=None, portStr:Optional[str]=None, threadCount:Optional[int]=None, delaySec:float=0.0) -> List[ElegooNetworkSearchResult]:
+    def ScanForInstances_Elegoo(logger:LoggerLike, mainboardMac:Optional[str]=None, portStr:Optional[str]=None, threadCount:Optional[int]=None, delaySec:float=0.0) -> List[ElegooNetworkSearchResult]:
         foundPrinters:dict[str, NetworkValidationResult] = {}
         def callback(ip:str):
             result = NetworkSearch.ValidateConnection_Elegoo(logger, ip, portStr, timeoutSec=2)
@@ -128,7 +128,7 @@ class NetworkSearch:
     # Given the ip, accessCode, printerSn, and optionally port, this will check if the printer is connectable.
     # Returns a NetworkValidationResult with the results.
     @staticmethod
-    def ValidateConnection_Bambu(logger:logging.Logger, ipOrHostname:str, accessCode:str, printerSn:str, portStr:Optional[str]=None, timeoutSec:float=5.0) -> NetworkValidationResult:
+    def ValidateConnection_Bambu(logger:LoggerLike, ipOrHostname:str, accessCode:str, printerSn:str, portStr:Optional[str]=None, timeoutSec:float=5.0) -> NetworkValidationResult:
         client:mqtt.Client = None # pyright: ignore[reportAssignmentType]
         try:
             if portStr is None:
@@ -267,7 +267,7 @@ class NetworkSearch:
     # Given the ip and optionally a mac address, this will check if the printer is connectable.
     # Returns a NetworkValidationResult with the results.
     @staticmethod
-    def ValidateConnection_Elegoo(logger:logging.Logger, ipOrHostname:str, portStr:Optional[str]=None, timeoutSec:float=2.0) -> NetworkValidationResult:
+    def ValidateConnection_Elegoo(logger:LoggerLike, ipOrHostname:str, portStr:Optional[str]=None, timeoutSec:float=2.0) -> NetworkValidationResult:
         try:
             # Setup the connection functions.
             if portStr is None:
@@ -378,7 +378,7 @@ class NetworkSearch:
     # testConFunction must be a function func(ip:str) -> NetworkValidationResult
     # Returns a list of IPs that reported Success() == True
     @staticmethod
-    def _ScanForInstances(logger:logging.Logger, testConFunction:Callable[[str], NetworkValidationResult], returnAfterNumberFound:int=0, threadCount:Optional[int]=None, perThreadDelaySec:float=0.0) -> List[str]: # type: ignore
+    def _ScanForInstances(logger:LoggerLike, testConFunction:Callable[[str], NetworkValidationResult], returnAfterNumberFound:int=0, threadCount:Optional[int]=None, perThreadDelaySec:float=0.0) -> List[str]: # type: ignore
         foundIps:List[str] = []
         try:
             localIp = NetworkSearch._TryToGetLocalIp()

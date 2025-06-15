@@ -6,12 +6,12 @@ import logging
 import threading
 from typing import Any, Dict, List, Optional
 
-from octoeverywhere.compat import Compat
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.websocketimpl import Client
-from octoeverywhere.octohttprequest import OctoHttpRequest
-from octoeverywhere.buffer import Buffer
-from octoeverywhere.interfaces import WebSocketOpCode, IWebSocketClient
+from octoapp.compat import Compat
+from octoapp.sentry import Sentry
+from octoapp.websocketimpl import Client
+from octoapp.octohttprequest import OctoHttpRequest
+from octoapp.buffer import Buffer
+from octoapp.interfaces import WebSocketOpCode, IWebSocketClient
 
 from linux_host.config import Config
 from linux_host.networksearch import NetworkSearch

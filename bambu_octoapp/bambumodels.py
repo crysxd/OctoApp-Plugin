@@ -1,9 +1,9 @@
 import time
-import logging
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from octoeverywhere.sentry import Sentry
+from octoapp.sentry import Sentry
+from octoapp.logging import LoggerLike
 
 # Known printer error types.
 # Note that the print state doesn't have to be ERROR to have an error, during a print it's "PAUSED" but the print_error value is not 0.
@@ -197,7 +197,7 @@ class BambuCPUs(Enum):
 # Tracks the version info.
 class BambuVersion:
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
         self.HasLoggedPrinterVersion = False
         # We only parse out what we currently use.

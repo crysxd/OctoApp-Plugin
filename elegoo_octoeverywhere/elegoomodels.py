@@ -2,7 +2,7 @@ import time
 import logging
 from typing import Any, Dict, Optional, Tuple
 
-from octoeverywhere.sentry import Sentry
+from octoapp.sentry import Sentry
 
 # Keeps track of the current printer state locally, so we don't have to query the printer for it constantly.
 class PrinterState:

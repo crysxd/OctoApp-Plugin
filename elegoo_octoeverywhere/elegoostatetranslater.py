@@ -1,8 +1,8 @@
 import logging
 from typing import Optional, Tuple
 
-from octoeverywhere.notificationshandler import NotificationsHandler
-from octoeverywhere.interfaces import IPrinterStateReporter
+from octoapp.notificationshandler import NotificationsHandler
+from octoapp.interfaces import IPrinterStateReporter
 
 from .elegooclient import ElegooClient
 from .elegoomodels import PrinterState

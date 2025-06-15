@@ -1,25 +1,21 @@
 import logging
 import traceback
+import time
 from typing import Any, Dict, List, Optional
 
-from octoeverywhere.mdns import MDns
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.deviceid import DeviceId
-from octoeverywhere.telemetry import Telemetry
-from octoeverywhere.hostcommon import HostCommon
-from octoeverywhere.linkhelper import LinkHelper
-from octoeverywhere.compression import Compression
-from octoeverywhere.httpsessions import HttpSessions
-from octoeverywhere.octopingpong import OctoPingPong
-from octoeverywhere.printinfo import PrintInfoManager
-from octoeverywhere.commandhandler import CommandHandler
-from octoeverywhere.Webcam.webcamhelper import WebcamHelper
-from octoeverywhere.octoeverywhereimpl import OctoEverywhere
-from octoeverywhere.notificationshandler import NotificationsHandler
-from octoeverywhere.octohttprequest import OctoHttpRequest
-from octoeverywhere.Proto.ServerHost import ServerHost
-from octoeverywhere.compat import Compat
-from octoeverywhere.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
+from octoapp.mdns import MDns
+from octoapp.sentry import Sentry
+from octoapp.deviceid import DeviceId
+from octoapp.hostcommon import HostCommon
+from octoapp.httpsessions import HttpSessions
+from octoapp.printinfo import PrintInfoManager
+from octoapp.notificationshandler import NotificationsHandler
+from octoapp.octohttprequest import OctoHttpRequest
+from octoapp.Proto.ServerHost import ServerHost
+from octoapp.compat import Compat
+from octoapp.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
+from octoapp.logging import TaggedLoggingAdapter
+from octoapp.appsstorage import AppStorageHelper
 
 from linux_host.config import Config
 from linux_host.secrets import Secrets
@@ -28,10 +24,9 @@ from linux_host.logger import LoggerInit
 
 from .bambucloud import BambuCloud
 from .bambuclient import BambuClient
-from .bambuwebcamhelper import BambuWebcamHelper
-from .bambucommandhandler import BambuCommandHandler
 from .bambustatetranslater import BambuStateTranslator
-from .mqttwebsocketproxy import MqttWebsocketProxyProviderBuilder
+from .bambuappstorage import BambuAppStorage
+from .bambudatabase import BambuFtpDatabase
 
 # This file is the main host for the bambu service.
 class BambuHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
@@ -52,11 +47,12 @@ class BambuHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
 
             # Setup the logger.
             logLevelOverride_CanBeNone = self.GetDevConfigStr(devConfig, "LogLevel")
-            self.Logger = LoggerInit.GetLogger(self.Config, logDir, logLevelOverride_CanBeNone)
+            self.RawLogger = LoggerInit.GetLogger(self.Config, logDir, logLevelOverride_CanBeNone)
+            self.Logger = TaggedLoggingAdapter(self.RawLogger, "MAIN")
             self.Config.SetLogger(self.Logger)
 
             # Give the logger to Sentry ASAP.
-            Sentry.SetLogger(self.Logger)
+            Sentry.SetLogger(self.RawLogger)
 
         except Exception as e:
             tb = traceback.format_exc()
@@ -68,58 +64,53 @@ class BambuHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
     def RunBlocking(self, configPath:str, localStorageDir:str, repoRoot:str, devConfig:Optional[Dict[str,str]]) -> None:
         # Do all of this in a try catch, so we can log any issues before exiting
         try:
-            self.Logger.info("################################################")
-            self.Logger.info("#### OctoEverywhere Bambu Connect Starting #####")
-            self.Logger.info("################################################")
+            self.Logger.info("#########################################")
+            self.Logger.info("#### OctoApp Bambu Connect Starting #####")
+            self.Logger.info("#########################################")
 
             # Find the version of the plugin, this is required and it will throw if it fails.
             pluginVersionStr = Version.GetPluginVersion(repoRoot)
             self.Logger.info("Plugin Version: %s", pluginVersionStr)
 
             # Setup the HttpSession cache early, so it can be used whenever
-            HttpSessions.Init(self.Logger)
+            HttpSessions.Init(TaggedLoggingAdapter(self.RawLogger, "HTTPSESSION"))
 
             # As soon as we have the plugin version, setup Sentry
             # Enabling profiling and no filtering, since we are the only PY in this process.
             Sentry.Setup(pluginVersionStr, "bambu", devConfig is not None, enableProfiling=True, filterExceptionsByPackage=False, restartOnCantCreateThreadBug=True)
 
             # Before the first time setup, we must also init the Secrets class and do the migration for the printer id and private key, if needed.
-            self.Secrets = Secrets(self.Logger, localStorageDir)
+            self.Secrets = Secrets(TaggedLoggingAdapter(self.RawLogger, "SECRETS"), localStorageDir)
 
             # Now, detect if this is a new instance and we need to init our global vars. If so, the setup script will be waiting on this.
             self.DoFirstTimeSetupIfNeeded()
 
             # Get our required vars
             printerId = self.GetPrinterId()
-            privateKey = self.GetPrivateKey()
 
-            if printerId is None or privateKey is None:
+            if printerId is None:
                 raise Exception("Printer ID or Private Key is None, this should never happen!")
 
             # Set the printer ID into sentry.
             Sentry.SetPrinterId(printerId)
+
+            # Init "database"
+            database = BambuFtpDatabase(TaggedLoggingAdapter(self.RawLogger, "FTP"), printerId, pluginVersionStr, self.Config)
+            AppStorageHelper.Init(TaggedLoggingAdapter(self.RawLogger, "APPS"), BambuAppStorage(database))
 
             # Unpack any dev vars that might exist
             DevLocalServerAddress_CanBeNone = self.GetDevConfigStr(devConfig, "LocalServerAddress")
             if DevLocalServerAddress_CanBeNone is not None:
                 self.Logger.warning("~~~ Using Local Dev Server Address: %s ~~~", DevLocalServerAddress_CanBeNone)
 
-            # Init Sentry, but it won't report since we are in dev mode.
-            Telemetry.Init(self.Logger)
-            if DevLocalServerAddress_CanBeNone is not None:
-                Telemetry.SetServerProtocolAndDomain("http://"+DevLocalServerAddress_CanBeNone)
-
-            # Init compression
-            Compression.Init(self.Logger, localStorageDir)
-
             # Init the mdns client
-            MDns.Init(self.Logger, localStorageDir)
+            MDns.Init(TaggedLoggingAdapter(self.RawLogger, "MDNS"), localStorageDir)
 
             # Init device id
-            DeviceId.Init(self.Logger)
+            DeviceId.Init(TaggedLoggingAdapter(self.RawLogger, "DEVICEID"))
 
             # Setup the print info manager.
-            PrintInfoManager.Init(self.Logger, localStorageDir)
+            PrintInfoManager.Init(TaggedLoggingAdapter(self.RawLogger, "PRINTINFO"), localStorageDir)
 
             # But we still want to set the "local OctoPrint port" to 80, because that's the default port it will try for relative URLs.
             # Relative URLs for Bambu only come from the alternative webcam streaming system, which the user might be trying to access a webcam stream from this device.
@@ -128,48 +119,30 @@ class BambuHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
             OctoHttpRequest.SetLocalOctoPrintPort(80)
             OctoHttpRequest.SetLocalHttpProxyIsHttps(False)
 
-            # Init the ping pong helper.
-            OctoPingPong.Init(self.Logger, localStorageDir, printerId)
-            if DevLocalServerAddress_CanBeNone is not None:
-                OctoPingPong.Get().DisablePrimaryOverride()
-
-            # Setup the webcam helper
-            webcamHelper = BambuWebcamHelper(self.Logger, self.Config)
-            WebcamHelper.Init(self.Logger, webcamHelper, localStorageDir)
-
             # Setup the state translator and notification handler
-            stateTranslator = BambuStateTranslator(self.Logger)
+            stateTranslator = BambuStateTranslator(TaggedLoggingAdapter(self.RawLogger, "BAMBUTRANSLATOR"))
             self.NotificationHandler = NotificationsHandler(self.Logger, stateTranslator)
-            self.NotificationHandler.SetPrinterId(printerId)
             self.NotificationHandler.SetBedCooldownThresholdTemp(self.Config.GetFloatRequired(Config.GeneralSection, Config.GeneralBedCooldownThresholdTempC, Config.GeneralBedCooldownThresholdTempCDefault))
             stateTranslator.SetNotificationHandler(self.NotificationHandler)
 
-            # Setup the command handler
-            CommandHandler.Init(self.Logger, self.NotificationHandler, BambuCommandHandler(self.Logger), self)
-
             # Setup the cloud if it's setup in the config.
-            BambuCloud.Init(self.Logger, self.Config)
+            BambuCloud.Init(TaggedLoggingAdapter(self.RawLogger, "BAMBUCLOUD"), self.Config)
 
             # Setup and start the Bambu Client
-            BambuClient.Init(self.Logger, self.Config, stateTranslator)
-
-            # Create our MQTT websocket proxy provider.
-            Compat.SetMqttWebsocketProxyProviderBuilder(MqttWebsocketProxyProviderBuilder(self.Logger))
+            BambuClient.Init(TaggedLoggingAdapter(self.RawLogger, "CLIENT"), self.Config, stateTranslator)
 
             # Now start the main runner!
-            OctoEverywhereWsUri = HostCommon.c_OctoEverywhereOctoClientWsUri
-            if DevLocalServerAddress_CanBeNone is not None:
-                OctoEverywhereWsUri = "ws://"+DevLocalServerAddress_CanBeNone+"/octoclientws"
-            oe = OctoEverywhere(OctoEverywhereWsUri, printerId, privateKey, self.Logger, self, self, pluginVersionStr, ServerHost.Bambu, False)
-            oe.RunBlocking()
+            BambuClient.Get().RunBlocking()
+
+            time.sleep(120)
         except Exception as e:
             Sentry.OnException("!! Exception thrown out of main host run function.", e)
 
         # Allow the loggers to flush before we exit
         try:
-            self.Logger.info("##################################")
-            self.Logger.info("#### OctoEverywhere Exiting ######")
-            self.Logger.info("##################################")
+            self.Logger.info("###########################")
+            self.Logger.info("#### OctoApp Exiting ######")
+            self.Logger.info("###########################")
             logging.shutdown()
         except Exception as e:
             print("Exception in logging.shutdown "+str(e))
@@ -191,20 +164,6 @@ class BambuHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
             # Save it
             self.Secrets.SetPrinterId(printerId)
             self.Logger.info("New printer id created: %s", printerId)
-
-        privateKey = self.GetPrivateKey()
-        if HostCommon.IsPrivateKeyValid(privateKey) is False:
-            if privateKey is None:
-                self.Logger.info("No private key was found, generating one now!")
-            else:
-                self.Logger.info("An invalid private key was found [%s], regenerating!", str(privateKey))
-
-            # Make a new, valid, key
-            privateKey = HostCommon.GeneratePrivateKey()
-
-            # Save it
-            self.Secrets.SetPrivateKey(privateKey)
-            self.Logger.info("New private key created.")
 
 
     # Returns None if no printer id has been set.
@@ -257,22 +216,7 @@ class BambuHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
     # StatusChangeHandler Interface - Called by the OctoEverywhere logic when the server connection has been established.
     #
     def OnPrimaryConnectionEstablished(self, octoKey:str, connectedAccounts:List[str]) -> None:
-        self.Logger.info("Primary Connection To OctoEverywhere Established - We Are Ready To Go!")
-
-        # Give the octoKey to who needs it.
-        if self.NotificationHandler is not None:
-            self.NotificationHandler.SetOctoKey(octoKey)
-        else:
-            self.Logger.error("!!! Notification Handler is None, this should never happen !!!")
-
-        # Check if this printer is unlinked, if so add a message to the log to help the user setup the printer if desired.
-        # This would be if the skipped the printer link or missed it in the setup script.
-        if len(connectedAccounts) == 0:
-            printerId = self.GetPrinterId()
-            if printerId is not None:
-                LinkHelper.RunLinkPluginConsolePrinterAsync(self.Logger, printerId, "bambu_host")
-            else:
-                self.Logger.error("Printer is unlinked from OctoEverywhere, but we don't have a printer id? This should never happen!")
+        self.Logger.info("Primary Connection To OctoApp Established - We Are Ready To Go!")
 
 
     #

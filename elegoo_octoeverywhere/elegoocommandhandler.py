@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, Union
-from octoeverywhere.commandhandler import CommandResponse, CommandHandler
-from octoeverywhere.interfaces import IPlatformCommandHandler
+from octoapp.commandhandler import CommandResponse, CommandHandler
+from octoapp.interfaces import IPlatformCommandHandler
 
 from .elegooclient import ElegooClient
 from .elegoomodels import PrinterState

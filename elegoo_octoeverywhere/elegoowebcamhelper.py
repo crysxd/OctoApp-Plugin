@@ -4,9 +4,9 @@ from typing import List, Optional
 
 from linux_host.config import Config
 
-from octoeverywhere.Webcam.webcamsettingitem import WebcamSettingItem
-from octoeverywhere.Webcam.quickcam import QuickCam
-from octoeverywhere.interfaces import IWebcamPlatformHelper
+from octoapp.Webcam.webcamsettingitem import WebcamSettingItem
+from octoapp.Webcam.quickcam import QuickCam
+from octoapp.interfaces import IWebcamPlatformHelper
 
 from .elegooclient import ElegooClient
 

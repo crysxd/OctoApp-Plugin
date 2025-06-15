@@ -2,23 +2,23 @@ import logging
 import traceback
 from typing import Any, Dict, List, Optional
 
-from octoeverywhere.mdns import MDns
-from octoeverywhere.sentry import Sentry
-from octoeverywhere.deviceid import DeviceId
-from octoeverywhere.telemetry import Telemetry
-from octoeverywhere.linkhelper import LinkHelper
-from octoeverywhere.hostcommon import HostCommon
-from octoeverywhere.compression import Compression
-from octoeverywhere.httpsessions import HttpSessions
-from octoeverywhere.octopingpong import OctoPingPong
-from octoeverywhere.printinfo import PrintInfoManager
-from octoeverywhere.commandhandler import CommandHandler
-from octoeverywhere.Webcam.webcamhelper import WebcamHelper
-from octoeverywhere.octoeverywhereimpl import OctoEverywhere
-from octoeverywhere.notificationshandler import NotificationsHandler
-from octoeverywhere.Proto.ServerHost import ServerHost
-from octoeverywhere.compat import Compat
-from octoeverywhere.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
+from octoapp.mdns import MDns
+from octoapp.sentry import Sentry
+from octoapp.deviceid import DeviceId
+from octoapp.telemetry import Telemetry
+from octoapp.linkhelper import LinkHelper
+from octoapp.hostcommon import HostCommon
+from octoapp.compression import Compression
+from octoapp.httpsessions import HttpSessions
+from octoapp.octopingpong import OctoPingPong
+from octoapp.printinfo import PrintInfoManager
+from octoapp.commandhandler import CommandHandler
+from octoapp.Webcam.webcamhelper import WebcamHelper
+from octoapp.octoeverywhereimpl import OctoEverywhere
+from octoapp.notificationshandler import NotificationsHandler
+from octoapp.Proto.ServerHost import ServerHost
+from octoapp.compat import Compat
+from octoapp.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
 
 from linux_host.config import Config
 from linux_host.secrets import Secrets

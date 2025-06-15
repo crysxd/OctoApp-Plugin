@@ -8,7 +8,8 @@ from typing import Any, Dict, List, Optional
 
 import paho.mqtt.client as mqtt
 
-from octoeverywhere.sentry import Sentry
+from octoapp.sentry import Sentry
+from octoapp.logging import LoggerLike
 
 from linux_host.config import Config
 from linux_host.networksearch import NetworkSearch
@@ -37,7 +38,7 @@ class BambuClient:
     _PrintMQTTMessages = False
 
     @staticmethod
-    def Init(logger:logging.Logger, config:Config, stateTranslator:IBambuStateTranslator) -> None:
+    def Init(logger:LoggerLike, config:Config, stateTranslator:IBambuStateTranslator) -> None:
         BambuClient._Instance = BambuClient(logger, config, stateTranslator)
 
 
@@ -46,7 +47,7 @@ class BambuClient:
         return BambuClient._Instance
 
 
-    def __init__(self, logger:logging.Logger, config:Config, stateTranslator:IBambuStateTranslator) -> None:
+    def __init__(self, logger:LoggerLike, config:Config, stateTranslator:IBambuStateTranslator) -> None:
         self.Logger = logger
         self.StateTranslator = stateTranslator # BambuStateTranslator
 
@@ -79,8 +80,6 @@ class BambuClient:
         # Start a thread to setup and maintain the connection.
         self.CurrentConnectionContext:Optional[ConnectionContext] = None
         self.Client:Optional[mqtt.Client] = None
-        t = threading.Thread(target=self._ClientWorker)
-        t.start()
 
 
     # Returns the current local State object which is kept in sync with the printer.
@@ -141,7 +140,7 @@ class BambuClient:
 
 
     # Sets up, runs, and maintains the MQTT connection.
-    def _ClientWorker(self):
+    def RunBlocking(self):
         localBackoffCounter = 0
         while True:
             ipOrHostname:str = "None"
@@ -344,7 +343,7 @@ class BambuClient:
                 raise Exception("Parsed json MQTT message returned None")
 
             # Print for debugging if desired.
-            if BambuClient._PrintMQTTMessages and self.Logger.isEnabledFor(logging.DEBUG):
+            if BambuClient._PrintMQTTMessages:
                 self.Logger.debug("Incoming Bambu Message:\r\n"+json.dumps(msg, indent=3))
 
             # Since we keep a track of the state locally from the partial updates, we need to feed all updates to our state object.
@@ -404,8 +403,7 @@ class BambuClient:
     def _Publish(self, msg:Dict[str, Any]) -> bool:
         try:
             # Print for debugging if desired.
-            if self.Logger.isEnabledFor(logging.DEBUG):
-                self.Logger.debug("Incoming Bambu Message:\r\n"+json.dumps(msg, indent=3))
+            self.Logger.debug("Incoming Bambu Message:\r\n"+json.dumps(msg, indent=3))
 
             # Ensure we are connected.
             if self.Client is None or not self.Client.is_connected():

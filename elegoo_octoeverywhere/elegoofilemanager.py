@@ -3,7 +3,7 @@ import threading
 
 from typing import Any, Dict, List, Optional
 
-from octoeverywhere.sentry import Sentry
+from octoapp.sentry import Sentry
 
 from .elegooclient import ElegooClient
 from .elegoomodels import PrinterState

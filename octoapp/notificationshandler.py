@@ -45,7 +45,6 @@ class NotificationsHandler(INotificationHandler):
         self.Logger = logger
         # On init, set the key to empty.
         self.OctoKey = None
-        self.PrinterId = None
         self.ProtocolAndDomain = None
         self.PrinterStateInterface = printerStateInterface
         self.NotificationSender = NotificationSender(logger=TaggedLoggingAdapter(logger, "SENDER"))

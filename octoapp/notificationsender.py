@@ -571,7 +571,7 @@ class NotificationSender:
     def _doContinuouslyCheckActivitiesExpired(self):
         self.Logger.debug("Checking for expired apps every 60s")
         while True:
-            time.sleep(60)
+            time.sleep(21600)
 
             try:
                 helper = AppStorageHelper.Get()

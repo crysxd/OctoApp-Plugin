@@ -2,9 +2,10 @@ import time
 import logging
 from typing import Any, Dict, Optional, Tuple
 
-from octoeverywhere.notificationshandler import NotificationsHandler
-from octoeverywhere.printinfo import PrintInfoManager
-from octoeverywhere.interfaces import IPrinterStateReporter
+from octoapp.notificationshandler import NotificationsHandler
+from octoapp.printinfo import PrintInfoManager
+from octoapp.interfaces import IPrinterStateReporter
+from octoapp.logging import LoggerLike
 
 from .interfaces import IBambuStateTranslator
 from .bambuclient import BambuClient
@@ -14,7 +15,7 @@ from .bambumodels import BambuState, BambuPrintErrors
 # and to act as the printer state interface for Bambu printers.
 class BambuStateTranslator(IPrinterStateReporter, IBambuStateTranslator):
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
         self.NotificationsHandler:NotificationsHandler = None #pyright: ignore[reportAttributeAccessIssue]
         self.LastState:Optional[str] = None
@@ -240,6 +241,12 @@ class BambuStateTranslator(IPrinterStateReporter, IBambuStateTranslator):
             self.Logger.warning("ShouldPrintingTimersBeRunning is not in a printing state: "+str(gcodeState))
             return False
         return True
+    
+    # ! Interface Function ! The entire interface must change if the function is changed.
+    # Returns 0 or the current progress
+    def GetCurrentProgress(self) -> int:
+        state = BambuClient.Get().GetState() or BambuState()
+        return state.mc_percent or 0
 
 
     # ! Interface Function ! The entire interface must change if the function is changed.

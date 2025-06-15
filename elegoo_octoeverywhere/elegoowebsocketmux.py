@@ -4,10 +4,10 @@ import logging
 import threading
 from typing import Any, Callable, List, Optional, Dict
 
-from octoeverywhere.buffer import Buffer
-from octoeverywhere.Proto.PathTypes import PathTypes
-from octoeverywhere.interfaces import IWebSocketClient, WebSocketOpCode, IRelayWebSocketProvider
-from octoeverywhere.Proto.HttpInitialContext import HttpInitialContext
+from octoapp.buffer import Buffer
+from octoapp.Proto.PathTypes import PathTypes
+from octoapp.interfaces import IWebSocketClient, WebSocketOpCode, IRelayWebSocketProvider
+from octoapp.Proto.HttpInitialContext import HttpInitialContext
 
 from .elegooclient import ElegooClient
 from .interfaces import IWebsocketMux
