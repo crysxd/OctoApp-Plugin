@@ -31,7 +31,7 @@ class TaggedLoggingAdapter(LoggerAdapter):
             self.originalLogger = logger.originalLogger
         else:
             raise Exception("Can't use {logger}")
-        
+
         self.tag: str
         if isinstance(logger, Logger):
             self.tag = tag
