@@ -2,11 +2,12 @@ import threading
 import logging
 from typing import Any, Callable
 
+from .logging import LoggerLike
 from .sentry import Sentry
 
 class RepeatTimer(threading.Thread):
 
-    def __init__(self, logger:logging.Logger, name:str, intervalSec:float, func:Callable[[], None]):
+    def __init__(self, logger:LoggerLike, name:str, intervalSec:float, func:Callable[[], None]):
         threading.Thread.__init__(self, name=name)
         self.stopEvent = threading.Event()
         self.logger = logger

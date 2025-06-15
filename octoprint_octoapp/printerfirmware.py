@@ -1,22 +1,23 @@
 from typing import Dict, Any, Optional
+from logging import Logger
 
 import flask
 
 from octoprint.access.permissions import Permissions
-from octoapp.sentry import Sentry
+from octoapp.logging import LoggerLike
 
-from . import OctoAppPlugin, OctoAppSubPlugin
+from .subplugin import IOctoAppSubPluginParent, OctoAppSubPlugin
 
 
 class OctoAppPrinterFirmwareSubPlugin(OctoAppSubPlugin):
 
-    def __init__(self, parent: OctoAppPlugin):
-        super().__init__(parent)
+    def __init__(self, logger:LoggerLike, parent: IOctoAppSubPluginParent):
+        super().__init__(logger, parent)
         self.firmware_info:Dict[str,Any] = {}
 
 
     def OnFirmwareInfoReceived(self, comm_instance:Any, firmware_name:str, firmware_data:Dict[str,Any], *args:Any, **kwargs:Any):
-        Sentry.Debug("FIRMWARE", "Received firmware info")
+        self.logger.info("Received firmware info")
         self.firmware_info = firmware_data
 
 

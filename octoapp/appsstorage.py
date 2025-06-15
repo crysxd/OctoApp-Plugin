@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import List, Dict, Optional, Any
 import time
 
-from octoapp.sentry import Sentry
+from .logging import LoggerLike
 
 class AppInstance:
 
@@ -113,8 +113,8 @@ class AppStorageHelper:
     _Instance:Optional["AppStorageHelper"] = None
 
     @staticmethod
-    def Init(appStoragePlatformHelper:AppStoragePlatformHelper):
-        AppStorageHelper._Instance = AppStorageHelper(appStoragePlatformHelper)
+    def Init(logger: LoggerLike, appStoragePlatformHelper:AppStoragePlatformHelper):
+        AppStorageHelper._Instance = AppStorageHelper(logger, appStoragePlatformHelper)
 
     @staticmethod
     def Get() -> "AppStorageHelper":
@@ -123,7 +123,8 @@ class AppStorageHelper:
         else:
             raise Exception("AppStorageHelper not intialized")
 
-    def __init__(self, appStoragePlatformHelper:AppStoragePlatformHelper):
+    def __init__(self, logger:LoggerLike, appStoragePlatformHelper:AppStoragePlatformHelper):
+        self.Logger = logger
         self.AppStoragePlatformHelper = appStoragePlatformHelper
 
     def GetAndroidApps(self, apps:List[AppInstance]) -> List[AppInstance]:
@@ -146,29 +147,29 @@ class AppStorageHelper:
 
     def LogApps(self):
         apps = self.GetAllApps()
-        Sentry.Debug("APPS", f"Now {len(apps)} apps registered")
+        self.Logger.debug(f"Now {len(apps)} apps registered")
         for app in apps:
-            Sentry.Debug("APPS", f"     => {app.FcmToken[0:100]}")
+            self.Logger.debug(f"     => {app.FcmToken[0:100]}")
 
     def RemoveTemporaryApps(self, for_instance_id:Optional[str]=None):
         apps = self.GetAllApps()
 
         if for_instance_id is None:
             apps = list(filter(lambda app: app.FcmToken.startswith("activity:"), apps))
-            Sentry.Debug("APPS", "Removed all temporary apps")
+            self.Logger.debug("Removed all temporary apps")
         else:
             apps = list(filter(lambda app: app.FcmToken.startswith("activity:") and app.InstanceId == for_instance_id , apps))
-            Sentry.Debug("APPS", f"Removed all temporary apps for {for_instance_id}")
+            self.Logger.debug(f"Removed all temporary apps for {for_instance_id}")
 
         self.RemoveApps(apps)
 
     def GetAllApps(self) -> List[AppInstance]:
         apps = self.AppStoragePlatformHelper.GetAllApps()
-        Sentry.Debug("APPS", f"Loading {len(apps)} apps")
+        self.Logger.debug(f"Loading {len(apps)} apps")
         return apps
 
     def RemoveApps(self, apps: List[AppInstance]):
-        Sentry.Debug("APPS", f"Removing {len(apps)} apps")
+        self.Logger.debug(f"Removing {len(apps)} apps")
         self.AppStoragePlatformHelper.RemoveApps(apps)
         self.LogApps()
 

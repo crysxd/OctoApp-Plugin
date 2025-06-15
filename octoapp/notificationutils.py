@@ -2,6 +2,7 @@ from typing import IO, Dict, Any
 
 from .sentry import Sentry
 from .layerutils import LayerUtils
+from .logging import LoggerLike
 from .notificationshandler import NotificationsHandler
 
 class NotificationUtils:
@@ -10,13 +11,25 @@ class NotificationUtils:
     FirstLayerCompletedAt = "FirstLayerCompletedAt"
     ThirdLayerCompletedAt = "ThirdLayerCompletedAt"
 
+    _Instance:"NotificationUtils" = None #pyright: ignore[reportAssignmentType]
+
     @staticmethod
-    def CreateNotificationCommand(message:str):
+    def Init(logger:LoggerLike):
+        NotificationUtils._Instance = NotificationUtils(logger)
+
+
+    @staticmethod
+    def Get():
+        return NotificationUtils._Instance
+
+    def __init__(self, logger:LoggerLike) -> None:
+        self.Logger = logger
+
+    def CreateNotificationCommand(self, message:str):
         return NotificationUtils.NotificationCommand + " MESSAGE=" + message
 
 
-    @staticmethod
-    def GetMessageIfNotifyCommand(line:str):
+    def GetMessageIfNotifyCommand(self, line:str):
         def removeQuotes(s:str):
             if s.startswith('"') and s.endswith('"'):
                 return s[1:-1]
@@ -24,19 +37,18 @@ class NotificationUtils:
                 return s[1:-1]
             return s
 
-        base = NotificationUtils.CreateNotificationCommand("")
+        base = self.CreateNotificationCommand("")
         commands = [ base, ";" + base, "; " + base, "M118 E1 " + base]
 
         for command in commands:
             if line.startswith(command):
                 return removeQuotes(line[len(command):])
 
-    @staticmethod
-    def SendScheduledNotifications(notifications: Dict[int, str], notificationHandler: NotificationsHandler, filePos:int, lastFilePos:int):
+    def SendScheduledNotifications(self, notifications: Dict[int, str], notificationHandler: NotificationsHandler, filePos:int, lastFilePos:int):
         for notificationFilePos in notifications:
             if notificationFilePos > lastFilePos and filePos >= notificationFilePos:
                 message = notifications[notificationFilePos]
-                Sentry.Info("NOTIFICATIONS", f"Sending scheduled notification at {filePos}: {message}")
+                self.Logger.info( f"Sending scheduled notification at {filePos}: {message}")
                 if message == NotificationUtils.FirstLayerCompletedAt:
                     notificationHandler.OnFirstLayerDone()
                 elif message == NotificationUtils.ThirdLayerCompletedAt:
@@ -44,8 +56,7 @@ class NotificationUtils:
                 else:
                     notificationHandler.OnCustomNotification(message)
 
-    @staticmethod
-    def ExtractNotifications(response:IO[Any], stopAfterLayer3:bool = False) -> Dict[int, str]:
+    def ExtractNotifications(self, response:IO[Any], stopAfterLayer3:bool = False) -> Dict[int, str]:
         buffer = ""
         filePos = 0
         context:Dict[str,Any] = {}
@@ -57,7 +68,7 @@ class NotificationUtils:
             try:
                 if LayerUtils.IsLayerChange(line, context):
                     if context['layerCounter'] <= 4:
-                        Sentry.Info("NOTIFICATIONS", "Layer " + str(context['layerCounter']) + " completed at at " + str(filePos))
+                        self.Logger.info( "Layer " + str(context['layerCounter']) + " completed at at " + str(filePos))
 
                     if context['layerCounter'] == 1:
                         notifications[filePos] = NotificationUtils.FirstLayerCompletedAt
@@ -69,9 +80,9 @@ class NotificationUtils:
 
                     context['layerCounter'] += 1
 
-                notifyMessage = NotificationUtils.GetMessageIfNotifyCommand(line)
+                notifyMessage = self.GetMessageIfNotifyCommand(line)
                 if notifyMessage is not None:
-                    Sentry.Info("NOTIFICATIONS", "Custom notification at " + str(filePos))
+                    self.Logger.info( "Custom notification at " + str(filePos))
                     notifications[filePos] = notifyMessage
 
             except Exception as e:
@@ -93,7 +104,7 @@ class NotificationUtils:
                 line, buffer = buffer.split('\n', 1)
                 filePos += len(line) + 1 # +1 for \n
                 if processLine(line.strip()) is False:
-                    Sentry.Info("NOTIFICATIONS", "Processing stopped prematurely, all notifications extracted")
+                    self.Logger.info( "Processing stopped prematurely, all notifications extracted")
                     return notifications
 
         if buffer and len(line) > 0:
