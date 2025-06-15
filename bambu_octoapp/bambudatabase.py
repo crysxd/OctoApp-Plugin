@@ -186,24 +186,38 @@ class BambuFtpDatabase:
         self.Logger.debug(f"Reading all with prefix {prefix}")
         ftp = self._GetConnection()
         try:
-            # Get all files with the specified prefix
+            # Get all files
             files:List[str] = []
-            ftp.retrlines(f'NLST .', files.append)
+            file_lines:List[str] = []
+            ftp.retrlines(f'LIST {self.DbPath}', file_lines.append)
+            
+            # Parse LIST output to extract filenames
+            files = []
+            for line in file_lines:
+                # Skip directories (lines starting with 'd')
+                if line.startswith('d'):
+                    continue
+                # Extract filename (last part after splitting by spaces)
+                parts = line.split()
+                if parts:
+                    filename = parts[-1]  # Last part is usually the filename
+                    files.append(filename)
+            
+            # Get all files with the specified prefix
             matching_files = [f for f in files if f.startswith(prefix)]
 
             results:List[Dict[str,Any]] = []
             for filename in matching_files:
                 try:
                     # Download file content
-                    from io import BytesIO
                     data = BytesIO()
-                    ftp.retrbinary(f'RETR {filename}', data.write)
+                    ftp.retrbinary(f'RETR {self._GetDbPath(filename)}', data.write)
 
                     # Parse JSON content
                     content = data.getvalue().decode('utf-8')
                     results.append(json.loads(content))
                 except Exception as e:
-                    print(f"Failed to read {filename}: {e}")
+                    Sentry.ExceptionNoSend(f"Failed to read {filename}", e)
 
             self.Logger.debug(f"Read: {results}")
             return results
