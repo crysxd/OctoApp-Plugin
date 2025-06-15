@@ -45,6 +45,7 @@ class NotificationSender:
     def __init__(self, logger: LoggerLike):
         self.LastPrintState:Dict[str,Any] = {}
         self.LastProgressUpdate = 0
+        self.LastProgressPercent = 0
         self.PrinterName = "Printer"
         self.DefaultConfig = dict(
             updatePercentModulus=5,
@@ -126,6 +127,7 @@ class NotificationSender:
     def _determinePriority(self, event:str, state:Dict[str,Any]):
         if event == self.EVENT_STARTED:
             self.LastProgressUpdate = time.time()
+            self.LastProgressPercent = 0
             return 0
 
         # If the event is not progress, send to all (including time progress)
@@ -150,10 +152,16 @@ class NotificationSender:
         ):
             self.Logger.debug(f"Updating progress in main interval, sending high priotiy update: {progress}")
             self.LastProgressUpdate = time.time()
+            self.LastProgressPercent = progress
+            return 0
+        elif self.LastProgressPercent == 0 and progress != 0:
+            self.Logger.debug(f"First progress that is not 0, sending high priority update")
+            self.LastProgressPercent = progress
             return 0
         elif time_since_last > minIntervalSecs:
             self.Logger.debug(f"Over {time_since_last} sec passed since last progress update, sending high priority update")
             self.LastProgressUpdate = time.time()
+            self.LastProgressPercent = progress
             return 0
         elif time_since_last > (minIntervalSecs / 10):
             self.Logger.debug(f"Over {time_since_last} sec passed since last progress update, sending low priority update")
