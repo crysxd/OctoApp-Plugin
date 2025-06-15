@@ -3,7 +3,7 @@ import os
 import threading
 import time
 import uuid
-from logging import Logger
+
 from typing import Any, Dict, List, Optional
 
 import flask

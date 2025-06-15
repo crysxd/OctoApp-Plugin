@@ -1,7 +1,6 @@
 import os
 import time
 import json
-import logging
 import threading
 from typing import Any, Dict, List, Optional
 

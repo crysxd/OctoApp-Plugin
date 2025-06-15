@@ -1,6 +1,5 @@
 from abc import abstractmethod
 from typing import Optional, Dict, Any
-from logging import Logger
 
 import octoprint.plugin
 import octoprint.printer

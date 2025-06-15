@@ -1,4 +1,3 @@
-import logging
 from typing import Optional, Tuple
 
 from octoapp.logging import LoggerLike

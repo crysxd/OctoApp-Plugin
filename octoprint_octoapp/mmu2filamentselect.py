@@ -1,5 +1,4 @@
 from typing import Dict, Any
-from logging import Logger
 
 from octoapp.logging import LoggerLike
 from octoapp.notificationshandler import NotificationsHandler

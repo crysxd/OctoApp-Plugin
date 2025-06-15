@@ -1,11 +1,9 @@
 import os
 import threading
-import logging
-
+from typing import Optional
 import configparser
 
 from octoapp.logging import LoggerLike
-from typing import Optional
 from .config import Config
 
 # This class is very similar to the config class, but since the klipper config files are often backup in public places, the secrets are stored else where.
