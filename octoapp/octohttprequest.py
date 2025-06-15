@@ -2,6 +2,8 @@ import platform
 import logging
 from typing import Dict, Optional
 
+from octoapp.logging import LoggerLike
+
 from .mdns import MDns
 from .buffer import BufferOrNone
 from .compat import Compat
@@ -9,7 +11,6 @@ from .localip import LocalIpHelper
 from .httpresult import HttpResult
 from .httpsessions import HttpSessions
 from .octostreammsgbuilder import OctoStreamMsgBuilder
-
 from .Proto.PathTypes import PathTypes
 from .Proto.HttpInitialContext import HttpInitialContext
 
@@ -73,7 +74,7 @@ class OctoHttpRequest:
     # The main point of this function is to abstract away the logic around relative paths, absolute URLs, and the fallback logic
     # we use for different ports. See the comments in the function for details.
     @staticmethod
-    def MakeHttpCallOctoStreamHelper(logger:logging.Logger, httpInitialContext:HttpInitialContext, method:str, headers:Dict[str, str], data:BufferOrNone=None) -> Optional[HttpResult]:
+    def MakeHttpCallOctoStreamHelper(logger:LoggerLike, httpInitialContext:HttpInitialContext, method:str, headers:Dict[str, str], data:BufferOrNone=None) -> Optional[HttpResult]:
         # Get the vars we need from the octostream initial context.
         path = OctoStreamMsgBuilder.BytesToString(httpInitialContext.Path())
         if path is None:
@@ -89,7 +90,7 @@ class OctoHttpRequest:
     # The X-Forwarded-Host header will tell the OctoPrint server the correct place to set the location redirect header.
     # However, for calls that aren't proxy calls, things like local snapshot requests and such, we want to allow redirects to be more robust.
     @staticmethod
-    def MakeHttpCall(logger:logging.Logger, pathOrUrl:str, pathOrUrlType:int, method:str, headers:Optional[Dict[str, str]]=None, data:BufferOrNone=None, allowRedirects=False) -> Optional[HttpResult]:
+    def MakeHttpCall(logger:LoggerLike, pathOrUrl:str, pathOrUrlType:int, method:str, headers:Optional[Dict[str, str]]=None, data:BufferOrNone=None, allowRedirects=False) -> Optional[HttpResult]:
         # First of all, we need to figure out what the URL is. There are two options
         #
         # 1) Absolute URLs
@@ -300,7 +301,7 @@ class OctoHttpRequest:
 
     # This function should always return a AttemptResult object.
     @staticmethod
-    def MakeHttpCallAttempt(logger:logging.Logger, attemptName:str, method:str, url:str, headers:Optional[Dict[str,str]], data:BufferOrNone, mainResult:Optional[HttpResult], isFallback:bool, nextFallbackUrl:Optional[str], allowRedirects:bool=False) -> AttemptResult:
+    def MakeHttpCallAttempt(logger:LoggerLike, attemptName:str, method:str, url:str, headers:Optional[Dict[str,str]], data:BufferOrNone, mainResult:Optional[HttpResult], isFallback:bool, nextFallbackUrl:Optional[str], allowRedirects:bool=False) -> AttemptResult:
         # The requests lib can accept any "byte like" object. We use this to force the type to be bytes, so pyright is happy.
         dataBuffer:Optional[bytes] = None if data is None else data.GetBytesLike() #pyright: ignore[reportAssignmentType]
 

@@ -6,7 +6,7 @@ import threading
 from typing import Any, Dict, List, Optional
 
 import dns.resolver
-
+from octoapp.logging import LoggerLike
 from .localip import LocalIpHelper
 
 # A helper class to resolve mdns domain names to IP addresses, since the request lib doesn't support
@@ -29,7 +29,7 @@ class MDns:
 
 
     @staticmethod
-    def Init(logger:logging.Logger, pluginDataFolderPath:str) -> None:
+    def Init(logger:LoggerLike, pluginDataFolderPath:str) -> None:
         MDns._Instance = MDns(logger, pluginDataFolderPath)
 
 
@@ -38,7 +38,7 @@ class MDns:
         return MDns._Instance
 
 
-    def __init__(self, logger:logging.Logger, pluginDataFolderPath:str) -> None:
+    def __init__(self, logger:LoggerLike, pluginDataFolderPath:str) -> None:
         self.Logger = logger
 
         # Init our DNS name cache.

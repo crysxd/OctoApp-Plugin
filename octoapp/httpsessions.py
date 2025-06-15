@@ -2,6 +2,8 @@ import logging
 import threading
 from typing import Dict
 
+from octoapp.logging import LoggerLike
+
 import requests
 from requests import Session
 
@@ -12,7 +14,7 @@ class HttpSessions:
     _Instance:"HttpSessions" = None #pyright: ignore[reportAssignmentType]
 
     @staticmethod
-    def Init(logger:logging.Logger):
+    def Init(logger:LoggerLike):
         HttpSessions._Instance = HttpSessions(logger)
 
 
@@ -21,7 +23,7 @@ class HttpSessions:
         return HttpSessions._Instance
 
 
-    def __init__(self, logger:logging.Logger):
+    def __init__(self, logger:LoggerLike):
         self.Logger = logger
         self.Sessions:Dict[str, Session] = {}
         self.SessionsLock = threading.Lock()

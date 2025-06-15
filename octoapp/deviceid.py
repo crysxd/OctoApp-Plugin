@@ -5,6 +5,8 @@ import platform
 import subprocess
 from typing import Optional
 
+from octoapp.logging import LoggerLike
+
 from .sentry import Sentry
 
 # A class that tries to get a unique id per device that doesn't change, ideally even when the OS is re-installed.
@@ -14,7 +16,7 @@ class DeviceId:
     _Instance:"DeviceId" = None #pyright: ignore[reportAssignmentType]
 
     @staticmethod
-    def Init(logger: logging.Logger):
+    def Init(logger: LoggerLike):
         DeviceId._Instance = DeviceId(logger)
 
 
@@ -23,7 +25,7 @@ class DeviceId:
         return DeviceId._Instance
 
 
-    def __init__(self, logger: logging.Logger) -> None:
+    def __init__(self, logger: LoggerLike) -> None:
         self.Logger = logger
 
 

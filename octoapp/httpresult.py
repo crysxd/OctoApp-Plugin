@@ -4,6 +4,7 @@ from typing import Any, Callable, Dict, Optional, Union
 
 import requests
 from requests.structures import CaseInsensitiveDict
+from octoapp.logging import LoggerLike
 
 from .buffer import Buffer, ByteLike
 from .Proto.DataCompression import DataCompression
@@ -153,7 +154,7 @@ class HttpResult():
     # as long as the stream will go.
     # This function will not throw on failures, it will read as much as it can and then set the buffer.
     # On a complete failure, the buffer will be set to None, so that should be checked.
-    def ReadAllContentFromStreamResponse(self, logger:logging.Logger) -> None:
+    def ReadAllContentFromStreamResponse(self, logger:LoggerLike) -> None:
         # Ensure we have a stream to read.
         if self._requestLibResponseObj is None:
             raise Exception("ReadAllContentFromStreamResponse was called on a result with no request lib Response object.")

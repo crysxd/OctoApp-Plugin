@@ -2,6 +2,8 @@ import os
 import subprocess
 import logging
 
+from octoapp.logging import LoggerLike
+
 class SystemConfigManager:
 
     # This can't change or it will break old installs.
@@ -11,7 +13,7 @@ class SystemConfigManager:
     # This also write a block that's used to allow the announcement system to show updates from our repo.
     # This function ensures they exist and are up to date. If not, they are fixed.
     @staticmethod
-    def EnsureUpdateManagerFilesSetup(logger:logging.Logger, klipperConfigDir:str, serviceName:str, pyVirtEnvRoot:str, repoRoot:str):
+    def EnsureUpdateManagerFilesSetup(logger:LoggerLike, klipperConfigDir:str, serviceName:str, pyVirtEnvRoot:str, repoRoot:str):
 
         # Special case for K1 and K1 max setups. If the service file name is the special init.d name, we can just use
         # the started "octoapp" and the update manager will find the right service to manage.
@@ -76,18 +78,18 @@ subscriptions:
             with open(oeUpdateConfigFile, "r", encoding="utf-8") as file:
                 existingFileContents = file.read()
                 if existingFileContents == expectedUpdateFileContent:
-                    logger.info("Config manager", "Existing update config file found with the correct file contents.")
+                    logger.info("Existing update config file found with the correct file contents.")
                     return
 
         # We need to create or update the file.
         with open(oeUpdateConfigFile, "w", encoding="utf-8") as file:
             file.write(expectedUpdateFileContent)
-        logger.info("Config manager", "No update config found or it was out of date, writing a new file.")
+        logger.info("No update config found or it was out of date, writing a new file.")
 
         # Whenever we update the file on disk, also restart moonraker so that it reads it and
         # pull the update information into the update manager. It's safe to restart moonraker during a print
         # so this won't effect anything.
-        logger.info("Config manager", "No config file was found on disk, so we are going to attempt to restart moonraker.")
+        logger.info("No config file was found on disk, so we are going to attempt to restart moonraker.")
         try:
             SystemConfigManager._RunShellCommand("systemctl restart moonraker")
         except Exception as e:
@@ -99,7 +101,7 @@ subscriptions:
     # Details: https://moonraker.readthedocs.io/en/latest/configuration/#allowed-services
     # TODO - Eventually we will get our PR in that will add this to moonraker's default list.
     @staticmethod
-    def EnsureAllowedServicesFile(logger:logging.Logger, klipperConfigDir:str, serviceName:str) -> None:
+    def EnsureAllowedServicesFile(logger:LoggerLike, klipperConfigDir:str, serviceName:str) -> None:
         # Make the expected file path, it should be one folder up from the config folder
         dataRootDir = os.path.abspath(os.path.join(klipperConfigDir, os.pardir))
         allowedServiceFile = os.path.join(dataRootDir, "moonraker.asvc")
@@ -107,7 +109,7 @@ subscriptions:
         # Test if we have a file.
         if os.path.exists(allowedServiceFile) is False:
             # This isn't the end of the world, so don't worry about it
-            logger.info("Config Manager", "Failed to find moonraker allowed services file.")
+            logger.info("Failed to find moonraker allowed services file.")
             return
 
         # Check if we are already in the file.
@@ -132,7 +134,7 @@ subscriptions:
 
 
     @staticmethod
-    def _ensureMoonrakerConfigHasUpdateConfigInclude(klipperConfigDir:str, logger:logging.Logger):
+    def _ensureMoonrakerConfigHasUpdateConfigInclude(klipperConfigDir:str, logger:LoggerLike):
         # Create the path where we should find the file, and make sure it exists. If not throw, so things blow up.
         moonrakerConfigFileName = "moonraker.conf"
         moonrakerConfigFilePath = os.path.join(klipperConfigDir, moonrakerConfigFileName)

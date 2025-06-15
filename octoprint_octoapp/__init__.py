@@ -96,10 +96,6 @@ class OctoAppPlugin(IOctoAppSubPluginParent):
         # Hook up events
         self._printer.register_callback(self)  # type: ignore
 
-        # Init print info and utils
-        NotificationUtils.Init(TaggedLoggingAdapter(self._logger, "NOTIFICATIONS/UTILS"))
-        PrintInfoManager.Init(TaggedLoggingAdapter(self._logger, "PRINT"), self.get_plugin_data_folder())
-
 
     # Mixin method
     def on_after_startup(self):

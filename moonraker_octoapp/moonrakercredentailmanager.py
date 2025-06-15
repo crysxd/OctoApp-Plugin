@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 import configparser
 
+from octoapp.logging import LoggerLike, TaggedLoggingAdapter
 from octoapp.sentry import Sentry
 from octoapp.Proto.PathTypes import PathTypes
 from octoapp.octohttprequest import OctoHttpRequest
@@ -35,7 +36,7 @@ class MoonrakerCredentialManager:
 
 
     @staticmethod
-    def Init(logger:logging.Logger, moonrakerConfigFilePath:Optional[str], isCompanionMode:bool):
+    def Init(logger:LoggerLike, moonrakerConfigFilePath:Optional[str], isCompanionMode:bool):
         MoonrakerCredentialManager._Instance = MoonrakerCredentialManager(logger, moonrakerConfigFilePath, isCompanionMode)
 
 
@@ -44,7 +45,7 @@ class MoonrakerCredentialManager:
         return MoonrakerCredentialManager._Instance
 
 
-    def __init__(self, logger:logging.Logger, moonrakerConfigFilePath:Optional[str], isCompanionMode:bool) -> None:
+    def __init__(self, logger:LoggerLike, moonrakerConfigFilePath:Optional[str], isCompanionMode:bool) -> None:
         self.Logger = logger
         self.MoonrakerConfigFilePath = moonrakerConfigFilePath
         self.IsCompanionMode = isCompanionMode
@@ -59,14 +60,15 @@ class MoonrakerCredentialManager:
                 headers["X-Api-Key"] = apiKey
 
             # Make the call
-            result = OctoHttpRequest.MakeHttpCall(self.Logger, "/access/oneshot_token", PathTypes.Relative, "GET", headers)
+            taggedLogger = TaggedLoggingAdapter(self.Logger, "HTTP")
+            result = OctoHttpRequest.MakeHttpCall(taggedLogger, "/access/oneshot_token", PathTypes.Relative, "GET", headers)
             if result is None:
                 raise Exception("Failed to get the oneshot token from moonraker.")
             if result.StatusCode != 200:
                 raise Exception("Failed to get the oneshot token from moonraker. "+str(result.StatusCode))
 
             # Read the response.
-            result.ReadAllContentFromStreamResponse(self.Logger)
+            result.ReadAllContentFromStreamResponse(taggedLogger)
             buf = result.FullBodyBuffer
             if buf is None:
                 raise Exception("Failed to get the oneshot token from moonraker. No content.")

@@ -3,6 +3,8 @@ import threading
 import logging
 
 import configparser
+
+from octoapp.logging import LoggerLike
 from typing import Optional
 from .config import Config
 
@@ -25,7 +27,7 @@ class Secrets:
     ]
 
 
-    def __init__(self, logger:logging.Logger, octoAppStoragePath:str, moonrakerConfig:Optional[Config]=None) -> None:
+    def __init__(self, logger:LoggerLike, octoAppStoragePath:str, moonrakerConfig:Optional[Config]=None) -> None:
         self.Logger = logger
 
         # Note this path and name MUST STAY THE SAME because the installer PY script looks for this file.

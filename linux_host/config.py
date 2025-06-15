@@ -1,10 +1,10 @@
 import logging
 import os
 import threading
-
 from typing import List, Optional
-
 import configparser
+
+from octoapp.logging import LoggerLike
 
 # This is what we use as our important settings config.
 # This single config class is used for all of the plugin types, but not all of the values are used for each type.
@@ -120,7 +120,7 @@ class Config:
 
 
     def __init__(self, configDirPath:str) -> None:
-        self.Logger:logging.Logger = None #pyright: ignore[reportAttributeAccessIssue]
+        self.Logger:LoggerLike = None #pyright: ignore[reportAttributeAccessIssue]
         # Define our config path
         # Note this path and name MUST STAY THE SAME because the installer PY script looks for this file.
         self.OeConfigFilePath = Config.GetConfigFilePath(configDirPath)
@@ -139,7 +139,7 @@ class Config:
 
 
     # Allows the logger to be set when it's created.
-    def SetLogger(self, logger:logging.Logger) -> None:
+    def SetLogger(self, logger:LoggerLike) -> None:
         self.Logger = logger
 
 
