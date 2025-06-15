@@ -216,6 +216,8 @@ class PrintInfoManager:
     # Clears all print infos. Note this should only be used when we absolutely know this is a new print start,
     # like on a new print start or something.
     def ClearAllPrintInfos(self) -> None:
+        self.Logger.info("Removing all print infos")
+        self.CurrentContext = None
         try:
             dirAndFiles = os.listdir(self.ContextFolderPath)
             for name in dirAndFiles:

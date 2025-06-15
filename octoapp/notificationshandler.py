@@ -191,6 +191,7 @@ class NotificationsHandler(INotificationHandler):
                 return
             else:
                 self.Logger.info("Restore client sync state: There's no print and none of the timers are running.")
+                PrintInfoManager.Get().ClearAllPrintInfos()
                 return
 
 
@@ -337,7 +338,7 @@ class NotificationsHandler(INotificationHandler):
         args = {}
         if reason is not None:
             args["Reason"] = reason
-        self._sendEvent("failed", args)
+        self._sendEvent(NotificationSender.EVENT_ERROR, args)
 
 
     # Fired when a print done
@@ -350,7 +351,7 @@ class NotificationsHandler(INotificationHandler):
         self.StopTimers()
         self._cancelDelayedPause()
         self.BedCooldownWatcher.Start()
-        self._sendEvent(NotificationSender.EVENT_DONE, useFinalSnapSnapshot=True)
+        self._sendEvent(NotificationSender.EVENT_DONE, terminalNotification=True)
 
 
     # Fired when a print is paused
@@ -446,7 +447,7 @@ class NotificationsHandler(INotificationHandler):
         if self._shouldSendSpammyEvent("on-error"+str(error), 30.0) is False:
             return
 
-        self._sendEvent(NotificationSender.EVENT_ERROR, {"Error": error })
+        self._sendEvent(event=NotificationSender.EVENT_ERROR, args={"Error": error }, terminalNotification=True)
 
 
     # Fired when the waiting command is received from the printer.
@@ -691,19 +692,19 @@ class NotificationsHandler(INotificationHandler):
 
     # Sends the event
     # Returns True on success, otherwise False
-    def _sendEvent(self, event:str, args:Optional[Dict[str,str]]=None, progressOverwriteFloat:Optional[float]=None, useFinalSnapSnapshot=False):
+    def _sendEvent(self, event:str, args:Optional[Dict[str,str]]=None, progressOverwriteFloat:Optional[float]=None, terminalNotification=False):
         # Push the work off to a thread so we don't hang OctoPrint's plugin callbacks.
-        thread = threading.Thread(target=self._sendEventThreadWorker, args=(event, args, progressOverwriteFloat, useFinalSnapSnapshot, ), name="NotificationsHandler._sendEvent")
+        thread = threading.Thread(target=self._sendEventThreadWorker, args=(event, args, progressOverwriteFloat, terminalNotification, ), name="NotificationsHandler._sendEvent")
         thread.start()
         return True
 
 
     # Sends the event
     # Returns True on success, otherwise False
-    def _sendEventThreadWorker(self, event:str, args:Optional[Dict[str,str]]=None, progressOverwriteFloat:Optional[float]=None, useFinalSnapSnapshot=False):
+    def _sendEventThreadWorker(self, event:str, args:Optional[Dict[str,str]]=None, progressOverwriteFloat:Optional[float]=None, terminalNotification=False):
         try:
             # Build the common even args.
-            requestArgs = self.BuildCommonEventArgs(event, args, progressOverwriteFloat=progressOverwriteFloat, useFinalSnapSnapshot=useFinalSnapSnapshot)
+            requestArgs = self.BuildCommonEventArgs(event, args, progressOverwriteFloat=progressOverwriteFloat)
 
             # Handle the result indicating we don't have the proper var to send yet.
             if requestArgs is None:
@@ -755,6 +756,9 @@ class NotificationsHandler(INotificationHandler):
 
         except Exception as e:
             Sentry.ExceptionNoSend("NotificationsHandler failed to send event code "+str(event), e)
+        finally:
+            if terminalNotification:
+                PrintInfoManager.Get().ClearAllPrintInfos()
 
         return False
 

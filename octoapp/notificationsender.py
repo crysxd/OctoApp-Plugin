@@ -238,7 +238,7 @@ class NotificationSender:
                 eventType = "printing"
             elif event == self.EVENT_FIRST_LAYER_DONE:
                 eventType = "first_layer_done"
-            elif event == self.EVENT_FIRST_LAYER_DONE:
+            elif event == self.EVENT_THIRD_LAYER_DONE:
                 eventType = "third_layer_done"
             elif event == self.EVENT_PAUSED:
                 eventType = "paused"
@@ -258,6 +258,8 @@ class NotificationSender:
                 eventType = "idle"
             elif event == self.EVENT_CUSTOM:
                 eventType = "custom"
+            else: 
+                self.Logger.error(f"Unhandled event: {event}")
 
             data = {
                 "serverTime": int(time.time()),
