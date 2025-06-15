@@ -2,10 +2,10 @@ from typing import Any, Union
 from logging import LoggerAdapter, Logger
 
 class LoggerLike:
-    def info(self, msg: Any, *args: Any, **kwargs: Any) -> None: 
+    def info(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         pass
 
-    def error(self, msg: Any, *args: Any, **kwargs: Any) -> None: 
+    def error(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         pass
 
     def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
