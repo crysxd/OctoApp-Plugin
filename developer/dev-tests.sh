@@ -11,8 +11,8 @@ echo "Running pylint on the Moonraker Module..."
 pylint --disable=import-error ./moonraker_octoapp/
 # echo "Running pylint on the Elegoo Module..."
 # pylint ./elegoo_octoapp/
-# echo "Running pylint on the Bambu Module..."
-# pylint ./bambu_octoapp/
+echo "Running pylint on the Bambu Module..."
+pylint --disable=import-error ./bambu_octoapp/
 echo "Running pylint on the Linux Host Module..."
 pylint --disable=import-error ./linux_host/
 echo "Running pylint on the Installer Module..."

@@ -2,7 +2,6 @@ import json
 import time
 import threading
 import ftplib
-import json
 import ssl
 import uuid
 from io import BytesIO
@@ -39,8 +38,8 @@ class BambuFtpDatabase:
         encryptionKeyName = "enctypion_key"
 
         if self.CachedEncryptionKey is not None:
-           self.Logger.debug("Reusing cached")
-           return self.CachedEncryptionKey
+            self.Logger.debug("Reusing cached")
+            return self.CachedEncryptionKey
 
         self.Logger.debug("Checking if in database...")
         if encryptionKeyName in self._ListDatabaseEntries():
@@ -91,7 +90,7 @@ class BambuFtpDatabase:
         while True:
             try:
                 self._WriteDatabaseFile(
-                    name=f"plugin",
+                    name="plugin",
                     content={
                         "pluginVersion": self.PluginVersion,
                         "lastSeen": time.time(),
@@ -132,13 +131,13 @@ class BambuFtpDatabase:
             # Convert string to bytes and upload
             json_content = json.dumps(content)
             data = BytesIO(json_content.encode('utf-8'))
-            
+
             # Esnure dir exists
             try:
                 ftp.cwd(self.DbPath)
             except ftplib.error_perm as e:
                 if "550" in str(e):  # Directory not found or empty
-                    self.Logger.debug(f"Database folder missing, creating new one...")
+                    self.Logger.debug("Database folder missing, creating new one...")
                     ftp.mkd(self.DbPath)
 
             ftp.storbinary(f'STOR {self._GetDbPath(name)}', data)
@@ -151,11 +150,11 @@ class BambuFtpDatabase:
         finally:
             try:
                 ftp.quit()
-            except:
+            except Exception:
                 # Ignore quit errors - common with SSL timeout issues
                 try:
                     ftp.close()
-                except:
+                except Exception:
                     pass
 
 
@@ -190,7 +189,7 @@ class BambuFtpDatabase:
             files:List[str] = []
             file_lines:List[str] = []
             ftp.retrlines(f'LIST {self.DbPath}', file_lines.append)
-            
+
             # Parse LIST output to extract filenames
             files = []
             for line in file_lines:
@@ -202,7 +201,7 @@ class BambuFtpDatabase:
                 if parts:
                     filename = parts[-1]  # Last part is usually the filename
                     files.append(filename)
-            
+
             # Get all files with the specified prefix
             matching_files = [f for f in files if f.startswith(prefix)]
 
@@ -227,7 +226,7 @@ class BambuFtpDatabase:
 
     def _ListDatabaseEntries(self) -> List[str]:
         """List filenames in the specified directory."""
-        self.Logger.debug(f"Listing database")
+        self.Logger.debug("Listing database")
         ftp = self._GetConnection()
         try:
             # Get directory listing
@@ -264,31 +263,25 @@ class BambuFtpDatabase:
 
 
 class ImplicitFTP_TLS(ftplib.FTP_TLS):
-    """
-    FTP_TLS subclass that automatically wraps sockets in SSL to support implicit FTPS.
-    see https://stackoverflow.com/a/36049814
-    """
     def __init__(self, *args, **kwargs): # type: ignore
         super().__init__(*args, **kwargs)
         self._sock = None
 
     @property
     def sock(self): # type: ignore
-        """Return the socket."""
-        return self._sock# type: ignore
- 
+        return self._sock # type: ignore
+
     @sock.setter
     def sock(self, value): # type: ignore
-        """When modifying the socket, ensure that it is ssl wrapped."""
         if value is not None and not isinstance(value, ssl.SSLSocket):
             value = self.context.wrap_socket(value)
         self._sock = value # type: ignore
 
-    """
-    Increases relability with some printers
-    Courtesy @WolfwithSword
-    """
     def ntransfercmd(self, cmd, rest=None):
+        """
+        Increases relability with some printers
+        Courtesy @WolfwithSword
+        """
         conn, size = ftplib.FTP.ntransfercmd(self, cmd, rest)
         if self._prot_p: # type: ignore
             session = self.sock.session # type: ignore

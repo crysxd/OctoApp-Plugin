@@ -11,7 +11,6 @@ from octoapp.httpsessions import HttpSessions
 from octoapp.printinfo import PrintInfoManager
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.octohttprequest import OctoHttpRequest
-from octoapp.Proto.ServerHost import ServerHost
 from octoapp.compat import Compat
 from octoapp.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
 from octoapp.logging import TaggedLoggingAdapter

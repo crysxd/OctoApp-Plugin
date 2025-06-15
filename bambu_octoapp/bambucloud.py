@@ -1,7 +1,6 @@
 import json
 import codecs
 import base64
-import logging
 import threading
 from enum import Enum
 from typing import Any, Dict, List, Optional

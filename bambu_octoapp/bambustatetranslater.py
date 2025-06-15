@@ -1,5 +1,4 @@
 import time
-import logging
 from typing import Any, Dict, Optional, Tuple
 
 from octoapp.notificationshandler import NotificationsHandler
@@ -241,7 +240,7 @@ class BambuStateTranslator(IPrinterStateReporter, IBambuStateTranslator):
             self.Logger.warning("ShouldPrintingTimersBeRunning is not in a printing state: "+str(gcodeState))
             return False
         return True
-    
+
     # ! Interface Function ! The entire interface must change if the function is changed.
     # Returns 0 or the current progress
     def GetCurrentProgress(self) -> int:

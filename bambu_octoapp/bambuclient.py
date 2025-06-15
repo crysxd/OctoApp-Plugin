@@ -1,4 +1,3 @@
-import logging
 import ssl
 import time
 import json

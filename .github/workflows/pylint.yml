@@ -40,7 +40,7 @@ jobs:
         pylint --disable=import-error ./octoprint_octoapp/
         pylint --disable=import-error ./moonraker_octoapp/
         # pylint --disable=import-error ./elegoo_octoapp/
-        # pylint --disable=import-error ./bambu_octoapp/
+        pylint --disable=import-error ./bambu_octoapp/
         pylint --disable=import-error ./linux_host/
         pylint --disable=import-error ./py_installer/
 
