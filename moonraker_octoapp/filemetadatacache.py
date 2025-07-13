@@ -1,23 +1,28 @@
-from octoapp.sentry import Sentry
+from typing import Optional, Tuple
+
+from octoapp.logging import LoggerLike
+
+from .interfaces import IMoonrakerClient
 
 # A helper class that caches known file metadata info, so we don't have to pull it often.
 class FileMetadataCache:
 
-    _Instance = None
+    _Instance:"FileMetadataCache" = None #pyright: ignore[reportAssignmentType]
 
     @staticmethod
-    def Init(moonrakerClient):
-        FileMetadataCache._Instance = FileMetadataCache(moonrakerClient)
+    def Init(logger:LoggerLike, moonrakerClient:IMoonrakerClient) -> None:
+        FileMetadataCache._Instance = FileMetadataCache(logger, moonrakerClient)
 
 
     @staticmethod
-    def Get():
+    def Get() -> "FileMetadataCache":
         return FileMetadataCache._Instance
 
 
-    def __init__(self, moonrakerClient) -> None:
+    def __init__(self, logger:LoggerLike, moonrakerClient:IMoonrakerClient) -> None:
+        self.Logger = logger
         self.MoonrakerClient = moonrakerClient
-        self.FileName:str = None
+        self.FileName:Optional[str] = None
         self.EstimatedPrintTimeSec:float = -1.0
         self.EstimatedFilamentUsageMm:int = -1
         self.FileSizeKBytes:int = -1
@@ -30,7 +35,7 @@ class FileMetadataCache:
 
 
     # Clears the cache from all current values.
-    def ResetCache(self):
+    def ResetCache(self) -> None:
         self.FileName = None
         self.EstimatedPrintTimeSec = -1.0
         self.EstimatedFilamentUsageMm = -1
@@ -44,7 +49,7 @@ class FileMetadataCache:
 
     # If the estimated time for the print can be gotten from the file metadata, this will return it.
     # It it's not known, returns -1.0
-    def GetEstimatedPrintTimeSec(self, filename:str) -> float:
+    def GetEstimatedPrintTimeSec(self, filename: str) -> float:
         # Check to see if we have checked for this file before.
         if self.FileName is not None:
             # Check if it's the same file, case sensitive.
@@ -95,7 +100,7 @@ class FileMetadataCache:
 
     # If the file size can be gotten from the file metadata, this will return it.
     # Any of the values will return -1 if they are unknown.
-    def GetLayerInfo(self, filename:str):
+    def GetLayerInfo(self, filename:str) -> Tuple[float, float, float, float]:
         # Check to see if we have checked for this file before.
         if self.FileName is not None:
             # Check if it's the same file, case sensitive.
@@ -108,8 +113,8 @@ class FileMetadataCache:
 
         # Return the value, which could still be -1 if it failed.
         return (self.LayerCount, self.LayerHeight, self.FirstLayerHeight, self.ObjectHeight)
-    
-    
+
+
     # If the file size can be gotten from the file metadata, this will return it.
     # Any of the values will return -1 if they are unknown.
     def GetModified(self, filename:str):
@@ -125,13 +130,17 @@ class FileMetadataCache:
 
         # Return the value, which could still be -1 if it failed.
         return self.Modified
-    
+
 
     # Does a refresh of the file name metadata cache.
     def _RefreshFileMetaDataCache(self, filename:str) -> None:
 
         # Reset everything.
         self.ResetCache()
+
+        # Sanity check
+        if filename is None or filename == "":
+            return
 
         # Make the call.
         result = self.MoonrakerClient.SendJsonRpcRequest("server.files.metadata",
@@ -141,7 +150,7 @@ class FileMetadataCache:
 
         # If we fail this call, just return, which will keep the cache invalid.
         if result.HasError():
-            Sentry.Error("Metadata Cache", "_RefreshFileMetaDataCache failed to get file meta. "+result.GetLoggingErrorStr())
+            self.Logger.error("_RefreshFileMetaDataCache failed to get file meta. "+result.GetLoggingErrorStr())
             return
 
         # If we got here, we know we got a good result.
@@ -184,4 +193,4 @@ class FileMetadataCache:
                 self.ObjectHeight = value
 
 
-        Sentry.Info("Metadata Cache", f"FileMetadataCache updated for file [{filename}]; est time: {str(self.EstimatedPrintTimeSec)}, size: {str(self.FileSizeKBytes)}, filament usage: {str(self.EstimatedFilamentUsageMm)}")
+        self.Logger.info(f"FileMetadataCache updated for file [{filename}]; est time: {str(self.EstimatedPrintTimeSec)}, size: {str(self.FileSizeKBytes)}, filament usage: {str(self.EstimatedFilamentUsageMm)}")

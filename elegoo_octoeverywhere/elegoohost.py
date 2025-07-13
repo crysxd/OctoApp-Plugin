@@ -1,0 +1,292 @@
+import logging
+import traceback
+from typing import Any, Dict, List, Optional
+
+from octoapp.mdns import MDns
+from octoapp.sentry import Sentry
+from octoapp.deviceid import DeviceId
+from octoapp.telemetry import Telemetry
+from octoapp.linkhelper import LinkHelper
+from octoapp.hostcommon import HostCommon
+from octoapp.compression import Compression
+from octoapp.httpsessions import HttpSessions
+from octoapp.octopingpong import OctoPingPong
+from octoapp.printinfo import PrintInfoManager
+from octoapp.commandhandler import CommandHandler
+from octoapp.Webcam.webcamhelper import WebcamHelper
+from octoapp.octoeverywhereimpl import OctoEverywhere
+from octoapp.notificationshandler import NotificationsHandler
+from octoapp.Proto.ServerHost import ServerHost
+from octoapp.compat import Compat
+from octoapp.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
+
+from linux_host.config import Config
+from linux_host.secrets import Secrets
+from linux_host.version import Version
+from linux_host.logger import LoggerInit
+
+
+from .slipstream import Slipstream
+from .elegooclient import ElegooClient
+from .elegoofilemanager import ElegooFileManager
+from .elegoowebsocketmux import ElegooWebsocketMux
+from .elegoowebcamhelper import ElegooWebcamHelper
+from .elegoocommandhandler import ElegooCommandHandler
+from .elegoostatetranslater import ElegooStateTranslator
+from .elegoorelaywebcamurldetector import ElegooRelayWebcamUrlDetector
+
+# This file is the main host for the elegoo os service.
+class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
+
+    def __init__(self, configDir:str, logDir:str, devConfig:Optional[Dict[str, Any]]) -> None:
+        # When we create our class, make sure all of our core requirements are created.
+        self.Secrets:Secrets = None #pyright: ignore[reportAttributeAccessIssue]
+        self.NotificationHandler:NotificationsHandler = None #pyright: ignore[reportAttributeAccessIssue]
+
+        # Let the compat system know this is an elegoo host.
+        Compat.SetIsElegooOs(True)
+
+        try:
+            # First, we need to load our config.
+            # Note that the config MUST BE WRITTEN into this folder, that's where the setup installer is going to look for it.
+            # If this fails, it will throw.
+            self.Config = Config(configDir)
+
+            # Setup the logger.
+            logLevelOverride = self.GetDevConfigStr(devConfig, "LogLevel")
+            self.Logger = LoggerInit.GetLogger(self.Config, logDir, logLevelOverride)
+            self.Config.SetLogger(self.Logger)
+
+            # Give the logger to Sentry ASAP.
+            Sentry.SetLogger(self.Logger)
+
+        except Exception as e:
+            tb = traceback.format_exc()
+            print("Failed to init Elegoo Host! "+str(e) + "; "+str(tb))
+            # Raise the exception so we don't continue.
+            raise
+
+
+    def RunBlocking(self, configPath:str, localStorageDir:str, repoRoot:str, devConfig:Optional[Dict[str, Any]]) -> None:
+        # Do all of this in a try catch, so we can log any issues before exiting
+        try:
+            self.Logger.info("####################################################")
+            self.Logger.info("#### OctoEverywhere Elegoo OS Connect Starting #####")
+            self.Logger.info("####################################################")
+
+            # Find the version of the plugin, this is required and it will throw if it fails.
+            pluginVersionStr = Version.GetPluginVersion(repoRoot)
+            self.Logger.info("Plugin Version: %s", pluginVersionStr)
+
+            # Setup the HttpSession cache early, so it can be used whenever
+            HttpSessions.Init(self.Logger)
+
+            # As soon as we have the plugin version, setup Sentry
+            # Enabling profiling and no filtering, since we are the only PY in this process.
+            Sentry.Setup(pluginVersionStr, "elegoo", devConfig is not None, enableProfiling=True, filterExceptionsByPackage=False, restartOnCantCreateThreadBug=True)
+
+            # Before the first time setup, we must also init the Secrets class and do the migration for the printer id and private key, if needed.
+            self.Secrets = Secrets(self.Logger, localStorageDir)
+
+            # Now, detect if this is a new instance and we need to init our global vars. If so, the setup script will be waiting on this.
+            self.DoFirstTimeSetupIfNeeded()
+
+            # Get our required vars
+            printerId = self.GetPrinterId()
+            privateKey = self.GetPrivateKey()
+            if printerId is None or privateKey is None:
+                raise Exception("Printer ID or Private Key is None! This should never happen, please report this issue to the OctoEverywhere team.")
+
+            # Set the printer ID into sentry.
+            Sentry.SetPrinterId(printerId)
+
+            # Unpack any dev vars that might exist
+            DevLocalServerAddress_CanBeNone = self.GetDevConfigStr(devConfig, "LocalServerAddress")
+            if DevLocalServerAddress_CanBeNone is not None:
+                self.Logger.warning("~~~ Using Local Dev Server Address: %s ~~~", DevLocalServerAddress_CanBeNone)
+
+            # Init Sentry, but it won't report since we are in dev mode.
+            Telemetry.Init(self.Logger)
+            if DevLocalServerAddress_CanBeNone is not None:
+                Telemetry.SetServerProtocolAndDomain("http://"+DevLocalServerAddress_CanBeNone)
+
+            # Init compression
+            Compression.Init(self.Logger, localStorageDir)
+
+            # Init the mdns client
+            MDns.Init(self.Logger, localStorageDir)
+
+            # Init device id
+            DeviceId.Init(self.Logger)
+
+            # Setup the print info manager.
+            PrintInfoManager.Init(self.Logger, localStorageDir)
+
+            # Init the ping pong helper.
+            OctoPingPong.Init(self.Logger, localStorageDir, printerId)
+            if DevLocalServerAddress_CanBeNone is not None:
+                OctoPingPong.Get().DisablePrimaryOverride()
+
+            # Setup the webcam helper
+            webcamHelper = ElegooWebcamHelper(self.Logger, self.Config)
+            WebcamHelper.Init(self.Logger, webcamHelper, localStorageDir)
+            # Setup the stream detector that will modify incoming relay requests if needed.
+            Compat.SetRelayWebcamStreamDetector(ElegooRelayWebcamUrlDetector(self.Logger))
+
+            # Setup the state translator and notification handler
+            stateTranslator = ElegooStateTranslator(self.Logger)
+            self.NotificationHandler = NotificationsHandler(self.Logger, stateTranslator)
+            self.NotificationHandler.SetPrinterId(printerId)
+            self.NotificationHandler.SetBedCooldownThresholdTemp(self.Config.GetFloatRequired(Config.GeneralSection, Config.GeneralBedCooldownThresholdTempC, Config.GeneralBedCooldownThresholdTempCDefault))
+            stateTranslator.SetNotificationHandler(self.NotificationHandler)
+
+            # Setup the command handler
+            CommandHandler.Init(self.Logger, self.NotificationHandler, ElegooCommandHandler(self.Logger), self)
+
+            # Since the Elegoo printers can only have a limited number of concurrent websockets, we mux them over or main connection.
+            websocketMux = ElegooWebsocketMux(self.Logger)
+            Compat.SetRelayWebsocketProvider(websocketMux)
+
+            # Init the file manager
+            ElegooFileManager.Init(self.Logger)
+
+            # Init the slipstream cache
+            Slipstream.Init(self.Logger)
+
+            # Setup and start the Elegoo Client
+            ElegooClient.Init(self.Logger, self.Config, printerId, pluginVersionStr, stateTranslator, websocketMux, ElegooFileManager.Get())
+
+            # Now start the main runner!
+            OctoEverywhereWsUri = HostCommon.c_OctoEverywhereOctoClientWsUri
+            if DevLocalServerAddress_CanBeNone is not None:
+                OctoEverywhereWsUri = "ws://"+DevLocalServerAddress_CanBeNone+"/octoclientws"
+            oe = OctoEverywhere(OctoEverywhereWsUri, printerId, privateKey, self.Logger, self, self, pluginVersionStr, ServerHost.Elegoo, False)
+            oe.RunBlocking()
+        except Exception as e:
+            Sentry.OnException("!! Exception thrown out of main host run function.", e)
+
+        # Allow the loggers to flush before we exit
+        try:
+            self.Logger.info("##################################")
+            self.Logger.info("#### OctoEverywhere Exiting ######")
+            self.Logger.info("##################################")
+            logging.shutdown()
+        except Exception as e:
+            print("Exception in logging.shutdown "+str(e))
+
+
+    # Ensures all required values are setup and valid before starting.
+    def DoFirstTimeSetupIfNeeded(self):
+        # Try to get the printer id from the config.
+        printerId = self.GetPrinterId()
+        if HostCommon.IsPrinterIdValid(printerId) is False:
+            if printerId is None:
+                self.Logger.info("No printer id was found, generating one now!")
+            else:
+                self.Logger.info("An invalid printer id was found [%s], regenerating!", str(printerId))
+
+            # Make a new, valid, key
+            printerId = HostCommon.GeneratePrinterId()
+
+            # Save it
+            self.Secrets.SetPrinterId(printerId)
+            self.Logger.info("New printer id created: %s", printerId)
+
+        privateKey = self.GetPrivateKey()
+        if HostCommon.IsPrivateKeyValid(privateKey) is False:
+            if privateKey is None:
+                self.Logger.info("No private key was found, generating one now!")
+            else:
+                self.Logger.info("An invalid private key was found [%s], regenerating!", str(privateKey))
+
+            # Make a new, valid, key
+            privateKey = HostCommon.GeneratePrivateKey()
+
+            # Save it
+            self.Secrets.SetPrivateKey(privateKey)
+            self.Logger.info("New private key created.")
+
+
+    # Returns None if no printer id has been set.
+    def GetPrinterId(self):
+        return self.Secrets.GetPrinterId()
+
+
+    # Returns None if no private id has been set.
+    def GetPrivateKey(self):
+        return self.Secrets.GetPrivateKey()
+
+
+    # Tries to load a dev config option as a string.
+    # If not found or it fails, this return None
+    def GetDevConfigStr(self, devConfig:Optional[Dict[str, Any]], value:str) -> Optional[str]:
+        if devConfig is None:
+            return None
+        if value in devConfig:
+            v = devConfig[value]
+            if v is not None and len(v) > 0 and v != "None":
+                return v
+        return None
+
+
+    # This is a destructive action! It will remove the printer id and private key from the system and restart the plugin.
+    def Rekey(self, reason:str):
+        #pylint: disable=logging-fstring-interpolation
+        self.Logger.error(f"HOST REKEY CALLED {reason} - Clearing keys...")
+        # It's important we clear the key, or we will reload, fail to connect, try to rekey, and restart again!
+        self.Secrets.SetPrinterId(None)
+        self.Secrets.SetPrivateKey(None)
+        self.Logger.error("Key clear complete, restarting plugin.")
+        HostCommon.RestartPlugin()
+
+
+    # UiPopupInvoker Interface function - Sends a UI popup message for various uses.
+    # Must stay in sync with the OctoPrint handler!
+    # title - string, the title text.
+    # text  - string, the message.
+    # type  - string, [notice, info, success, error] the type of message shown.
+    # actionText - string, if not None or empty, this is the text to show on the action button or text link.
+    # actionLink - string, if not None or empty, this is the URL to show on the action button or text link.
+    # onlyShowIfLoadedViaOeBool - bool, if set, the message should only be shown on browsers loading the portal from OE.
+    def ShowUiPopup(self, title:str, text:str, msgType:str, actionText:Optional[str], actionLink:Optional[str], showForSec:int, onlyShowIfLoadedViaOeBool:bool) -> None:
+        ElegooClient.Get().SendFrontendPopupMsg(title, text, msgType, actionText, actionLink, showForSec, onlyShowIfLoadedViaOeBool)
+
+
+    #
+    # StatusChangeHandler Interface - Called by the OctoEverywhere logic when the server connection has been established.
+    #
+    def OnPrimaryConnectionEstablished(self, octoKey:str, connectedAccounts:List[str]) -> None:
+        self.Logger.info("Primary Connection To OctoEverywhere Established - We Are Ready To Go!")
+
+        # Give the octoKey to who needs it.
+        self.NotificationHandler.SetOctoKey(octoKey)
+
+        # Check if this printer is unlinked, if so add a message to the log to help the user setup the printer if desired.
+        # This would be if the skipped the printer link or missed it in the setup script.
+        if len(connectedAccounts) == 0:
+            printerId = self.GetPrinterId()
+            if printerId is not None:
+                LinkHelper.RunLinkPluginConsolePrinterAsync(self.Logger, printerId, "elegoo_host")
+
+
+    #
+    # StatusChangeHandler Interface - Called by the OctoEverywhere logic when a plugin update is required for this client.
+    #
+    def OnPluginUpdateRequired(self) -> None:
+        self.Logger.error("!!! A Plugin Update Is Required -- If This Plugin Isn't Updated It Might Stop Working !!!")
+        self.Logger.error("!!! Please SSH into the device running this plug-in and run the update script or update the docker container!  !!!")
+
+
+    #
+    # StatusChangeHandler Interface - Called by the OctoEverywhere handshake when a rekey is required.
+    #
+    def OnRekeyRequired(self) -> None:
+        self.Rekey("Handshake Failed")
+
+
+    #
+    # Command Host Interface - Called by the command handler, when called the plugin must clear it's keys and restart to generate new ones.
+    #
+    def OnRekeyCommand(self) -> bool:
+        self.Rekey("Command")
+        return True

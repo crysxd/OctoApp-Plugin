@@ -22,7 +22,7 @@ plugin_name = "OctoApp"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
 # Note that this is also parsed by the moonraker module to pull the version, so the string and format must remain the same!
-plugin_version = "2.1.14"
+plugin_version = "3.0.0"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
@@ -44,23 +44,40 @@ plugin_license = "AGPLv3"
 #
 # On 4/13/2023 we updated to only support PY3, which frees us up from a lot of package issues. A lot the packages we depend on only support PY3 now.
 #
-# websocket_client
-# 	For the websocket_client, some older versions seem to have a thread issue that causes the 24 hour disconnect logic to fail, and eventually makes the thread limit get hit.
-# 	Version 1.4.0 also has an SSL error in it. https://github.com/websocket-client/websocket-client/issues/857
-#	Update: We also found a bug where the ping timer doesn't get cleaned up: https://github.com/websocket-client/websocket-client/pull/918
-#   Thus we need version 1.6.0 or higher.
+# octowebsocket_client
+#   We forked this package so we could add a flag to disable websocket frame masking when sending messages, which got us a 30% CPU reduction.
+#   For a full list of changes, reasons, and version details, see the repo readme.md
+#   For the source lib, we must be on version 1.6 due to a bug before that version.
+#   We also must remain compatible with Python 3.7 for the Sonic pad. For now we are pulling the latest changes and fixing any 3.7 issues.
 # dnspython
 #	We depend on a feature that was released with 2.3.0, so we need to require at least that.
+#   For the same reason as websocket_client for the sonic pad, we also need to include at least 2.3.0, since 2.3.0 is the last version to support python 3.7.8.
+# urllib3
+#   There is a bug with parsing headers in versions older than 1.26.? (https://github.com/diyan/pywinrm/issues/269). At least 1.26.6 fixes it, ubt we decide to just stick with a newer version.
+#   The sonic pad can't support anything newer than 2.0.0, so we need to stay below that. But we moved the sonic pad to it's own requirements file, so we can go higher.
 #
 # Other lib version notes:
 #   pillow - We don't require a version of pillow because we don't want to mess with other plugins and we use basic, long lived APIs.\
 #   certifi - We use to keep certs on the device that we need for let's encrypt. So we want to keep it fresh.
 #   rsa - OctoPrint 1.5.3 requires RAS>=4.0, so we must leave it at 4.0.
-#   httpx - Is an asyncio http lib. It seems to be required by dnspython, but dnspython doesn't enforce it. We had a user having an issue that updated to 0.24.0, and it resolved the issue.
-#   urllib3 - There is a bug with parsing headers in versions older than 1.26.? (https://github.com/diyan/pywinrm/issues/269). At least 1.26.6 fixes it, ubt we decide to just stick with a newer version.
+#   httpx - Is an asyncio http lib. It seems to be required by dnspython, but dnspython doesn't enforce it.
+#   sentry-sdk - We don't use Sentry right now, so we disabled it. It was conflicting with the new OctoPrint RC, so if we add it back, we need to address that.
 #
 # Note! These also need to stay in sync with requirements.txt, for the most part they should be the exact same!
-plugin_requires = ["pillow", "dnspython>=2.3.0", "pycryptodome>=3.15.0"]
+plugin_requires = [
+    "octowebsocket_client==1.8.3",
+    "requests>=2.31.0",
+    "octoflatbuffers==24.3.27",
+    "pillow",
+    "certifi>=2025.1.31",
+	"pycryptodome>=3.15.0",
+    "rsa>=4.9",
+    "dnspython>=2.3.0",
+    "httpx>=0.24.1",
+    "urllib3>=2.0.0",
+    #"sentry-sdk>=TODO",
+    #"zstandard" - optional lib see notes
+    ]
 
 ### --------------------------------------------------------------------------------------------------------------------
 ### More advanced options that you usually shouldn't have to touch follow after this point
@@ -101,7 +118,7 @@ except:
 	import sys
 	sys.exit(-1)
 
-setup_parameters = octoprint_setuptools.create_plugin_setup_parameters(
+setup_parameters = octoprint_setuptools.create_plugin_setup_parameters( #pyright: ignore[reportUnknownMemberType] octoprint is non-typed
 	identifier=plugin_identifier,
 	package=plugin_package,
 	name=plugin_name,
