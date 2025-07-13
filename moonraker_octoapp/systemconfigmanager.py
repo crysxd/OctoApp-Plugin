@@ -47,6 +47,7 @@ class SystemConfigManager:
 type: git_repo
 # Using `channel: beta` makes moonraker only update to the lasted tagged commit on the branch. Which lets us control releases.
 channel: beta
+primary_branch: release
 path: {RepoRootFolder}
 origin: https://github.com/crysxd/OctoApp-Plugin.git
 # env is deprecated for virtualenv, but for now we can only use one and must use the older option for compat.

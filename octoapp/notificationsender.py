@@ -46,7 +46,7 @@ class NotificationSender:
         self.LastPrintState:Dict[str,Any] = {}
         self.LastProgressUpdate = 0
         self.LastProgressPercent = 0
-        self.PrinterName = "Printer"
+        self.PrinterName = "$printer_label$" # This will be replaced by the printer label in the app
         self.DefaultConfig = dict(
             updatePercentModulus=5,
             highPrecisionRangeStart=5,
