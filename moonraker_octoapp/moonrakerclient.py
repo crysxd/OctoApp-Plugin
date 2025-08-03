@@ -251,7 +251,7 @@ class MoonrakerClient(IMoonrakerClient):
             # Check if we got a result.
             result = waitContext.GetResult()
             if result is None:
-                self.Logger.info("Moonraker client timeout while waiting for request. "+str(id)+" "+method)
+                self.Logger.info("Moonraker client timeout while waiting for request. "+str(msgId)+" "+method)
                 return JsonRpcResponse.FromError(JsonRpcResponse.OE_ERROR_TIMEOUT)
 
             # Check for an error if found, return the error state.
@@ -757,7 +757,6 @@ class MoonrakerClient(IMoonrakerClient):
             # Raise again which will cause the websocket to close and reset.
             raise e
 
-
     def _NonResponseMsgQueueWorker(self) -> None:
         try:
             while True:
@@ -836,7 +835,6 @@ class MoonrakerCompat(IPrinterStateReporter):
         # We pass our self as the Printer State Interface
         self.NotificationHandler = NotificationsHandler(self.Logger, self)
         self.NotificationHandler.SetBedCooldownThresholdTemp(bedCooldownThresholdTempC)
-
 
 
     def GetNotificationHandler(self) -> NotificationsHandler:
@@ -1221,7 +1219,6 @@ class MoonrakerCompat(IPrinterStateReporter):
             bedActual = round(float(heaterBedTemperature), 2)
 
         return (hotendActual, bedActual)
-
 
 
 

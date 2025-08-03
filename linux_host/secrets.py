@@ -25,7 +25,7 @@ class Secrets:
     ]
 
 
-    def __init__(self, logger:LoggerLike, octoAppStoragePath:str, moonrakerConfig:Optional[Config]=None) -> None:
+    def __init__(self, logger: LoggerLike, octoAppStoragePath:str, moonrakerConfig:Optional[Config]=None) -> None:
         self.Logger = logger
 
         # Note this path and name MUST STAY THE SAME because the installer PY script looks for this file.
