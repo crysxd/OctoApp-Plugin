@@ -252,8 +252,12 @@ class BambuFtpDatabase:
         results = {}
         try:
             for name in names:
-                ftp.delete(self._GetDbPath(name))
-                results[name] = True
+                try:
+                    ftp.delete(self._GetDbPath(name))
+                    results[name] = True
+                except Exception as e:
+                    results[name] = False
+                    self.Logger.error(f"Failed to delete {name}", e)
         finally:
             ftp.quit()
 
