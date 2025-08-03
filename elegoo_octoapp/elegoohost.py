@@ -11,7 +11,8 @@ from octoapp.printinfo import PrintInfoManager
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.Proto.ServerHost import ServerHost
 from octoapp.compat import Compat
-from octoapp.logging import LoggerLike, TaggedLoggingAdapter
+from octoapp.appsstorage import AppStorageHelper
+from octoapp.logging import TaggedLoggingAdapter
 from octoapp.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
 
 from linux_host.config import Config
@@ -19,7 +20,7 @@ from linux_host.secrets import Secrets
 from linux_host.version import Version
 from linux_host.logger import LoggerInit
 
-
+from .elegooappstorage import ElegooAppStorage
 from .elegoowebsocketmux import ElegooWebsocketMux
 from .elegooclient import ElegooClient
 from .elegoofilemanager import ElegooFileManager
@@ -81,6 +82,9 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
 
             # Now, detect if this is a new instance and we need to init our global vars. If so, the setup script will be waiting on this.
             self.DoFirstTimeSetupIfNeeded()
+
+            # Init app storage"
+            AppStorageHelper.Init(TaggedLoggingAdapter(self.RawLogger, "APPS"), ElegooAppStorage(TaggedLoggingAdapter(self.RawLogger, "DATABASE")))
 
             # Get our required vars
             printerId = self.GetPrinterId()
