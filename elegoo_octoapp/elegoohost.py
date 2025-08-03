@@ -5,19 +5,13 @@ from typing import Any, Dict, List, Optional
 from octoapp.mdns import MDns
 from octoapp.sentry import Sentry
 from octoapp.deviceid import DeviceId
-from octoapp.telemetry import Telemetry
-from octoapp.linkhelper import LinkHelper
 from octoapp.hostcommon import HostCommon
-from octoapp.compression import Compression
 from octoapp.httpsessions import HttpSessions
-from octoapp.octopingpong import OctoPingPong
 from octoapp.printinfo import PrintInfoManager
-from octoapp.commandhandler import CommandHandler
-from octoapp.Webcam.webcamhelper import WebcamHelper
-from octoapp.octoeverywhereimpl import OctoEverywhere
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.Proto.ServerHost import ServerHost
 from octoapp.compat import Compat
+from octoapp.logging import LoggerLike, TaggedLoggingAdapter
 from octoapp.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
 
 from linux_host.config import Config
@@ -26,14 +20,10 @@ from linux_host.version import Version
 from linux_host.logger import LoggerInit
 
 
-from .slipstream import Slipstream
+from .elegoowebsocketmux import ElegooWebsocketMux
 from .elegooclient import ElegooClient
 from .elegoofilemanager import ElegooFileManager
-from .elegoowebsocketmux import ElegooWebsocketMux
-from .elegoowebcamhelper import ElegooWebcamHelper
-from .elegoocommandhandler import ElegooCommandHandler
 from .elegoostatetranslater import ElegooStateTranslator
-from .elegoorelaywebcamurldetector import ElegooRelayWebcamUrlDetector
 
 # This file is the main host for the elegoo os service.
 class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
@@ -54,11 +44,12 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
 
             # Setup the logger.
             logLevelOverride = self.GetDevConfigStr(devConfig, "LogLevel")
-            self.Logger = LoggerInit.GetLogger(self.Config, logDir, logLevelOverride)
+            self.RawLogger = LoggerInit.GetLogger(self.Config, logDir, logLevelOverride)
+            self.Logger = TaggedLoggingAdapter(self.RawLogger, "MAIN")
             self.Config.SetLogger(self.Logger)
 
             # Give the logger to Sentry ASAP.
-            Sentry.SetLogger(self.Logger)
+            Sentry.SetLogger(self.RawLogger)
 
         except Exception as e:
             tb = traceback.format_exc()
@@ -70,23 +61,23 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
     def RunBlocking(self, configPath:str, localStorageDir:str, repoRoot:str, devConfig:Optional[Dict[str, Any]]) -> None:
         # Do all of this in a try catch, so we can log any issues before exiting
         try:
-            self.Logger.info("####################################################")
-            self.Logger.info("#### OctoEverywhere Elegoo OS Connect Starting #####")
-            self.Logger.info("####################################################")
+            self.Logger.info("#############################################")
+            self.Logger.info("#### OctoApp Elegoo OS Connect Starting #####")
+            self.Logger.info("#############################################")
 
             # Find the version of the plugin, this is required and it will throw if it fails.
             pluginVersionStr = Version.GetPluginVersion(repoRoot)
             self.Logger.info("Plugin Version: %s", pluginVersionStr)
 
             # Setup the HttpSession cache early, so it can be used whenever
-            HttpSessions.Init(self.Logger)
+            HttpSessions.Init(TaggedLoggingAdapter(self.RawLogger, "HTTPSESSION"))
 
             # As soon as we have the plugin version, setup Sentry
             # Enabling profiling and no filtering, since we are the only PY in this process.
             Sentry.Setup(pluginVersionStr, "elegoo", devConfig is not None, enableProfiling=True, filterExceptionsByPackage=False, restartOnCantCreateThreadBug=True)
 
             # Before the first time setup, we must also init the Secrets class and do the migration for the printer id and private key, if needed.
-            self.Secrets = Secrets(self.Logger, localStorageDir)
+            self.Secrets = Secrets(TaggedLoggingAdapter(self.RawLogger, "SECRETS"), localStorageDir)
 
             # Now, detect if this is a new instance and we need to init our global vars. If so, the setup script will be waiting on this.
             self.DoFirstTimeSetupIfNeeded()
@@ -105,71 +96,38 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
             if DevLocalServerAddress_CanBeNone is not None:
                 self.Logger.warning("~~~ Using Local Dev Server Address: %s ~~~", DevLocalServerAddress_CanBeNone)
 
-            # Init Sentry, but it won't report since we are in dev mode.
-            Telemetry.Init(self.Logger)
-            if DevLocalServerAddress_CanBeNone is not None:
-                Telemetry.SetServerProtocolAndDomain("http://"+DevLocalServerAddress_CanBeNone)
-
-            # Init compression
-            Compression.Init(self.Logger, localStorageDir)
-
             # Init the mdns client
-            MDns.Init(self.Logger, localStorageDir)
+            MDns.Init(TaggedLoggingAdapter(self.RawLogger, "MDNS"), localStorageDir)
 
             # Init device id
-            DeviceId.Init(self.Logger)
+            DeviceId.Init(TaggedLoggingAdapter(self.RawLogger, "DEVICEID"))
 
             # Setup the print info manager.
-            PrintInfoManager.Init(self.Logger, localStorageDir)
-
-            # Init the ping pong helper.
-            OctoPingPong.Init(self.Logger, localStorageDir, printerId)
-            if DevLocalServerAddress_CanBeNone is not None:
-                OctoPingPong.Get().DisablePrimaryOverride()
-
-            # Setup the webcam helper
-            webcamHelper = ElegooWebcamHelper(self.Logger, self.Config)
-            WebcamHelper.Init(self.Logger, webcamHelper, localStorageDir)
-            # Setup the stream detector that will modify incoming relay requests if needed.
-            Compat.SetRelayWebcamStreamDetector(ElegooRelayWebcamUrlDetector(self.Logger))
+            PrintInfoManager.Init(TaggedLoggingAdapter(self.RawLogger, "PRINTINFO"), localStorageDir)
 
             # Setup the state translator and notification handler
-            stateTranslator = ElegooStateTranslator(self.Logger)
+            stateTranslator = ElegooStateTranslator(TaggedLoggingAdapter(self.RawLogger, "ELEGOOTRANSLATOR"))
             self.NotificationHandler = NotificationsHandler(self.Logger, stateTranslator)
-            self.NotificationHandler.SetPrinterId(printerId)
             self.NotificationHandler.SetBedCooldownThresholdTemp(self.Config.GetFloatRequired(Config.GeneralSection, Config.GeneralBedCooldownThresholdTempC, Config.GeneralBedCooldownThresholdTempCDefault))
             stateTranslator.SetNotificationHandler(self.NotificationHandler)
 
-            # Setup the command handler
-            CommandHandler.Init(self.Logger, self.NotificationHandler, ElegooCommandHandler(self.Logger), self)
-
-            # Since the Elegoo printers can only have a limited number of concurrent websockets, we mux them over or main connection.
-            websocketMux = ElegooWebsocketMux(self.Logger)
-            Compat.SetRelayWebsocketProvider(websocketMux)
-
             # Init the file manager
-            ElegooFileManager.Init(self.Logger)
-
-            # Init the slipstream cache
-            Slipstream.Init(self.Logger)
+            ElegooFileManager.Init(TaggedLoggingAdapter(self.RawLogger, "FILEMANAGER"))
 
             # Setup and start the Elegoo Client
-            ElegooClient.Init(self.Logger, self.Config, printerId, pluginVersionStr, stateTranslator, websocketMux, ElegooFileManager.Get())
+            websocketMux = ElegooWebsocketMux(TaggedLoggingAdapter(self.RawLogger, "WEBSOCKETMUX"))
+            ElegooClient.Init(TaggedLoggingAdapter(self.RawLogger, "CLIENT"), self.Config, printerId, pluginVersionStr, stateTranslator, websocketMux, ElegooFileManager.Get())
 
             # Now start the main runner!
-            OctoEverywhereWsUri = HostCommon.c_OctoEverywhereOctoClientWsUri
-            if DevLocalServerAddress_CanBeNone is not None:
-                OctoEverywhereWsUri = "ws://"+DevLocalServerAddress_CanBeNone+"/octoclientws"
-            oe = OctoEverywhere(OctoEverywhereWsUri, printerId, privateKey, self.Logger, self, self, pluginVersionStr, ServerHost.Elegoo, False)
-            oe.RunBlocking()
+            ElegooClient.Get().RunBlocking()
         except Exception as e:
             Sentry.OnException("!! Exception thrown out of main host run function.", e)
 
         # Allow the loggers to flush before we exit
         try:
-            self.Logger.info("##################################")
-            self.Logger.info("#### OctoEverywhere Exiting ######")
-            self.Logger.info("##################################")
+            self.Logger.info("###########################")
+            self.Logger.info("#### OctoApp Exiting ######")
+            self.Logger.info("###########################")
             logging.shutdown()
         except Exception as e:
             print("Exception in logging.shutdown "+str(e))
@@ -191,20 +149,6 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
             # Save it
             self.Secrets.SetPrinterId(printerId)
             self.Logger.info("New printer id created: %s", printerId)
-
-        privateKey = self.GetPrivateKey()
-        if HostCommon.IsPrivateKeyValid(privateKey) is False:
-            if privateKey is None:
-                self.Logger.info("No private key was found, generating one now!")
-            else:
-                self.Logger.info("An invalid private key was found [%s], regenerating!", str(privateKey))
-
-            # Make a new, valid, key
-            privateKey = HostCommon.GeneratePrivateKey()
-
-            # Save it
-            self.Secrets.SetPrivateKey(privateKey)
-            self.Logger.info("New private key created.")
 
 
     # Returns None if no printer id has been set.
@@ -257,16 +201,6 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
     #
     def OnPrimaryConnectionEstablished(self, octoKey:str, connectedAccounts:List[str]) -> None:
         self.Logger.info("Primary Connection To OctoEverywhere Established - We Are Ready To Go!")
-
-        # Give the octoKey to who needs it.
-        self.NotificationHandler.SetOctoKey(octoKey)
-
-        # Check if this printer is unlinked, if so add a message to the log to help the user setup the printer if desired.
-        # This would be if the skipped the printer link or missed it in the setup script.
-        if len(connectedAccounts) == 0:
-            printerId = self.GetPrinterId()
-            if printerId is not None:
-                LinkHelper.RunLinkPluginConsolePrinterAsync(self.Logger, printerId, "elegoo_host")
 
 
     #

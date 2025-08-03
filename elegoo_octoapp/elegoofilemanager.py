@@ -1,8 +1,8 @@
-import logging
 import threading
 
 from typing import Any, Dict, List, Optional
 
+from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
 
 from .elegooclient import ElegooClient
@@ -15,7 +15,7 @@ from .interfaces import IFileManager
 # But once a field is set, it can't be changed.
 class FileInfo:
 
-    def __init__(self, logger:logging.Logger, fileDirInfo:Dict[str, Any]) -> None:
+    def __init__(self, logger:LoggerLike, fileDirInfo:Dict[str, Any]) -> None:
         self.FileNameWithPath:str = fileDirInfo.get("name", "Unknown")
         # Get a version of the file name without the path.
         folderIndex = self.FileNameWithPath.rfind("/")
@@ -61,7 +61,7 @@ class ElegooFileManager(IFileManager):
     _Instance: "ElegooFileManager" = None #pyright: ignore[reportAssignmentType]
 
     @staticmethod
-    def Init(logger:logging.Logger):
+    def Init(logger:LoggerLike):
         ElegooFileManager._Instance = ElegooFileManager(logger)
 
 
@@ -70,7 +70,7 @@ class ElegooFileManager(IFileManager):
         return ElegooFileManager._Instance
 
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
 
         self.Files:List[FileInfo] = []

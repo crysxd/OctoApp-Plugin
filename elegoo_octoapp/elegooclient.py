@@ -2,11 +2,11 @@ import time
 import json
 import random
 import string
-import logging
 import threading
 from typing import Any, Dict, List, Optional
 
 from octoapp.compat import Compat
+from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
 from octoapp.websocketimpl import Client
 from octoapp.octohttprequest import OctoHttpRequest
@@ -77,7 +77,7 @@ class ElegooClient:
     WebSocketMessageDebugging = False
 
     @staticmethod
-    def Init(logger:logging.Logger, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, websocketMux:IWebsocketMux, fileManager:IFileManager) -> None:
+    def Init(logger:LoggerLike, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, websocketMux:IWebsocketMux, fileManager:IFileManager) -> None:
         ElegooClient._Instance = ElegooClient(logger, config, pluginId, pluginVersion, stateTranslator, websocketMux, fileManager)
 
 
@@ -86,7 +86,7 @@ class ElegooClient:
         return ElegooClient._Instance
 
 
-    def __init__(self, logger:logging.Logger, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, websocketMux:IWebsocketMux, fileManager:IFileManager) -> None:
+    def __init__(self, logger:LoggerLike, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, websocketMux:IWebsocketMux, fileManager:IFileManager) -> None:
         self.Logger = logger
         self.Config = config
         self.PluginId = pluginId
@@ -146,10 +146,6 @@ class ElegooClient:
         OctoHttpRequest.SetLocalOctoPrintPort(int(self.PortStr))
         OctoHttpRequest.SetLocalHttpProxyIsHttps(False)
         OctoHttpRequest.SetLocalHttpProxyPort(80)
-
-        # Start the client worker thread.
-        t = threading.Thread(target=self._ClientWorker)
-        t.start()
 
 
     # Returns the local printer state object with the most up-to-date information.
@@ -236,7 +232,7 @@ class ElegooClient:
 
             # Try to send. default=str makes the json dump use the str function if it fails to serialize something.
             jsonStr = json.dumps(obj, default=str)
-            if ElegooClient.WebSocketMessageDebugging and self.Logger.isEnabledFor(logging.DEBUG):
+            if ElegooClient.WebSocketMessageDebugging:
                 self.Logger.debug("Elegoo WS Msg Request - %s : %s : %s", str(requestId), str(cmdId), jsonStr)
             if self._WebSocketSend(Buffer(jsonStr.encode("utf-8"))) is False:
                 self.Logger.info("Elegoo client failed to send request msg.")
@@ -297,7 +293,7 @@ class ElegooClient:
             return False
 
         # Print for debugging.
-        if ElegooClient.WebSocketMessageDebugging and self.Logger.isEnabledFor(logging.DEBUG):
+        if ElegooClient.WebSocketMessageDebugging:
             self.Logger.debug("Ws ->: %s", buffer.GetBytesLike().decode("utf-8"))
 
         try:
@@ -311,7 +307,7 @@ class ElegooClient:
 
 
     # Sets up, runs, and maintains the websocket connection.
-    def _ClientWorker(self):
+    def RunBlocking(self):
         isConnectAttemptFromEventBump = False
         while True:
             try:
@@ -426,7 +422,7 @@ class ElegooClient:
                 raise Exception("Parsed json message returned None")
 
             # Print for debugging if desired.
-            if ElegooClient.WebSocketMessageDebugging and self.Logger.isEnabledFor(logging.DEBUG):
+            if ElegooClient.WebSocketMessageDebugging:
                 self.Logger.debug("Incoming Elegoo Message:\r\n"+json.dumps(msg, indent=3))
 
             # If set, this message should be sent to all mux sockets.
