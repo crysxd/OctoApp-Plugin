@@ -1,7 +1,7 @@
 import time
-import logging
 from typing import Any, Dict, Optional, Tuple
 
+from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
 
 # Keeps track of the current printer state locally, so we don't have to query the printer for it constantly.
@@ -19,7 +19,7 @@ class PrinterState:
     PRINT_STATUS_ERROR     = "error"
 
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
         self.MostRecentPrintInfo = MostRecentPrintInfo()
         # We only parse out what we currently use.
@@ -339,16 +339,18 @@ class PrinterState:
 # Tracks the printer attributes
 class PrinterAttributes:
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
         self.HasLoggedPrinterVersion = False
         # We only parse out what we currently use.
         self.MainboardMac:Optional[str] = None
+        self.MainboardId:Optional[str] = None
 
 
     # Called when there's a new print message from the printer.
     def OnUpdate(self, msg:Dict[str, Any]) -> None:
-        self.MainboardMac = msg.get("MainboardMAC", None)
+        self.MainboardMac = msg.get("MainboardMAC", self.MainboardMac)
+        self.MainboardId = msg.get("MainboardID", self.MainboardId)
         # if self.HasLoggedPrinterVersion is False:
         #     self.HasLoggedPrinterVersion = True
         #     self.Logger.info(f"Printer Version: {self.PrinterName}, CPU: {self.Cpu}, Project: {self.ProjectName} Hardware: {self.HardwareVersion}, Software: {self.SoftwareVersion}, Serial: {self.SerialNumber}")

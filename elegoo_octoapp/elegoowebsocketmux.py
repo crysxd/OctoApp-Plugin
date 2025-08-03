@@ -1,9 +1,9 @@
 from enum import Enum
 import queue
-import logging
 import threading
 from typing import Any, Callable, List, Optional, Dict
 
+from octoapp.logging import LoggerLike
 from octoapp.buffer import Buffer
 from octoapp.Proto.PathTypes import PathTypes
 from octoapp.interfaces import IWebSocketClient, WebSocketOpCode, IRelayWebSocketProvider
@@ -15,7 +15,7 @@ from .interfaces import IWebsocketMux
 class ElegooWebsocketMux(IRelayWebSocketProvider, IWebsocketMux):
 
 
-    def __init__(self, logger:logging.Logger):
+    def __init__(self, logger:LoggerLike):
         self.Logger = logger
         self.Lock = threading.Lock()
         self.NextId = 0
@@ -119,7 +119,7 @@ class ProxyState(Enum):
 # This class is a standin for the websocket client, so it must have matching public functions.
 class ElegooWebsocketClientProxy(IWebSocketClient):
 
-    def __init__(self, mux:ElegooWebsocketMux, wsId:int, logger:logging.Logger,
+    def __init__(self, mux:ElegooWebsocketMux, wsId:int, logger:LoggerLike,
                 onWsOpen:Optional[Callable[[IWebSocketClient], None]]=None,
                 onWsData:Optional[Callable[[IWebSocketClient, Buffer, WebSocketOpCode], None]]=None,
                 onWsClose:Optional[Callable[[IWebSocketClient], None]]=None,

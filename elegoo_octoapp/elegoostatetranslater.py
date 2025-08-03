@@ -1,6 +1,6 @@
-import logging
 from typing import Optional, Tuple
 
+from octoapp.logging import LoggerLike
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.interfaces import IPrinterStateReporter
 
@@ -14,7 +14,7 @@ from .interfaces import IStateTranslator
 # and to act as the printer state interface for Bambu printers.
 class ElegooStateTranslator(IPrinterStateReporter, IStateTranslator):
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
         self.NotificationsHandler:NotificationsHandler = None #pyright: ignore[reportAttributeAccessIssue]
         self.LastStatus:Optional[str] = None
@@ -112,6 +112,17 @@ class ElegooStateTranslator(IPrinterStateReporter, IStateTranslator):
             if pState.Progress is not None:
                 self.OnPrintProgress(pState)
 
+    def GetCurrentProgress(self) -> int:
+        state = ElegooClient.Get().GetState()
+        if state is None:
+            # If we dont have a state yet, return 0,0, which means we can get layer info but we don't know yet.
+            return 0
+        if state.IsPrepareOrSlicing():
+            # The printer doesn't clear these values when a new print is starting and it's in a prepare or slicing state.
+            # So if we are in that state, return 0,0, to represent we don't know the layer info yet.
+            return 0
+        
+        return int(state.Progress) if state.Progress is not None else 0
 
     def OnStart(self, printerState:PrinterState):
         fileSizeKb = 0
