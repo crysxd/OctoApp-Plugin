@@ -86,22 +86,23 @@ class Config:
     #
     SectionElegoo = "elegoo"
     ElegooMainboardMac = "mainboard_mac"
+    AutoActivateChamberLightForWebcam = "auto_activate_chamber_light_for_webcam"
 
 
     # This allows us to add comments into our config.
     # The objects must have two parts, first, a string they target. If the string is found, the comment will be inserted above the target string. This can be a section or value.
     # A string, which is the comment to be inserted.
     c_ConfigComments = [
-        { "Target": RelayFrontEndPortKey,  "Comment": "The port used for http relay. If your desired frontend runs on a different port, change this value. The OctoApp plugin service needs to be restarted before changes will take effect."},
+        { "Target": RelayFrontEndPortKey,  "Comment": "The port used for http relay. If your desired frontend runs on a different port, change this value. The OctoEverywhere plugin service needs to be restarted before changes will take effect."},
         { "Target": RelayFrontEndTypeHintKey,  "Comment": "A string only used by the UI to hint at what web interface this port is."},
         { "Target": LogLevelKey,  "Comment": "The active logging level. Valid values include: DEBUG, INFO, WARNING, or ERROR."},
-        { "Target": CompanionKeyIpOrHostname,  "Comment": "The IP or hostname this companion plugin will use to connect to Moonraker. The OctoApp plugin service needs to be restarted before changes will take effect."},
-        { "Target": CompanionKeyPort,  "Comment": "The port this companion plugin will use to connect to Moonraker. The OctoApp plugin service needs to be restarted before changes will take effect."},
-        { "Target": BambuAccessToken,  "Comment": "The access token to the Bambu printer. It can be found using the LCD screen on the printer, in the settings. The OctoApp plugin service needs to be restarted before changes will take effect."},
-        { "Target": BambuPrinterSn,    "Comment": "The serial number of your Bambu printer. It can be found using this guide: https://wiki.bambulab.com/en/general/find-sn  The OctoApp plugin service needs to be restarted before changes will take effect."},
+        { "Target": CompanionKeyIpOrHostname,  "Comment": "The IP or hostname this companion plugin will use to connect to Moonraker. The OctoEverywhere plugin service needs to be restarted before changes will take effect."},
+        { "Target": CompanionKeyPort,  "Comment": "The port this companion plugin will use to connect to Moonraker. The OctoEverywhere plugin service needs to be restarted before changes will take effect."},
+        { "Target": BambuAccessToken,  "Comment": "The access token to the Bambu printer. It can be found using the LCD screen on the printer, in the settings. The OctoEverywhere plugin service needs to be restarted before changes will take effect."},
+        { "Target": BambuPrinterSn,    "Comment": "The serial number of your Bambu printer. It can be found using this guide: https://wiki.bambulab.com/en/general/find-sn  The OctoEverywhere plugin service needs to be restarted before changes will take effect."},
         { "Target": BambuConnectionMode,"Comment": "The connection mode used for Bambu Connect. Can be 'cloud' or 'local'. 'cloud' will use the bambu cloud which requires the user's email and password to be set, `local` will connect via the LAN."},
-        { "Target": WebcamNameToUseAsPrimary,  "Comment": "This is the webcam name OctoApp will use for Gadget AI, notifications, and such. This much match the camera 'Name' from your Mainsail of Fluidd webcam settings. The default value of 'Default' will pick whatever camera the system can find."},
-        { "Target": WebcamAutoSettings,  "Comment": "Enables or disables auto webcam setting detection. If enabled, OctoApp will find the webcam settings configured via the frontend (Fluidd, Mainsail, etc) and use them. Disable to manually set the values and have them not be overwritten."},
+        { "Target": WebcamNameToUseAsPrimary,  "Comment": "This is the webcam name OctoEverywhere will use for Gadget AI, notifications, and such. This much match the camera 'Name' from your Mainsail of Fluidd webcam settings. The default value of 'Default' will pick whatever camera the system can find."},
+        { "Target": WebcamAutoSettings,  "Comment": "Enables or disables auto webcam setting detection. If enabled, OctoEverywhere will find the webcam settings configured via the frontend (Fluidd, Mainsail, etc) and use them. Disable to manually set the values and have them not be overwritten."},
         { "Target": WebcamStreamUrl,  "Comment": "Webcam streaming URL. This can be a local relative path (ex: /webcam/?action=stream) or absolute http URL (ex: http://10.0.0.1:8080/webcam/?action=stream or http://webcam.local/webcam/?action=stream)"},
         { "Target": WebcamSnapshotUrl,  "Comment": "Webcam snapshot URL. This can be a local relative path (ex: /webcam/?action=snapshot) or absolute http URL (ex: http://10.0.0.1:8080/webcam/?action=snapshot or http://webcam.local/webcam/?action=snapshot)"},
         { "Target": WebcamFlipH,  "Comment": "Flips the webcam image horizontally. Valid values are True or False"},
@@ -109,6 +110,7 @@ class Config:
         { "Target": WebcamRotation,  "Comment": "Rotates the webcam image. Valid values are 0, 90, 180, or 270"},
         { "Target": GeneralBedCooldownThresholdTempC,  "Comment": "The temperature in Celsius that the bed must be under to be considered cooled down. This is used to fire the Bed Cooldown Complete notification."},
         { "Target": ElegooMainboardMac,  "Comment": "This is the MAC address of the mainboard for the linked printer."},
+        { "Target": AutoActivateChamberLightForWebcam,  "Comment": "If enabled, the chamber light will be automatically turned on when the webcam is in use."},
         { "Target": MoonrakerApiKey,  "Comment": "Leave blank unless your Moonraker requires an API key to connect. Moonraker API keys can be generated from the Mainsail or Fluidd."},
     ]
 

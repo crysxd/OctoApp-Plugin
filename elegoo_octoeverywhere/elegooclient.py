@@ -117,6 +117,8 @@ class ElegooClient:
         self.WebSocketConnectionIp:Optional[str] = None
         # This is the event we will sleep on between connection attempts, which allows us to be poked to connect now.
         self.SleepEvent:threading.Event = threading.Event()
+        # This flag indicates if we have tried a network scan since the plugin started. If not, we should do it again.
+        self.HasDoneNetScanSincePluginStart = False
 
         # We keep track of the states locally so we know the delta between states and
         # So we don't have to ping the printer for every state change.
@@ -236,7 +238,7 @@ class ElegooClient:
             jsonStr = json.dumps(obj, default=str)
             if ElegooClient.WebSocketMessageDebugging and self.Logger.isEnabledFor(logging.DEBUG):
                 self.Logger.debug("Elegoo WS Msg Request - %s : %s : %s", str(requestId), str(cmdId), jsonStr)
-            if self._WebSocketSend(jsonStr) is False:
+            if self._WebSocketSend(Buffer(jsonStr.encode("utf-8"))) is False:
                 self.Logger.info("Elegoo client failed to send request msg.")
                 return ResponseMsg(None, ResponseMsg.OE_ERROR_WS_NOT_CONNECTED)
 
@@ -282,7 +284,7 @@ class ElegooClient:
 
     # Sends a string to the connected websocket.
     # forceSend is used to send the initial messages before the system is ready.
-    def _WebSocketSend(self, jsonStr:str) -> bool:
+    def _WebSocketSend(self, buffer:Buffer) -> bool:
         # Ensure the websocket is connected and ready.
         if self.WebSocketConnected is False:
             self.Logger.info("Elegoo client - tired to send a websocket message when the socket wasn't open.")
@@ -296,12 +298,12 @@ class ElegooClient:
 
         # Print for debugging.
         if ElegooClient.WebSocketMessageDebugging and self.Logger.isEnabledFor(logging.DEBUG):
-            self.Logger.debug("Ws ->: %s", jsonStr)
+            self.Logger.debug("Ws ->: %s", buffer.GetBytesLike().decode("utf-8"))
 
         try:
             # Since we must encode the data, which will create a copy, we might as well just send the buffer as normal,
             # without adding the extra space for the header. We can add the header here or in the WS lib, it's the same amount of work.
-            localWs.Send(Buffer(jsonStr.encode("utf-8")), isData=False)
+            localWs.Send(buffer, isData=False)
         except Exception as e:
             Sentry.OnException("Elegoo client exception in websocket send.", e)
             return False
@@ -341,9 +343,9 @@ class ElegooClient:
             # Since we now have the sleep event, we can sleep longer, because when something attempts to use the socket, the event will wake us up
             # to try a connection again. So, for example, when the user goes to the OE dashboard, the status check will wake us up.
             #
-            # So right now, the max sleep time is 5 minutes.
+            # So right now, the max sleep time is 30 seconds.
             sleepDelay = self.ConsecutivelyFailedConnectionAttempts
-            sleepDelay = min(sleepDelay, 60)
+            sleepDelay = min(sleepDelay, 6)
             sleepDelaySec = 5.0 * sleepDelay
             self.Logger.info(f"Sleeping for {sleepDelaySec} seconds before trying to reconnect to the Elegoo printer.")
             # Sleep for the time or until the event is set.
@@ -620,8 +622,9 @@ class ElegooClient:
 
         # If we have a mainboard ID, we can scan for the printer on the local network.
         # But we only want to do this every now an then due to the CPU load.
+        # But we do want to do it soon after the plugin starts, so if the user restarted the plugin to fix it, we will try a scan.
         doPrinterSearch = False
-        if self.ConsecutivelyFailedConnectionAttemptsSinceSearch > 15:
+        if (self.HasDoneNetScanSincePluginStart is False and self.ConsecutivelyFailedConnectionAttemptsSinceSearch > 1) or self.ConsecutivelyFailedConnectionAttemptsSinceSearch > 15:
             self.ConsecutivelyFailedConnectionAttemptsSinceSearch = 0
             doPrinterSearch = True
 
@@ -636,8 +639,10 @@ class ElegooClient:
         # Note we don't want to do this too often since it's CPU intensive and the printer might just be off.
         # We use a lower thread count and delay before each action to reduce the required load.
         # Using this config, it takes about 30 seconds to scan for the printer.
+        # It's important that we pass the config ip as a hint if we have it, so that instances in docker can scan based on it.
         self.Logger.info(f"Searching for your Elegoo printer {self.MainboardMac}")
-        results = NetworkSearch.ScanForInstances_Elegoo(self.Logger, mainboardMac=self.MainboardMac, threadCount=25, delaySec=0.2)
+        self.HasDoneNetScanSincePluginStart = True
+        results = NetworkSearch.ScanForInstances_Elegoo(self.Logger, mainboardMac=self.MainboardMac, ipHint=configIpOrHostname, threadCount=5, delaySec=0.2)
 
         # Handle the results.
         if results is None or len(results) == 0:
@@ -715,25 +720,28 @@ class ElegooClient:
                 buffer = Buffer(buffer.Get()[startTrim:endTrim])
 
             # For us to be able to map messages back, we need to be able to read the request id if there is one.
-            # So if this fails, we can't handle the message.
+            # IMPORTANT! - Some messages are sent (like a "ping") that aren't json, so we can't parse them.
             msgStr = buffer.GetBytesLike().decode("utf-8")
-            msg = json.loads(msgStr)
-
-            # Try to get the data object and the request id.
-            # If it doesn't, we will just send it.
-            data = msg.get("Data", None)
-            if data is not None:
-                requestId = data.get("RequestID", None)
-                if requestId is not None:
-                    # We have a request id, validate it.
-                    if len(requestId) < 20:
-                        raise Exception(f"Invalid request id length: {len(requestId)}")
-                    # Add it to the pending list.
-                    with self.RequestLock:
-                        self.RequestPendingContexts[requestId] = MsgWaitingContext(requestId, wsId)
+            try:
+                # Try to get the data object and the request id.
+                # If it doesn't, we will just send it.
+                msg = json.loads(msgStr)
+                data = msg.get("Data", None)
+                if data is not None:
+                    requestId = data.get("RequestID", None)
+                    if requestId is not None:
+                        # We have a request id, validate it.
+                        if len(requestId) < 20:
+                            raise Exception(f"Invalid request id length: {len(requestId)}")
+                        # Add it to the pending list.
+                        with self.RequestLock:
+                            self.RequestPendingContexts[requestId] = MsgWaitingContext(requestId, wsId)
+            except Exception as e:
+                if msgStr != "ping":
+                    Sentry.OnException("Elegoo client exception in MuxSendMessage while parsing request id.", e)
 
             # Send the message.
-            return self._WebSocketSend(msgStr)
+            return self._WebSocketSend(buffer)
 
         except Exception as e:
             Sentry.OnException("Elegoo client exception in MuxSendMessage.", e)

@@ -185,6 +185,9 @@ class Installer:
         # Report our progress.
         self.ReportInstallerPhase(context, "Success")
 
+        # Report our progress.
+        self.ReportInstallerPhase(context, "Success")
+
         # Success!
         Logger.Blank()
         Logger.Blank()

@@ -123,7 +123,6 @@ PKGLIST="python3 python3-pip virtualenv python3-venv curl"
 # Note we exclude virtualenv python3-venv curl because they can't be installed on the sonic pad via the package manager.
 CREALITY_DEP_LIST="python3 python3-pip python3-pillow"
 SONIC_PAD_DEP_LIST="python3 python3-pip"
-CREALITY_DEP_LIST="python3 python3-pillow python3-pip"
 
 #
 # Console Write Helpers
@@ -315,6 +314,7 @@ install_or_update_system_dependencies()
 
         # These we require to be installed in the OS.
         # Note we need to do this before we create our virtual environment
+        log_info "Updating system resource list..."
         sudo apt update 1>/dev/null 2>/dev/null || true
         sudo apt install --yes ${PKGLIST} 2>/dev/null
 
@@ -325,6 +325,7 @@ install_or_update_system_dependencies()
         log_info "Ensuring zlib is install for Pillow, it's ok if this package install fails."
         sudo apt install --yes zlib1g-dev 2>/dev/null || true
         sudo apt install --yes zlib-devel 2>/dev/null || true
+        sudo apt install --yes libjpeg-dev 2>/dev/null || true
         sudo apt install --yes python-imaging 2>/dev/null || true
         sudo apt install --yes python3-pil 2>/dev/null || true
         sudo apt install --yes python3-pillow 2>/dev/null || true
@@ -355,6 +356,10 @@ install_or_update_python_env()
     if [[ $IS_K1_OS -eq 1 ]]
     then
         "${OCTOAPP_ENV}"/bin/pip3 install --trusted-host pypi.python.org --trusted-host pypi.org --trusted-host=files.pythonhosted.org -q -r "${OCTOAPP_REPO_DIR}"/requirements.txt
+    elif [[ $IS_SONIC_PAD_OS -eq 1 ]]
+    then
+        # The sonic pad as different requirements, so it doesn't hold back the rest of the installs.
+        "${OCTOAPP_ENV}"/bin/pip3 install --require-virtualenv --no-cache-dir -q -r "${OCTOAPP_REPO_DIR}"/requirements-sonicpad.txt
     else
         "${OCTOAPP_ENV}"/bin/pip3 install -q -r "${OCTOAPP_REPO_DIR}"/requirements.txt
     fi
@@ -380,8 +385,8 @@ install_or_update_python_env()
             log_error "Failed to install additional python libraries for Sovol. Continuing..."
         else
             log_info "Additional python libs for Sovol installed."
-        fi
-fi
+        fi  
+    fi
 }
 
 #
