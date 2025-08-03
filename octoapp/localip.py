@@ -30,6 +30,4 @@ class LocalIpHelper:
                 ip = s.getsockname()[0]
         except Exception:
             pass
-        finally:
-            s.close()
         return str(ip)
