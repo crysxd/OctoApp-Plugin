@@ -77,8 +77,8 @@ class ElegooClient:
     WebSocketMessageDebugging = False
 
     @staticmethod
-    def Init(logger:LoggerLike, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, websocketMux:IWebsocketMux, fileManager:IFileManager) -> None:
-        ElegooClient._Instance = ElegooClient(logger, config, pluginId, pluginVersion, stateTranslator, websocketMux, fileManager)
+    def Init(logger:LoggerLike, config:Config, pluginVersion:str, stateTranslator:IStateTranslator, websocketMux:IWebsocketMux, fileManager:IFileManager) -> None:
+        ElegooClient._Instance = ElegooClient(logger, config, pluginVersion, stateTranslator, websocketMux, fileManager)
 
 
     @staticmethod
@@ -86,10 +86,9 @@ class ElegooClient:
         return ElegooClient._Instance
 
 
-    def __init__(self, logger:LoggerLike, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, websocketMux:IWebsocketMux, fileManager:IFileManager) -> None:
+    def __init__(self, logger:LoggerLike, config:Config, pluginVersion:str, stateTranslator:IStateTranslator, websocketMux:IWebsocketMux, fileManager:IFileManager) -> None:
         self.Logger = logger
         self.Config = config
-        self.PluginId = pluginId
         self.PluginVersion = pluginVersion
         self.StateTranslator = stateTranslator
         self.WebsocketMux = websocketMux
@@ -673,7 +672,6 @@ class ElegooClient:
             data = {}
 
         # Always include the plugin id and version.
-        data["PluginId"] = self.PluginId
         data["PluginVersion"] = self.PluginVersion
 
         # The outside object needs to be a valid response object, so the Elegoo frontend can parse it and ignore it.

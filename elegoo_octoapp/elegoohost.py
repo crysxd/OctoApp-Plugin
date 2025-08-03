@@ -83,18 +83,6 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
             # Now, detect if this is a new instance and we need to init our global vars. If so, the setup script will be waiting on this.
             self.DoFirstTimeSetupIfNeeded()
 
-            # Init app storage"
-            AppStorageHelper.Init(TaggedLoggingAdapter(self.RawLogger, "APPS"), ElegooAppStorage(TaggedLoggingAdapter(self.RawLogger, "DATABASE")))
-
-            # Get our required vars
-            printerId = self.GetPrinterId()
-            privateKey = self.GetPrivateKey()
-            if printerId is None or privateKey is None:
-                raise Exception("Printer ID or Private Key is None! This should never happen, please report this issue to the OctoEverywhere team.")
-
-            # Set the printer ID into sentry.
-            Sentry.SetPrinterId(printerId)
-
             # Unpack any dev vars that might exist
             DevLocalServerAddress_CanBeNone = self.GetDevConfigStr(devConfig, "LocalServerAddress")
             if DevLocalServerAddress_CanBeNone is not None:
@@ -120,7 +108,10 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
 
             # Setup and start the Elegoo Client
             websocketMux = ElegooWebsocketMux(TaggedLoggingAdapter(self.RawLogger, "WEBSOCKETMUX"))
-            ElegooClient.Init(TaggedLoggingAdapter(self.RawLogger, "CLIENT"), self.Config, printerId, pluginVersionStr, stateTranslator, websocketMux, ElegooFileManager.Get())
+            ElegooClient.Init(TaggedLoggingAdapter(self.RawLogger, "CLIENT"), self.Config, pluginVersionStr, stateTranslator, websocketMux, ElegooFileManager.Get())
+
+            # Init app storage"
+            AppStorageHelper.Init(TaggedLoggingAdapter(self.RawLogger, "APPS"), ElegooAppStorage(TaggedLoggingAdapter(self.RawLogger, "DATABASE"), pluginVersionStr))
 
             # Now start the main runner!
             ElegooClient.Get().RunBlocking()
