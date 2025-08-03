@@ -314,6 +314,7 @@ install_or_update_system_dependencies()
 
         # These we require to be installed in the OS.
         # Note we need to do this before we create our virtual environment
+        log_info "Updating system resource list..."
         sudo apt update 1>/dev/null 2>/dev/null || true
         sudo apt install --yes ${PKGLIST} 2>/dev/null
 

@@ -309,7 +309,7 @@ class NotificationsHandler(INotificationHandler):
 
         self.StartPrintTimers(True, None)
         self.CustomNotificationCounter = 0
-        self._sendEvent(NotificationSender.EVENT_STARTED)
+        self._sendEvent(NotificationSender.EVENT_STARTED, progressOverwriteFloat=0.0)
         self.Logger.info(f"New print started; PrintId: {str(self.GetPrintId())} file:{str(pi.GetFileName())} size:{str(pi.GetFileSizeKBytes())} filament:{str(pi.GetEstFilamentUsageMm())}")
 
 
