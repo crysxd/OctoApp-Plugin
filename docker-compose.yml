@@ -1,7 +1,7 @@
 version: '2'
 services:
   octoapp-plugin:
-    image: octoapp
+    image: bmerrill9/octoapp_plugin
     environment:
         # Required: The mode of OctoApp Companion Plugin you want use.
         #   - bambu:   Bambu Companion Plugin - for Bambu Lab 3D printers such as the Bambu Lab A1, P1, and X1 series.
@@ -64,7 +64,7 @@ services:
   # Add as many printers and printer types as you want!
   #
   # octoapp-plugin-2:
-  #   image: octoapp
+  #   image: bmerrill9/octoapp_plugin
   #   environment:
   #       # Required: The mode of OctoApp Companion Plugin you want use.
   #       #   - bambu:   Bambu Companion Plugin - for Bambu Lab 3D printers such as the Bambu Lab A1, P1, and X1 series.
