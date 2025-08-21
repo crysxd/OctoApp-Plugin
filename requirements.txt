@@ -12,6 +12,7 @@ requests>=2.31.0
 octoflatbuffers==24.3.27
 pillow
 certifi>=2025.1.31
+pycryptodome>=3.15.0
 rsa>=4.9
 dnspython>=2.3.0
 httpx>=0.24.1
