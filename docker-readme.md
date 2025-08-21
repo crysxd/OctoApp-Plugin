@@ -14,9 +14,9 @@ OctoApp's Companion Docker image **does not work with:** ⛔
 
 🤔 Confused? [Follow our step-by-step guide](https://github.com/crysxd/OctoApp-Plugin/wiki) to find the right version for your 3D printer!
 
-Based off this Docker Image: https://hub.docker.com/r/octoeverywhere/octoeverywhere
+Docker Image: https://hub.docker.com/r/bmerrill9/octoapp_plugin
 
-Based off this Docker Compose: [GitHub Repo File](https://github.com/QuinnDamerell/OctoPrint-OctoEverywhere/blob/master/docker-compose.yml)
+Based on this Docker Compose: [GitHub Repo File](https://github.com/QuinnDamerell/OctoPrint-OctoEverywhere/blob/master/docker-compose.yml)
 
 ## Required Image Setup Information
 
