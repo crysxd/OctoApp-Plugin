@@ -39,7 +39,7 @@ RUN ${VENV_DIR}/bin/python -m pip install --upgrade pip
 
 # Copy the entire repo into the image, do this as late as possible to avoid rebuilding the image every time the repo changes.
 COPY ./ ${REPO_DIR}/
-RUN ${VENV_DIR}/bin/pip3 install --require-virtualenv --no-cache-dir -q -r ${REPO_DIR}/requirements.txt
+RUN ${VENV_DIR}/bin/pip3 install --require-virtualenv --no-cache-dir -q -r ${REPO_DIR}/requirements.txt -r ${REPO_DIR}/requirements_try.txt
 
 # Install the optional packages for zstandard compression.
 # THIS VERSION STRING MUST STAY IN SYNC with Compression.ZStandardPipPackageString
