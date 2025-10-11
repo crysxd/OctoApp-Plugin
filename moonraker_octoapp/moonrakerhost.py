@@ -294,7 +294,7 @@ class MoonrakerHost(IMoonrakerConnectionStatusHandler, IHostCommandHandler, ISta
 
 
     #
-    # StatusChangeHandler Interface - Called by the OctoEverywhere handshake when a rekey is required.
+    # StatusChangeHandler Interface - Called by the OctoApp handshake when a rekey is required.
     #
     def OnRekeyRequired(self) -> None:
         self.Rekey("Handshake Failed")

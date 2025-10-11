@@ -815,7 +815,7 @@ class JsonRpcWaitingContext:
 
 
 # The goal of this class it add any needed compatibility logic to allow the moonraker system plugin into the
-# common OctoEverywhere logic.
+# common OctoApp logic.
 class MoonrakerCompat(IPrinterStateReporter):
 
     def __init__(self, logger:LoggerLike, printerId:str, bedCooldownThresholdTempC:float) -> None:

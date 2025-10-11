@@ -82,17 +82,17 @@ class IWebcamPlatformHelper(ABC):
 
 class IStateChangeHandler(ABC):
 
-    # Called by the OctoEverywhere logic when the server connection has been established.
+    # Called by the OctoApp logic when the server connection has been established.
     @abstractmethod
     def OnPrimaryConnectionEstablished(self, octoKey:str, connectedAccounts:List[str]) -> None:
         pass
 
-    # Called by the OctoEverywhere logic when a plugin update is required for this client.
+    # Called by the OctoApp logic when a plugin update is required for this client.
     @abstractmethod
     def OnPluginUpdateRequired(self) -> None:
         pass
 
-    # Called by the OctoEverywhere handshake when a rekey is required.
+    # Called by the OctoApp handshake when a rekey is required.
     @abstractmethod
     def OnRekeyRequired(self) -> None:
         pass
@@ -119,7 +119,7 @@ class IApiRouteHandler(ABC):
     # Must return an absolute URL if it's being updated, otherwise None.
     #
     # This is only needed for relative paths, since absolute paths can't be mapped like this.
-    # Basically the frontend is going to always call the https://<sub>.octoeverywhere.com/<websocket/printer/etc>
+    # Basically the frontend is going to always call the https://<sub>.OctoApp.com/<websocket/printer/etc>
     # Since the subdomain will map the request to the correct instance bound to the moonraker instance, the
     # plugin can figure which calls are for moonraker and map them to the known instance port.
     # Note this will be used by both websockets and http calls.
@@ -345,7 +345,7 @@ class ICommandWebsocketProviderBuilder(ABC):
 # Usually only used to prevent circular imports.
 #
 
-class IOctoEverywhereHost(ABC):
+class IOctoAppHost(ABC):
 
     @abstractmethod
     def OnSummonRequest(self, summonConnectUrl:str, summonMethod:int) -> None:
