@@ -192,14 +192,14 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
 
 
     #
-    # StatusChangeHandler Interface - Called by the OctoEverywhere logic when the server connection has been established.
+    # StatusChangeHandler Interface - Called by the OctoApp logic when the server connection has been established.
     #
     def OnPrimaryConnectionEstablished(self, octoKey:str, connectedAccounts:List[str]) -> None:
-        self.Logger.info("Primary Connection To OctoEverywhere Established - We Are Ready To Go!")
+        self.Logger.info("Primary Connection To OctoApp Established - We Are Ready To Go!")
 
 
     #
-    # StatusChangeHandler Interface - Called by the OctoEverywhere logic when a plugin update is required for this client.
+    # StatusChangeHandler Interface - Called by the OctoApp logic when a plugin update is required for this client.
     #
     def OnPluginUpdateRequired(self) -> None:
         self.Logger.error("!!! A Plugin Update Is Required -- If This Plugin Isn't Updated It Might Stop Working !!!")
@@ -207,7 +207,7 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
 
 
     #
-    # StatusChangeHandler Interface - Called by the OctoEverywhere handshake when a rekey is required.
+    # StatusChangeHandler Interface - Called by the OctoApp handshake when a rekey is required.
     #
     def OnRekeyRequired(self) -> None:
         self.Rekey("Handshake Failed")

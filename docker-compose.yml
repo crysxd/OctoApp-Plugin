@@ -1,7 +1,7 @@
 version: '2'
 services:
   octoapp-plugin:
-    image: bmerrill9/octoapp_plugin
+    image: ghcr.io/crysxd/octoapp-plugin:latest
     environment:
         # Required: The mode of OctoApp Companion Plugin you want use.
         #   - bambu:   Bambu Companion Plugin - for Bambu Lab 3D printers such as the Bambu Lab A1, P1, and X1 series.
@@ -14,20 +14,20 @@ services:
         #
         # Required for Bambu Connect
         #
-        #  https://octoeverywhere.com/s/access-code
+        #  https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-for-BambuLab#finding-your-access-code
         #- ACCESS_CODE=5285c831
         #
-        #  https://octoeverywhere.com/s/bambu-sn
+        #  https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-for-BambuLab#finding-your-serial-number
         #- SERIAL_NUMBER=00M09C411200608
         #
-        #  Find using the printer's display or use https://octoeverywhere.com/s/bambu-ip
+        #  Find using the printer's display or use https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-for-BambuLab#finding-your-bambu-lab-printers-ip-address
         #- PRINTER_IP=10.0.0.23
 
 
         #
         # Required for Elegoo Connect
         #
-        #  Find using the printer's display or use https://octoeverywhere.com/s/elegoo-ip
+        #  Find using the printer's display or use https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-on-Elegoo-Centauri#finding-your-elegoos-ip-address
         #- PRINTER_IP=XXX.XXX.XXX.XXX
 
 
@@ -64,7 +64,7 @@ services:
   # Add as many printers and printer types as you want!
   #
   # octoapp-plugin-2:
-  #   image: bmerrill9/octoapp_plugin
+  #   image: ghcr.io/crysxd/octoapp-plugin:latest
   #   environment:
   #       # Required: The mode of OctoApp Companion Plugin you want use.
   #       #   - bambu:   Bambu Companion Plugin - for Bambu Lab 3D printers such as the Bambu Lab A1, P1, and X1 series.
@@ -77,20 +77,20 @@ services:
   #       #
   #       # Required for Bambu Connect
   #       #
-  #       #  https://octoeverywhere.com/s/access-code
+  #       # https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-for-BambuLab#finding-your-access-code
   #       #- ACCESS_CODE=5285c831
   #       #
-  #       #  https://octoeverywhere.com/s/bambu-sn
+  #       #  https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-for-BambuLab#finding-your-serial-number
   #       #- SERIAL_NUMBER=00M09C411200608
   #       #
-  #       #  Find using the printer's display or use https://octoeverywhere.com/s/bambu-ip
+  #       #  Find using the printer's display or use https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-for-BambuLab#finding-your-bambu-lab-printers-ip-address
   #       #- PRINTER_IP=10.0.0.23
 
 
   #       #
   #       # Required for Elegoo Connect
   #       #
-  #       #  Find using the printer's display or use https://octoeverywhere.com/s/elegoo-ip
+  #       #  Find using the printer's display or use https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-on-Elegoo-Centauri#finding-your-elegoos-ip-address
   #       #- PRINTER_IP=XXX.XXX.XXX.XXX
 
 

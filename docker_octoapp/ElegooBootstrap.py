@@ -30,7 +30,7 @@ class ElegooBootstrap:
             logger.error("                      You must provide your printer's IP address.")
             logger.error("     Use `docker run -e PRINTER_IP=<ip address>` or add it to your docker-compose file.")
             logger.error("")
-            logger.error("         To find your printer's IP Address -> https://octoeverywhere.com/s/elegoo-ip")
+            logger.error("         To find your printer's IP Address ->  https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-on-Elegoo-Centauri#finding-your-elegoos-ip-address")
             logger.error("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
             logger.error("")
             logger.error("")
