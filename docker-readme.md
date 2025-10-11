@@ -16,7 +16,7 @@ OctoApp's Companion Docker image **does not work with:** ⛔
 
 Docker Image: https://hub.docker.com/r/bmerrill9/octoapp_plugin
 
-Based on this Docker Compose: [GitHub Repo File](https://github.com/QuinnDamerell/OctoPrint-OctoEverywhere/blob/master/docker-compose.yml)
+Based on this Docker Compose: [GitHub Repo File](https://github.com/crysxd/OctoPrint-OctoApp/blob/master/docker-compose.yml)
 
 ## Required Image Setup Information
 
@@ -32,9 +32,9 @@ Different companion modes need different printer information.
 
 To use Bambu Companion Plugin, you need to get the following information.
 
-- Your printer's Access Code - https://octoeverywhere.com/s/access-code
-- Your printer's Serial Number - https://octoeverywhere.com/s/bambu-sn
-- Your printer's IP Address - https://octoeverywhere.com/s/bambu-ip
+- Your printer's Access Code - https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-for-BambuLab#finding-your-access-code
+- Your printer's Serial Number - https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-for-BambuLab#finding-your-serial-number
+- Your printer's IP Address - https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-for-BambuLab#finding-your-bambu-lab-printers-ip-address
 
 These three values must be set as environment vars when you first run the container. Once the container is run, you don't need to include them again, unless you want to update the values.
 
@@ -46,7 +46,7 @@ These three values must be set as environment vars when you first run the contai
 
 To use Elegoo Companion Plugin, you need to get the following information.
 
-- Your Elegoo printer's IP address. - https://octoeverywhere.com/s/elegoo-ip
+- Your Elegoo printer's IP address. - https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-on-Elegoo-Centauri#finding-your-elegoos-ip-address
 
 The IP address must be set as an environment var when you first run the container. Once the container is run, you don't need to include them again, unless you want to update the values.
 
