@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from octoapp.compat import Compat
 from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
+from octoapp.repeattimer import RepeatTimer
 from octoapp.websocketimpl import Client
 from octoapp.octohttprequest import OctoHttpRequest
 from octoapp.buffer import Buffer
@@ -323,11 +324,15 @@ class ElegooClient:
                 # Setup the websocket client for this connection.
                 self.WebSocket = Client(url, onWsOpen=self._OnWsConnect, onWsClose=self._OnWsClose, onWsError=self._OnWsError, onWsData=self._OnWsData)
 
-                # Connect to the server
-                with self.WebSocket:
-                    # Use a more aggressive ping timeout because if the printer power cycles, we don't get the TCP close message.
-                    # Time ping timeout must be less than the ping interval.
-                    self.WebSocket.RunUntilClosed(pingIntervalSec=30)
+                # Important! The connection to the print will close after 1 minute if we don't send any messages.
+                # Even if the websocket sends the ws ping message, it doesn't seem to reset the idle timer.
+                # So, we will use a repeat timer to send the SDCP protocol ping message every 50 seconds.
+                with RepeatTimer(self.Logger, "ElegooClientWsMsgKeepalive", 50.0, self._RepeatTimerKeepaliveTick) as t:
+                    t.start()
+                    # Connect to the server
+                    with self.WebSocket:
+                        # We use a ping payload of "ping" because it's what the web portal uses.
+                        self.WebSocket.RunUntilClosed(pingPayload="ping")
             except Exception as e:
                 Sentry.OnException("Elegoo client exception in main WS loop.", e)
 
@@ -347,6 +352,15 @@ class ElegooClient:
             isConnectAttemptFromEventBump = self.SleepEvent.wait(sleepDelaySec)
             self.SleepEvent.clear()
 
+
+    def _RepeatTimerKeepaliveTick(self):
+        # Any message works, but this is the lightest weight.
+        # We don't care about the result
+        if self._WebSocketSend(Buffer("ping".encode("utf-8"))) is False:
+            localWs = self.WebSocket
+            if localWs is not None and self.WebSocketConnected is True:
+                self.Logger.info("Elegoo client - keepalive tick failed to send ping message, closing the websocket.")
+                localWs.Close()
 
     # Fired whenever the client is disconnected, we need to clean up the state since it's now unknown.
     def _CleanupStateOnDisconnect(self):

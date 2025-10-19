@@ -97,7 +97,7 @@ class Client(IWebSocketClient):
 
 
     # Runs the websocket blocking until it closes.
-    def RunUntilClosed(self, pingIntervalSec:Optional[int]=None, pingTimeoutSec:Optional[int]=None):
+    def RunUntilClosed(self, pingIntervalSec:Optional[int]=None, pingTimeoutSec:Optional[int]=None, pingPayload:str="") -> None:
         #
         # The client is responsible for sending keep alive pings the server will then pong respond to.
         # If that's not done, the connection will timeout. We will send a ping every 10 minutes.
@@ -137,7 +137,7 @@ class Client(IWebSocketClient):
                 if self.isClosed:
                     return
 
-            self.Ws.run_forever(skip_utf8_validation=True, ping_interval=pingIntervalSec, ping_timeout=pingTimeoutSec, sslopt={"ca_certs":certifi.where()})  #pyright: ignore[reportUnknownMemberType]
+            self.Ws.run_forever(skip_utf8_validation=True, ping_interval=pingIntervalSec, ping_timeout=pingTimeoutSec, sslopt={"ca_certs":certifi.where()},ping_payload=pingPayload)  #pyright: ignore[reportUnknownMemberType]
         except Exception as e:
             # There's a compat issue where  run_forever will try to access "isAlive" when the socket is closing
             # "isAlive" apparently doesn't exist in some PY versions of thread, so this throws. We will ignore that error,
