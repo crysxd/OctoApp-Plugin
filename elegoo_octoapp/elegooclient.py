@@ -293,8 +293,8 @@ class ElegooClient:
             return False
 
         # Print for debugging.
-        if ElegooClient.WebSocketMessageDebugging:
-            self.Logger.debug("Ws ->: %s", buffer.GetBytesLike().decode("utf-8"))
+        # if ElegooClient.WebSocketMessageDebugging:
+        self.Logger.info("Ws ->: %s", buffer.GetBytesLike().decode("utf-8"))
 
         try:
             # Since we must encode the data, which will create a copy, we might as well just send the buffer as normal,
@@ -327,6 +327,7 @@ class ElegooClient:
                 # Important! The connection to the print will close after 1 minute if we don't send any messages.
                 # Even if the websocket sends the ws ping message, it doesn't seem to reset the idle timer.
                 # So, we will use a repeat timer to send the SDCP protocol ping message every 50 seconds.
+                self.Logger.info("Connecting Elegoo with ping")
                 with RepeatTimer(self.Logger, "ElegooClientWsMsgKeepalive", 50.0, self._RepeatTimerKeepaliveTick) as t:
                     t.start()
                     # Connect to the server
@@ -356,6 +357,7 @@ class ElegooClient:
     def _RepeatTimerKeepaliveTick(self):
         # Any message works, but this is the lightest weight.
         # We don't care about the result
+        self.Logger.info("Elegoo client - Sending ping.")
         if self._WebSocketSend(Buffer("ping".encode("utf-8"))) is False:
             localWs = self.WebSocket
             if localWs is not None and self.WebSocketConnected is True:
