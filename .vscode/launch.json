@@ -46,9 +46,9 @@
                 // These args reflect the correct setup for a pi installed with the Bambu Connect version of the plugin. These args target the first instance.
                 //
                 // { "ServiceName": "octoapp-elegoo", "VirtualEnvPath":"/home/pi/octoapp-env", "RepoRootFolder":"/home/pi/octoapp/", "LogFolder":"/home/pi/.octoapp-elegoo/logs", "LocalFileStoragePath":"/home/pi/.octoapp-elegoo/octoapp-store", "ConfigFolder":"/home/pi/.octoapp-elegoo/", "CompanionInstanceIdStr":"1" }
-                "eyAiU2VydmljZU5hbWUiOiAib2N0b2FwcC1lbGVnb28iLCAiVmlydHVhbEVudlBhdGgiOiIvaG9tZS9waS9vY3RvYXBwLWVudiIsICJSZXBvUm9vdEZvbGRlciI6Ii9ob21lL3BpL29jdG9hcHAvIiwgIkxvZ0ZvbGRlciI6Ii9ob21lL3BpLy5vY3RvYXBwLWVsZWdvby9sb2dzIiwgIkxvY2FsRmlsZVN0b3JhZ2VQYXRoIjoiL2hvbWUvcGkvLm9jdG9hcHAtZWxlZ29vL29jdG9hcHAtc3RvcmUiLCAiQ29uZmlnRm9sZGVyIjoiL2hvbWUvcGkvLm9jdG9hcHAtZWxlZ29vLyIsICJDb21wYW5pb25JbnN0YW5jZUlkU3RyIjoiMSIgfQ==",
+                "eyAiU2VydmljZU5hbWUiOiAib2N0b2FwcC1lbGVnb28iLCAiVmlydHVhbEVudlBhdGgiOiJ2ZW52IiwgIlJlcG9Sb290Rm9sZGVyIjoiLiIsICJMb2dGb2xkZXIiOiJkYXRhL2xvZ3MiLCAiTG9jYWxGaWxlU3RvcmFnZVBhdGgiOiJkYXRhL29jdG9hcHAtc3RvcmUiLCAiQ29uZmlnRm9sZGVyIjoiZGF0YS9jb25maWciLCAiQ29tcGFuaW9uSW5zdGFuY2VJZFN0ciI6IjEiIH0=",
                 // We can optionally pass a dev config json object, which has dev specific overwrites we can make.
-                "{\"LocalServerAddress\":\"\", \"LogLevel\":\"DEBUG\"}"
+                "{\"LocalServerAddress\":\"192.168.1.52\", \"LogLevel\":\"DEBUG\"}"
             ]
         },
         {
