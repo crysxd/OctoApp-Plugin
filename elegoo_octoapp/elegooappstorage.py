@@ -109,7 +109,7 @@ class ElegooAppStorage(AppStoragePlatformHelper):
             try:
                 # Decrypt app instance (you need to implement AES-256-GCM decryption separately)
                 decryptedJson = self._DecryptAppInstance(appId, encryptedAppJson)
-                appInstance = AppInstance.FromDict(decryptedJson)
+                appInstance = AppInstance.FromDict(decryptedJson, databaseId=appId)
                 apps.append(appInstance)
             except Exception as e:
                 self.Logger.error(f"Failed to decrypt or parse app {appId}: {str(e)}")
@@ -119,7 +119,7 @@ class ElegooAppStorage(AppStoragePlatformHelper):
         printerId = self._GetPrinterId()
         for app in apps:
             instanceId = app.InstanceId
-            appId = sha256_urlsafe_base64(instanceId.encode())
+            appId = app.DatabaseId or sha256_urlsafe_base64(instanceId.encode())
             url = f"{self.AppsDatabaseUrl}/{printerId}/{appId}.json?print=silent"
             resp = requests.delete(url)
             if resp.status_code != 200:

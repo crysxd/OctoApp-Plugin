@@ -21,6 +21,7 @@ class AppInstance:
               lastSeenAt:float,
               expireAt:float,
               excludeNotifications:List[str],
+              databaseId:Optional[str]=None
     ):
         self.FcmToken = fcmToken
         self.FcmFallbackToken:Optional[str] = fcmFallbackToken
@@ -35,6 +36,7 @@ class AppInstance:
         self.LastSeenAt = lastSeenAt
         self.ExpireAt = expireAt
         self.ExcludeNotifications = excludeNotifications
+        self.DatabaseId = databaseId
 
     def WithToken(self, fcmToken: str):
         return AppInstance(
@@ -71,7 +73,7 @@ class AppInstance:
         )
 
     @staticmethod
-    def FromDict(data:Dict[str,Any]):
+    def FromDict(data:Dict[str,Any], databaseId: Optional[str]=None) -> "AppInstance":
         def ensure_string_list(value: Any) -> List[str]:
             if not isinstance(value, list):
                 return []
@@ -90,7 +92,8 @@ class AppInstance:
             appLanguage=data.get("appLanguage", "en"),
             lastSeenAt=int(data.get("lastSeenAt", 0)),
             expireAt=int(data.get("expireAt", 0)),
-            excludeNotifications=ensure_string_list(data.get("excludeNotifications", []))
+            excludeNotifications=ensure_string_list(data.get("excludeNotifications", [])),
+            databaseId=databaseId
         )
 
 
