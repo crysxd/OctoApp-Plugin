@@ -126,7 +126,7 @@ subscriptions:
         # Add our name.
             with open(allowedServiceFile,'a', encoding="utf-8") as f:
                 # The current format this doc is not have a trailing \n, so we need to add one.
-                f.write("\n"+serviceName)
+                f.write("\n"+serviceName+"\n")
         except PermissionError as e:
             logger.warning("We tried to write the moonraker allowed services file but don't have permissions "+str(e))
             return
