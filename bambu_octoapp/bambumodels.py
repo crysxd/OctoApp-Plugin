@@ -1,6 +1,6 @@
 import time
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from octoapp.sentry import Sentry
 from octoapp.logging import LoggerLike
@@ -184,6 +184,9 @@ class BambuPrinters(Enum):
     X1E = 3
     P1P = 10
     P1S = 11
+    P2S = 12
+    H2D = 30
+    H2S = 31
     A1  = 20
     A1Mini = 21
 
@@ -231,6 +234,12 @@ class BambuVersion:
                 self.ProjectName = m.get("project_name", self.ProjectName)
                 self.Cpu = BambuCPUs.RV1126
 
+        # Try to detect from product name first, as it's more reliable.
+        modelFromProductName = self.DetectModelFromProductName(module)
+        if modelFromProductName is not None:
+            self.PrinterName = modelFromProductName
+            return
+
         # If we didn't find a hardware, it's unknown.
         if self.Cpu is None:
             self.Cpu = BambuCPUs.Unknown
@@ -270,3 +279,25 @@ class BambuVersion:
         if self.HasLoggedPrinterVersion is False:
             self.HasLoggedPrinterVersion = True
             self.Logger.info(f"Printer Version: {self.PrinterName}, CPU: {self.Cpu}, Project: {self.ProjectName} Hardware: {self.HardwareVersion}, Software: {self.SoftwareVersion}, Serial: {self.SerialNumber}")
+
+    def DetectModelFromProductName(self, module:List[Dict[str, Any]]) -> Optional[BambuPrinters]:
+        name_map = {
+            "Bambu Lab A1": BambuPrinters.A1,
+            "Bambu Lab A1 mini": BambuPrinters.A1Mini,
+            "Bambu Lab A1 Mini": BambuPrinters.A1Mini,
+            "Bambu Lab P1S":  BambuPrinters.P1S,
+            "Bambu Lab P2S":  BambuPrinters.P2S,
+            "Bambu Lab P1P":  BambuPrinters.P1P,
+            "Bambu Lab H2D":  BambuPrinters.H2D,
+            "Bambu Lab H2S":  BambuPrinters.H2S
+        }
+
+        if not module:
+            return None
+
+        for m in module:
+            model = name_map.get(m.get("product_name", ""))
+            if model:
+                return model
+
+        return None
