@@ -238,6 +238,7 @@ class BambuVersion:
         modelFromProductName = self.DetectModelFromProductName(module)
         if modelFromProductName is not None:
             self.PrinterName = modelFromProductName
+            self.LogPrinterNameOnce()
             return
 
         # If we didn't find a hardware, it's unknown.
@@ -276,6 +277,9 @@ class BambuVersion:
             })
             self.PrinterName = BambuPrinters.Unknown
 
+        self.LogPrinterNameOnce()
+
+    def LogPrinterNameOnce(self) -> None:
         if self.HasLoggedPrinterVersion is False:
             self.HasLoggedPrinterVersion = True
             self.Logger.info(f"Printer Version: {self.PrinterName}, CPU: {self.Cpu}, Project: {self.ProjectName} Hardware: {self.HardwareVersion}, Software: {self.SoftwareVersion}, Serial: {self.SerialNumber}")
