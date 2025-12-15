@@ -34,7 +34,7 @@ class BambuClient:
     _Instance:"BambuClient" = None #pyright: ignore[reportAssignmentType]
 
     # Useful for debugging.
-    _PrintMQTTMessages = False
+    _PrintMQTTMessages = True
 
     @staticmethod
     def Init(logger:LoggerLike, config:Config, stateTranslator:IBambuStateTranslator) -> None:
