@@ -31,6 +31,8 @@ class FileMetadataCache:
         self.LayerHeight:float = -1.0
         self.ObjectHeight:float = -1.0
         self.Modified:float = 0.0
+        self.GcodeStartByte:int = -1
+        self.GcodeEndByte:int = -1
         self.ResetCache()
 
 
@@ -45,6 +47,8 @@ class FileMetadataCache:
         self.LayerHeight = -1.0
         self.ObjectHeight = -1.0
         self.Modified:float = 0.0
+        self.GcodeStartByte = -1
+        self.GcodeEndByte = -1
 
 
     # If the estimated time for the print can be gotten from the file metadata, this will return it.
@@ -113,6 +117,15 @@ class FileMetadataCache:
 
         # Return the value, which could still be -1 if it failed.
         return (self.LayerCount, self.LayerHeight, self.FirstLayerHeight, self.ObjectHeight)
+
+
+    # Returns the gcode byte range (start_byte, end_byte) for file-relative progress calculation.
+    # Either value is -1 if unknown.
+    def GetGcodeByteRange(self, filename:str) -> Tuple[int, int]:
+        if self.FileName is not None and self.FileName == filename:
+            return (self.GcodeStartByte, self.GcodeEndByte)
+        self._RefreshFileMetaDataCache(filename)
+        return (self.GcodeStartByte, self.GcodeEndByte)
 
 
     # If the file size can be gotten from the file metadata, this will return it.
@@ -198,4 +211,13 @@ class FileMetadataCache:
                 self.ObjectHeight = value
 
 
-        self.Logger.info(f"FileMetadataCache updated for file [{filename}]; est time: {str(self.EstimatedPrintTimeSec)}, size: {str(self.FileSizeKBytes)}, filament usage: {str(self.EstimatedFilamentUsageMm)}")
+        if "gcode_start_byte" in res and res["gcode_start_byte"] is not None:
+            value = int(res["gcode_start_byte"])
+            if value >= 0:
+                self.GcodeStartByte = value
+        if "gcode_end_byte" in res and res["gcode_end_byte"] is not None:
+            value = int(res["gcode_end_byte"])
+            if value > 0:
+                self.GcodeEndByte = value
+
+        self.Logger.info(f"FileMetadataCache updated for file [{filename}]; est time: {str(self.EstimatedPrintTimeSec)}, size: {str(self.FileSizeKBytes)}, filament usage: {str(self.EstimatedFilamentUsageMm)}, gcode bytes: {str(self.GcodeStartByte)}-{str(self.GcodeEndByte)}")
