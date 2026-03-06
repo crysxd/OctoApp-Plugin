@@ -6,7 +6,7 @@ import queue
 import sys
 import threading
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List
 from urllib.parse import quote
 from urllib.request import urlopen
 
@@ -28,6 +28,18 @@ from .interfaces import IMoonrakerClient, IMoonrakerConnectionStatusHandler
 from .jsonrpcresponse import JsonRpcResponse
 from .moonrakercredentailmanager import MoonrakerCredentialManager
 from .printernameprovider import IPrinterNameProvider
+
+
+# Holds parsed progress and ETA calculation settings from Mainsail/Fluidd databases.
+class ProgressCalculationSettings:
+
+    def __init__(self, progress_methods:Optional[List[str]]=None, average_progress:bool=False, eta_methods:Optional[List[str]]=None) -> None:
+        # List of methods to use: "file_relative", "file_absolute", "slicer", "filament"
+        self.ProgressMethods:List[str] = progress_methods or ["file_relative"]
+        # True = average all selected methods (Fluidd), False = use first only (Mainsail)
+        self.AverageProgress:bool = average_progress
+        # List of ETA methods to use: "file", "filament", "slicer"
+        self.EtaMethods:List[str] = eta_methods or ["file", "filament", "slicer"]
 
 
 # This class is our main interface to interact with moonraker. This includes the logic to make
@@ -330,9 +342,10 @@ class MoonrakerClient(IMoonrakerClient):
             {
                 # Using None allows us to get all of the data from the notification types.
                 # For some types, using None has way too many updates, so we filter them down.
-                "print_stats": { "state", "filename", "message" },
+                "print_stats": ["state", "filename", "message", "filament_used", "print_duration"],
                 "webhooks": None,
                 "virtual_sdcard": None,
+                "display_status": None,
                 "history" : None,
                 "gcode_macro _OCTOAPP_STATUS": None,
             }
@@ -402,10 +415,25 @@ class MoonrakerClient(IMoonrakerClient):
             progressFloat = self._GetProgressFromMsg(msg)
             filePos_CanBeNone = self._GetFilePosFromMsg(msg)
 
+            # Track display_status.progress for the slicer progress/ETA method.
+            dsContainerObj = self._GetWsMsgParam(msg, "display_status")
+            if dsContainerObj is not None:
+                ds = dsContainerObj["display_status"]
+                slicerProg = ds.get("progress", None)
+                if slicerProg is not None:
+                    self.MoonrakerCompat.LastDisplayStatusProgress = float(slicerProg)
+
             # Check for a state container
             stateContainerObj = self._GetWsMsgParam(msg, "print_stats")
             if stateContainerObj is not None:
                 ps = stateContainerObj["print_stats"]
+                # Track fields needed for settings-based progress/ETA calculations.
+                fileName = ps.get("filename", None)
+                if fileName is not None:
+                    self.MoonrakerCompat.LastFileName = fileName
+                filamentUsed = ps.get("filament_used", None)
+                if filamentUsed is not None:
+                    self.MoonrakerCompat.LastFilamentUsed = float(filamentUsed)
                 state = ps.get("state", None)
                 if state is not None:
                     # Check for pause
@@ -831,6 +859,13 @@ class MoonrakerCompat(IPrinterStateReporter):
         self.LastFilePos = sys.maxsize
         self.ScheduledNotifications = {}
 
+        # Progress calculation settings (loaded from Mainsail/Fluidd on each connect)
+        self.ProgressSettings:ProgressCalculationSettings = ProgressCalculationSettings()
+        # State tracked from WS messages for settings-based progress/ETA calculations
+        self.LastDisplayStatusProgress:Optional[float] = None  # 0-1, from display_status.progress
+        self.LastFilamentUsed:Optional[float] = None  # mm, from print_stats.filament_used
+        self.LastFileName:Optional[str] = None  # current print filename
+
         # This class owns the notification handler.
         # We pass our self as the Printer State Interface
         self.NotificationHandler = NotificationsHandler(self.Logger, self)
@@ -871,6 +906,9 @@ class MoonrakerCompat(IPrinterStateReporter):
         # can be running while either of those restart. So we need to sync the state here, and make sure things like Gadget and the
         # notification system having their progress threads running correctly.
         self._InitPrintStateForFreshConnect()
+
+        # Load progress calculation settings from Mainsail/Fluidd databases.
+        self._loadProgressSettings()
 
         # We are ready to process notifications!
         Sentry.Breadcrumb("Moonraker client connected, print state restored, and we are ready to accept notifications.")
@@ -1022,11 +1060,122 @@ class MoonrakerCompat(IPrinterStateReporter):
         if timeDeltaSec < 5.0:
             return
         self.TimeSinceLastProgressUpdate = nowSec
-        self.LastPogress  = int(progress * 100)
 
-        # Moonraker uses from 0->1 to progress while we assume 100->0
-        self.NotificationHandler.OnPrintProgress(None, progress * 100.0)
+        # Compute progress using the configured method (Mainsail/Fluidd settings).
+        # _computeProgress uses the tracked WS state (LastDisplayStatusProgress, LastFilamentUsed, LastFileName).
+        computedProgress = self._computeProgress(virtualSdCardProgress=progress, filePos=filePos)
+        self.LastPogress = int(computedProgress)
+        self.NotificationHandler.OnPrintProgress(None, computedProgress)
 
+
+    #
+    # Progress settings loading and calculation helpers
+    #
+
+    def _loadProgressSettings(self) -> None:
+        """Load progress/ETA calculation settings from Mainsail or Fluidd database."""
+        try:
+            result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.get_item",
+                {"namespace": "mainsail", "key": "general"})
+            if not result.HasError() and result.GetResult() is not None:
+                general = result.GetResult().get("value", None) or {}
+                self.ProgressSettings = ProgressCalculationSettings(
+                    progress_methods=self._resolveMainsailProgressMethods(general),
+                    average_progress=False,
+                    eta_methods=self._resolveMainsailEtaMethods(general),
+                )
+                self.Logger.info(f"Progress settings from Mainsail: progress={self.ProgressSettings.ProgressMethods}, eta={self.ProgressSettings.EtaMethods}")
+                return
+        except Exception as e:
+            Sentry.ExceptionNoSend("Failed to load Mainsail progress settings", e)
+        try:
+            result = MoonrakerClient.Get().SendJsonRpcRequest("server.database.get_item",
+                {"namespace": "fluidd", "key": "uiSettings.general"})
+            if not result.HasError() and result.GetResult() is not None:
+                general = result.GetResult().get("value", None) or {}
+                self.ProgressSettings = ProgressCalculationSettings(
+                    progress_methods=self._resolveFluiddProgressMethods(general),
+                    average_progress=True,
+                    eta_methods=self._resolveFluiddEtaMethods(general),
+                )
+                self.Logger.info(f"Progress settings from Fluidd: progress={self.ProgressSettings.ProgressMethods}, average=True, eta={self.ProgressSettings.EtaMethods}")
+                return
+        except Exception as e:
+            Sentry.ExceptionNoSend("Failed to load Fluidd progress settings", e)
+        self.Logger.info("No Mainsail/Fluidd settings found; using defaults")
+
+    @staticmethod
+    def _resolveMainsailProgressMethods(general:Dict[str, Any]) -> List[str]:
+        mapping = {"file-relative": "file_relative", "file-absolute": "file_absolute", "slicer": "slicer", "filament": "filament"}
+        raw = general.get("calcPrintProgress", "file-relative")
+        return [mapping.get(raw, "file_relative")]
+
+    @staticmethod
+    def _resolveMainsailEtaMethods(general:Dict[str, Any]) -> List[str]:
+        mapping = {"file": "file", "filament": "filament", "slicer": "slicer"}
+        raw = general.get("calcEtaTime", ["file", "filament", "slicer"])
+        if not isinstance(raw, list):
+            raw = [raw]
+        return [mapping[s] for s in raw if s in mapping] or ["file", "filament", "slicer"]
+
+    @staticmethod
+    def _resolveFluiddProgressMethods(general:Dict[str, Any]) -> List[str]:
+        mapping = {"file": "file_relative", "fileAbsolute": "file_absolute", "slicer": "slicer", "filament": "filament"}
+        raw = general.get("printProgressCalculation", ["file"])
+        if not isinstance(raw, list):
+            raw = [raw]
+        return [mapping[s] for s in raw if s in mapping] or ["file_relative"]
+
+    @staticmethod
+    def _resolveFluiddEtaMethods(general:Dict[str, Any]) -> List[str]:
+        mapping = {"file": "file", "slicer": "slicer"}
+        raw = general.get("printEtaCalculation", ["file"])
+        if not isinstance(raw, list):
+            raw = [raw]
+        return [mapping[s] for s in raw if s in mapping] or ["file"]
+
+    def _calcSingleProgress(self, method:str, filePos:Optional[int], virtualSdCardProgress:float,
+                            fileName:Optional[str], displayStatusProgress:Optional[float]=None,
+                            filamentUsed:Optional[float]=None) -> Optional[float]:
+        """Returns progress 0-1 for a single method, or None if unavailable."""
+        if method == "file_relative":
+            if filePos is not None and fileName is not None:
+                startByte, endByte = FileMetadataCache.Get().GetGcodeByteRange(fileName)
+                if startByte >= 0 and endByte > startByte:
+                    if filePos <= startByte:
+                        return 0.0
+                    if filePos >= endByte:
+                        return 1.0
+                    return float(filePos - startByte) / float(endByte - startByte)
+            return virtualSdCardProgress
+        elif method == "file_absolute":
+            return virtualSdCardProgress
+        elif method == "slicer":
+            slicerProg = displayStatusProgress if displayStatusProgress is not None else self.LastDisplayStatusProgress
+            return slicerProg
+        elif method == "filament":
+            filamentUsedVal = filamentUsed if filamentUsed is not None else self.LastFilamentUsed
+            if fileName is not None and filamentUsedVal is not None:
+                totalMm = FileMetadataCache.Get().GetEstimatedFilamentUsageMm(fileName)
+                if totalMm > 0:
+                    return min(1.0, max(0.0, filamentUsedVal / totalMm))
+            return virtualSdCardProgress
+        return None
+
+    def _computeProgress(self, virtualSdCardProgress:float, filePos:Optional[int]) -> float:
+        """Returns computed progress 0-100 based on current settings."""
+        settings = self.ProgressSettings
+        fileName = self.LastFileName
+        results:List[float] = []
+        for method in settings.ProgressMethods:
+            val = self._calcSingleProgress(method, filePos, virtualSdCardProgress, fileName)
+            if val is not None and 0.0 <= val <= 1.0:
+                results.append(val)
+        if not results:
+            return math.floor(virtualSdCardProgress * 100.0)
+        if settings.AverageProgress:
+            return math.floor((sum(results) / len(results)) * 100.0)
+        return math.floor(results[0] * 100.0)
 
     #
     # Printer State Interface
@@ -1042,6 +1191,7 @@ class MoonrakerCompat(IPrinterStateReporter):
                 "virtual_sdcard": None,
                 "print_stats": None,
                 "gcode_move": None,
+                "display_status": None,
             }
         })
         # Like on OctoPrint, this logic is complicated.
@@ -1305,74 +1455,80 @@ class MoonrakerCompat(IPrinterStateReporter):
         return False
 
 
-    # Using the result of printer.objects.query with print_stats and virtual_sdcard, this will get the estimated time remaining in the best way possible.
-    # If it can be gotten, it's returned as an int.
-    # If it fails, it's returns -1
+    # Using the result of printer.objects.query with print_stats, virtual_sdcard, gcode_move, and display_status,
+    # this computes the ETA using the configured Mainsail/Fluidd methods.
+    # Returns -1 if the estimate cannot be computed.
     def GetPrintTimeRemainingEstimateInSeconds_WithPrintStatsVirtualSdCardAndGcodeMoveResult(self, result:JsonRpcResponse) -> int:
-        # This logic is taken from the moonraker docs, that suggest how to find a good ETA
-        # https://moonraker.readthedocs.io/en/latest/web_api/#basic-print-status
-        #
-        # From what we have seen, this is what we ended up with.
-        #
-        # There are three ways to compute the ETA
-        #   1) Read it from the file if the slicer produces it
-        #   2) Use the elapsed time and the current % to guess the total time
-        #   3) Use the filament stat of how much filament is going to be used vs how much has been used. (mainsail does this)
-        #
-        # From our testing, it seems that #1 is the most accurate, if it's possible to get.
-        # If we can get it, we use it, if not, we fallback to #2.
-        #
         try:
-            # Ensure the result is valid.
             if result.HasError():
                 return -1
 
-            # Validate we have what we need.
             res = result.GetResult()["status"]
             if "print_stats" not in res or "virtual_sdcard" not in res or "gcode_move" not in res:
                 self.Logger.error("GetPrintTimeRemainingEstimateInSeconds_WithPrintStatsAndVirtualSdCardResult passed a result with missing objects")
                 return -1
 
-            # If nothing is printing or in the queue, sometimes these values won't be there.
             if "print_duration" not in res["print_stats"] or "filename" not in res["print_stats"] or "progress" not in res["virtual_sdcard"] or "speed_factor" not in res["gcode_move"]:
                 return -1
 
-            # Try to get the vars we need.
-            # Use the print duration, since that's only the time spent printing (excluding warming up and pause time.)
-            printTime = res["print_stats"]["print_duration"]
-            filamentUsed = res["print_stats"]["filament_used"]
+            printDuration = float(res["print_stats"]["print_duration"])
+            filamentUsed = res["print_stats"].get("filament_used", None)
+            if filamentUsed is not None:
+                filamentUsed = float(filamentUsed)
             fileName = res["print_stats"]["filename"]
-            progressFloat = res["virtual_sdcard"]["progress"]
-            # The runtime configured speed of the printer currently. Where 1.0 is 100%, 2.0 is 200%
-            speedFactorFloat = res["gcode_move"]["speed_factor"]
-            inverseSpeedFactorFloat = 1.0/speedFactorFloat
+            virtualSdCardProgress = float(res["virtual_sdcard"]["progress"])
+            filePos = res["virtual_sdcard"].get("file_position", None)
+            speedFactor = float(res["gcode_move"]["speed_factor"])
+            displayStatusProgress = res.get("display_status", {}).get("progress", None)
+            if displayStatusProgress is not None:
+                displayStatusProgress = float(displayStatusProgress)
+
             estimatedPrintTime = FileMetadataCache.Get().GetEstimatedPrintTimeSec(fileName)
-            totalFilamentUse = FileMetadataCache.Get().GetEstimatedFilamentUsageMm(fileName)
-            def calcTimeLeftWithProgress(printTime:int, progress:float):
-                if progress == 0:
-                    return printTime
-                else:
-                    return (printTime / progress) - printTime
+            totalFilamentMm = FileMetadataCache.Get().GetEstimatedFilamentUsageMm(fileName)
+            settings = self.ProgressSettings
 
-            # Can we calculate yet?
-            if printTime > 0:
-                allValues = [
-                    calcTimeLeftWithProgress(printTime=printTime, progress=progressFloat) if progressFloat is not None else None,
-                    calcTimeLeftWithProgress(printTime=printTime, progress=filamentUsed/totalFilamentUse) if filamentUsed is not None and totalFilamentUse > 0 else None,
-                    calcTimeLeftWithProgress(printTime=printTime, progress=printTime/estimatedPrintTime) if printTime is not None and estimatedPrintTime > 0 else None,
-                ]
-                available = [x for x in allValues if x is not None]
-                if len(available) > 0:
-                    timeLeft = sum(available) / len(available)
-                else:
-                    timeLeft = estimatedPrintTime - printTime
+            # Determine which progress value to use for the "file" ETA method.
+            # Fluidd always uses file-relative progress; Mainsail uses the configured progress method.
+            if settings.AverageProgress:
+                fileProgress = self._calcSingleProgress("file_relative", filePos, virtualSdCardProgress, fileName,
+                                                        displayStatusProgress=displayStatusProgress, filamentUsed=filamentUsed)
             else:
-                # Rely on slicer
-                timeLeft = estimatedPrintTime
+                fileProgress = None
+                for method in settings.ProgressMethods:
+                    val = self._calcSingleProgress(method, filePos, virtualSdCardProgress, fileName,
+                                                   displayStatusProgress=displayStatusProgress, filamentUsed=filamentUsed)
+                    if val is not None:
+                        fileProgress = val
+                        break
 
-            # Before returning, we need to offset by the runtime speed, which will skew based on it.
-            # For example, a speed of 200% will reduce the ETA by half.
-            return timeLeft * inverseSpeedFactorFloat
+            if printDuration > 0:
+                times:List[float] = []
+                for etaMethod in settings.EtaMethods:
+                    t:Optional[float] = None
+                    if etaMethod == "file":
+                        if fileProgress is not None and fileProgress > 0.0:
+                            t = (printDuration / fileProgress) - printDuration
+                    elif etaMethod == "filament":
+                        if filamentUsed is not None and totalFilamentMm > 0 and filamentUsed < totalFilamentMm:
+                            t = (printDuration / (filamentUsed / totalFilamentMm)) - printDuration
+                    elif etaMethod == "slicer":
+                        if estimatedPrintTime > 0:
+                            t = estimatedPrintTime - printDuration
+                    if t is not None and t > 0:
+                        times.append(t)
+                if times:
+                    timeLeft = sum(times) / len(times)
+                else:
+                    return -1
+            else:
+                return -1
+
+            if timeLeft < 0:
+                return -1
+
+            # Adjust for runtime speed factor (200% speed → half the remaining time)
+            inverseSpeedFactor = 1.0 / speedFactor if speedFactor > 0 else 1.0
+            return int(timeLeft * inverseSpeedFactor)
 
         except Exception as e:
             Sentry.OnException("GetPrintTimeRemainingEstimateInSeconds exception while computing ETA. ", e)
