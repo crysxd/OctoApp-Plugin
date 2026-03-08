@@ -313,13 +313,22 @@ class NotificationsHandler(INotificationHandler):
         self.Logger.info(f"New print started; PrintId: {str(self.GetPrintId())} file:{str(pi.GetFileName())} size:{str(pi.GetFileSizeKBytes())} filament:{str(pi.GetEstFilamentUsageMm())}")
 
 
+    # Fired when a new HMS (Health Monitoring System) code appears on a Bambu printer.
+    # This is sent as a custom notification and is not rate-limited like Gcode notifications.
+    def OnHmsNotification(self, message:str) -> None:
+        self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: message })
+
+
     # Triggered by a Gcode command
-    def OnCustomNotification(self, message:str, unlimited = False):
+    def OnCustomNotification(self, message:str, body:Optional[str]=None, unlimited = False):
+        state:Dict[str, str] = { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: message }
+        if body:
+            state[NotificationSender.STATE_CUSTOM_EVENT_DETAIL] = body
         if unlimited:
-            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: message })
+            self._sendEvent(NotificationSender.EVENT_CUSTOM, state)
         if self.CustomNotificationCounter < self.CustomNotificationLimit:
             self.CustomNotificationCounter += 1
-            self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: message })
+            self._sendEvent(NotificationSender.EVENT_CUSTOM, state)
         elif self.CustomNotificationCounter == self.CustomNotificationLimit:
             self.CustomNotificationCounter += 1
             self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: f"You reached the limit of {self.CustomNotificationLimit} Gcode notifications for this print"})

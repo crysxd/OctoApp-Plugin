@@ -1,4 +1,4 @@
-from typing import IO, Dict, Any
+from typing import IO, Dict, Any, Optional, Tuple
 
 from .sentry import Sentry
 from .layerutils import LayerUtils
@@ -25,11 +25,14 @@ class NotificationUtils:
     def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
 
-    def CreateNotificationCommand(self, message:str):
-        return NotificationUtils.NotificationCommand + " MESSAGE=" + message
+    def CreateNotificationCommand(self, message:str, detail:Optional[str]=None):
+        cmd = NotificationUtils.NotificationCommand + " MESSAGE=" + message
+        if detail:
+            cmd += " DETAIL=" + detail
+        return cmd
 
 
-    def GetMessageIfNotifyCommand(self, line:str):
+    def GetMessageIfNotifyCommand(self, line:str) -> Optional[Tuple[str, Optional[str]]]:
         def removeQuotes(s:str):
             if s.startswith('"') and s.endswith('"'):
                 return s[1:-1]
@@ -37,26 +40,38 @@ class NotificationUtils:
                 return s[1:-1]
             return s
 
+        def parseParams(raw:str) -> Tuple[str, Optional[str]]:
+            raw = removeQuotes(raw.strip())
+            # Support "MESSAGE=title DETAIL=body" syntax
+            detail = None
+            if " DETAIL=" in raw:
+                parts = raw.split(" DETAIL=", 1)
+                raw = parts[0].strip()
+                detail = removeQuotes(parts[1].strip()) or None
+            message = raw[len("MESSAGE="):] if raw.startswith("MESSAGE=") else raw
+            return (removeQuotes(message), detail)
+
         base = self.CreateNotificationCommand("")
         commands = [ base, ";" + base, "; " + base, "M118 E1 " + base]
 
         for command in commands:
             if line.startswith(command):
-                return removeQuotes(line[len(command):])
+                return parseParams(line[len(command):])
 
-    def SendScheduledNotifications(self, notifications: Dict[int, str], notificationHandler: NotificationsHandler, filePos:int, lastFilePos:int):
+    def SendScheduledNotifications(self, notifications: Dict[int, Any], notificationHandler: NotificationsHandler, filePos:int, lastFilePos:int):
         for notificationFilePos in notifications:
             if notificationFilePos > lastFilePos and filePos >= notificationFilePos:
-                message = notifications[notificationFilePos]
-                self.Logger.info( f"Sending scheduled notification at {filePos}: {message}")
-                if message == NotificationUtils.FirstLayerCompletedAt:
+                entry = notifications[notificationFilePos]
+                if entry == NotificationUtils.FirstLayerCompletedAt:
                     notificationHandler.OnFirstLayerDone()
-                elif message == NotificationUtils.ThirdLayerCompletedAt:
+                elif entry == NotificationUtils.ThirdLayerCompletedAt:
                     notificationHandler.OnThirdLayerDone()
                 else:
-                    notificationHandler.OnCustomNotification(message)
+                    message, detail = entry
+                    self.Logger.info(f"Sending scheduled notification at {filePos}: {message}")
+                    notificationHandler.OnCustomNotification(message, detail)
 
-    def ExtractNotifications(self, response:IO[Any], stopAfterLayer3:bool = False) -> Dict[int, str]:
+    def ExtractNotifications(self, response:IO[Any], stopAfterLayer3:bool = False) -> Dict[int, Any]:
         buffer = ""
         filePos = 0
         context:Dict[str,Any] = {}
@@ -80,10 +95,10 @@ class NotificationUtils:
 
                     context['layerCounter'] += 1
 
-                notifyMessage = self.GetMessageIfNotifyCommand(line)
-                if notifyMessage is not None:
+                notifyParams = self.GetMessageIfNotifyCommand(line)
+                if notifyParams is not None:
                     self.Logger.info( "Custom notification at " + str(filePos))
-                    notifications[filePos] = notifyMessage
+                    notifications[filePos] = notifyParams
 
             except Exception as e:
                 Sentry.ExceptionNoSend("Failed to detect layer change", e)

@@ -458,9 +458,15 @@ class MoonrakerClient(IMoonrakerClient):
             if octoAppStatusContainerObj is not None:
                 # Split text at ~~~ and take the first element (second half is CPU time to make the value change with same message repeated)
                 gcodeNotification = octoAppStatusContainerObj["gcode_macro _OCTOAPP_STATUS"].get("notify_message", None)
-                message = gcodeNotification.split("~~~")[0] if "~~~" in gcodeNotification else gcodeNotification
+                content = gcodeNotification.split("~~~")[0] if "~~~" in gcodeNotification else gcodeNotification
+                # Split at ||| to separate message and optional detail
+                if "|||" in content:
+                    message, detail = content.split("|||", 1)
+                    detail = detail or None
+                else:
+                    message, detail = content, None
                 if message != "":
-                    self.MoonrakerCompat.OnCustomNotification(message)
+                    self.MoonrakerCompat.OnCustomNotification(message, detail)
 
             # Report progress. Do this after the others so they will report before a potential progress update.
             # Progress updates super frequently (like once a second) so there's plenty of chances.
@@ -1022,12 +1028,12 @@ class MoonrakerCompat(IPrinterStateReporter):
         self.NotificationHandler.OnPaused(fileName)
 
      # Called the the print is paused.
-    def OnCustomNotification(self, message:str):
+    def OnCustomNotification(self, message:str, detail:Optional[str]=None):
         # Only process notifications when ready, aka after state sync.
         if self.IsReadyToProcessNotifications is False:
             return
 
-        self.NotificationHandler.OnCustomNotification(message)
+        self.NotificationHandler.OnCustomNotification(message, detail)
 
 
     # Called the the print is resumed.
