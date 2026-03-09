@@ -306,13 +306,17 @@ class NotificationSender:
 
         if event == self.EVENT_CUSTOM:
             customDetail = state.get(self.STATE_CUSTOM_EVENT_DETAIL, None)
+            skipBody = customDetail == "_skip"
             alert: Dict[str, Any] = {
                 "title": state.get(self.STATE_CUSTOM_EVENT_MESSAGE, "Gcode notification"),
-                "body": customDetail if customDetail else f"Triggered on {self.PrinterName} by a Gcode command",
             }
-            if not customDetail:
-                alert["loc-key"] = "print_notification___custom_message"
-                alert["loc-args"] = [self.PrinterName]
+            if not skipBody:
+                if customDetail:
+                    alert["body"] = customDetail
+                else:
+                    alert["body"] = f"Triggered on {self.PrinterName} by a Gcode command"
+                    alert["loc-key"] = "print_notification___custom_message"
+                    alert["loc-args"] = [self.PrinterName]
             return {
                 "alert": alert,
                 "sound": "default",
