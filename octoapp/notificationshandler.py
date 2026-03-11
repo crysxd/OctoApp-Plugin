@@ -69,7 +69,7 @@ class NotificationsHandler(INotificationHandler):
         self.ProgressCompletionReported = []
         self.RestorePrintProgressPercentage = False
         self.CustomNotificationCounter = 0
-        self.CustomNotificationLimit = 10
+        self.CustomNotificationLimit = 25
 
         self.SpammyEventTimeDict:dict[str, SpammyEventContext] = {}
         self.SpammyEventLock = threading.Lock()
