@@ -2,6 +2,9 @@ import time
 from enum import Enum
 from typing import Any, Dict, FrozenSet, List, NamedTuple, Optional, Tuple
 
+from octoapp.sentry import Sentry
+from octoapp.logging import LoggerLike
+
 
 class BambuHmsEntry(NamedTuple):
     attr: int
@@ -16,9 +19,6 @@ _KNOWN_PRINT_ERRORS: Dict[int, str] = {
     0x8015: "Filament ran out",
 }
 _FILAMENT_RUNOUT_ERROR_CODES = {0x8015}
-
-from octoapp.sentry import Sentry
-from octoapp.logging import LoggerLike
 
 # Known printer error types.
 # Note that the print state doesn't have to be ERROR to have an error, during a print it's "PAUSED" but the print_error value is not 0.
