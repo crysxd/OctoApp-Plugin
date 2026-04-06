@@ -214,7 +214,9 @@ class BambuFtpDatabase:
 
                     # Parse JSON content
                     content = data.getvalue().decode('utf-8')
-                    results.append(json.loads(content))
+                    parsed = json.loads(content)
+                    parsed["_databaseId"] = filename
+                    results.append(parsed)
                 except Exception as e:
                     Sentry.ExceptionNoSend(f"Failed to read {filename}", e)
                     try:
