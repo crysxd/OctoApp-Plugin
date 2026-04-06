@@ -320,6 +320,7 @@ class NotificationSender:
             return {
                 "alert": alert,
                 "sound": "default",
+                "collapseId": "$instanceId-custom",
             }
 
         elif event == self.EVENT_BEEP:
