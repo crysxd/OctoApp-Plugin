@@ -18,7 +18,7 @@ class BambuAppStorage(AppStoragePlatformHelper):
     #
     def GetAllApps(self) -> List[AppInstance]:
         apps = self.Database.GetAppsEntry()
-        return list(map(AppInstance.FromDict, apps))
+        return [AppInstance.FromDict(app, databaseId=app.get("_databaseId")) for app in apps]
 
 
     # !! Platform Command Handler Interface Function !!
@@ -26,8 +26,8 @@ class BambuAppStorage(AppStoragePlatformHelper):
     # This must receive a lsit of AppInstnace
     #
     def RemoveApps(self, apps:List[AppInstance]):
-        tokens = list(map(lambda app: app.FcmToken, apps))
-        self.Database.RemoveAppEntries(tokens)
+        filenames = [app.DatabaseId for app in apps if app.DatabaseId is not None]
+        self.Database.RemoveAppEntries(filenames)
 
     # !! Platform Command Handler Interface Function !!
     #

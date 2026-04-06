@@ -1,9 +1,24 @@
 import time
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, FrozenSet, List, NamedTuple, Optional, Tuple
 
 from octoapp.sentry import Sentry
 from octoapp.logging import LoggerLike
+
+
+class BambuHmsEntry(NamedTuple):
+    attr: int
+    code: int
+    timestamp: int
+    description: Optional[str]
+    is_filament_runout: bool
+
+
+# Known print_error codes (lower 16 bits of the print_error value).
+_KNOWN_PRINT_ERRORS: Dict[int, str] = {
+    0x8015: "Filament ran out",
+}
+_FILAMENT_RUNOUT_ERROR_CODES = {0x8015}
 
 # Known printer error types.
 # Note that the print state doesn't have to be ERROR to have an error, during a print it's "PAUSED" but the print_error value is not 0.
@@ -33,6 +48,7 @@ class BambuState:
         self.mc_remaining_time:Optional[int] = None
         self.project_id:Optional[str] = None
         self.print_error:Optional[int] = None
+        self.hms:Optional[List[Dict[str, Any]]] = None
         # On the X1, this is empty is LAN viewing of off
         # It's a URL if streaming is enabled
         # On other printers, this doesn't exist, so it's None
@@ -57,6 +73,8 @@ class BambuState:
         self.bed_temper = msg.get("bed_temper", self.bed_temper)
         self.bed_target_temper = msg.get("bed_target_temper", self.bed_target_temper)
         self.print_error = msg.get("print_error", self.print_error)
+        if "hms" in msg:
+            self.hms = msg["hms"] or []
         ipCam = msg.get("ipcam", None)
         if ipCam is not None:
             self.rtsp_url = ipCam.get("rtsp_url", self.rtsp_url)
@@ -141,6 +159,48 @@ class BambuState:
         # The file name changes most of the time, so the combination of both makes a good pair.
         return f"{self.project_id}-{self.GetFileNameWithNoExtension()}"
 
+
+    # Returns active HMS entries, filtering out resolved codes (action != 0).
+    # Also synthesises an entry from print_error if one is set.
+    def GetHmsEntries(self) -> List[BambuHmsEntry]:
+        entries: List[BambuHmsEntry] = []
+
+        for e in (self.hms or []):
+            attr = e.get("attr")
+            code = e.get("code")
+            if attr is None or code is None:
+                continue
+            if e.get("action", 0) != 0:
+                continue  # non-zero action means resolved/cleared
+            entries.append(BambuHmsEntry(
+                attr=int(attr), code=int(code), timestamp=int(e.get("timestamp", 0)),
+                description=None, is_filament_runout=False,
+            ))
+
+        # Map print_error to a synthetic HMS entry: attr=upper16<<16, code=lower16<<16
+        if self.print_error and self.print_error != 0:
+            v = self.print_error
+            error_code = v & 0x0000FFFF
+            entries.append(BambuHmsEntry(
+                attr=v & 0xFFFF0000,
+                code=(v & 0x0000FFFF) << 16,
+                timestamp=0,
+                description=_KNOWN_PRINT_ERRORS.get(error_code),
+                is_filament_runout=error_code in _FILAMENT_RUNOUT_ERROR_CODES,
+            ))
+
+        return entries
+
+    # Returns a frozenset of (attr, code, timestamp) keys for deduplication.
+    def GetHmsCodes(self) -> FrozenSet[Tuple[int, int, int]]:
+        return frozenset((e.attr, e.code, e.timestamp) for e in self.GetHmsEntries())
+
+    # Formats an HMS (attr, code) pair into the canonical XXXX-XXXX-XXXX-XXXX string.
+    @staticmethod
+    def FormatHmsCode(attr:int, code:int) -> str:
+        attr_hex = format(attr, '08x')
+        code_hex = format(code, '08x')
+        return f"{attr_hex[0:4]}-{attr_hex[4:8]}-{code_hex[0:4]}-{code_hex[4:8]}".upper()
 
     # If the printer is in an error state, this tries to return the type, if known.
     # If the printer is not in an error state, None is returned.

@@ -1,14 +1,18 @@
+import re
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, FrozenSet, Optional, Tuple
+
+import requests
 
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.printinfo import PrintInfoManager
 from octoapp.interfaces import IPrinterStateReporter
 from octoapp.logging import LoggerLike
+from octoapp.sentry import Sentry
 
 from .interfaces import IBambuStateTranslator
 from .bambuclient import BambuClient
-from .bambumodels import BambuState, BambuPrintErrors
+from .bambumodels import BambuHmsEntry, BambuState, BambuPrintErrors
 
 # This class is responsible for listening to the mqtt messages to fire off notifications
 # and to act as the printer state interface for Bambu printers.
@@ -18,6 +22,13 @@ class BambuStateTranslator(IPrinterStateReporter, IBambuStateTranslator):
         self.Logger = logger
         self.NotificationsHandler:NotificationsHandler = None #pyright: ignore[reportAttributeAccessIssue]
         self.LastState:Optional[str] = None
+        # Tracks the HMS codes we've already sent a notification for.
+        # Keys are (attr, code, timestamp) tuples. Entries are only removed when print progress
+        # advances and the code is no longer active, meaning the issue was resolved.
+        # This prevents re-notification on reconnects or brief code disappearances.
+        self._notifiedHmsCodes:FrozenSet[Tuple[int, int, int]] = frozenset()
+        # Cached HMS index page content for description lookups.
+        self._hmsIndexPageCache:Optional[str] = None
 
 
     def SetNotificationHandler(self, notificationHandler:NotificationsHandler) -> None:
@@ -94,6 +105,21 @@ class BambuStateTranslator(IPrinterStateReporter, IBambuStateTranslator):
                 if bambuState.IsPrepareOrSlicing() is False:
                     self.BambuOnPrintProgress(bambuState)
 
+        # Handle HMS (Health Monitoring System) codes.
+        # Check whenever hms or print_error appears in the message — partial updates may omit both.
+        # On the first full sync we absorb existing codes silently - they were already there before we connected.
+        printMsg = msg.get("print", {})
+        if "hms" in printMsg or "print_error" in printMsg:
+            currentEntries = {(e.attr, e.code, e.timestamp): e for e in bambuState.GetHmsEntries()}
+            currentCodes = frozenset(currentEntries.keys())
+            if not isFirstFullSyncResponse:
+                for key in currentCodes - self._notifiedHmsCodes:
+                    self.BambuOnHmsCode(currentEntries[key])
+                    self._notifiedHmsCodes = self._notifiedHmsCodes | frozenset([key])
+            else:
+                # Absorb codes present at connect-time without notifying.
+                self._notifiedHmsCodes = self._notifiedHmsCodes | currentCodes
+
         # Since bambu doesn't tell us a print duration, we need to figure out when it ends ourselves.
         # This is different from the state changes above, because if we are ever not printing for any reason,
         # We want to finalize any current print.
@@ -153,6 +179,48 @@ class BambuStateTranslator(IPrinterStateReporter, IBambuStateTranslator):
             self.Logger.debug("BambuOnPrintProgress - No percentage available.")
             return
         self.NotificationsHandler.OnPrintProgress(None, float(percent))
+
+        # Progress advancing means the printer is running again. Forget any notified HMS codes
+        # that are no longer active, so if they reappear we'll notify again (new incident).
+        self._notifiedHmsCodes = self._notifiedHmsCodes & bambuState.GetHmsCodes()
+
+    def BambuOnHmsCode(self, entry:BambuHmsEntry) -> None:
+        codeStr = BambuState.FormatHmsCode(entry.attr, entry.code)
+        self.Logger.info(f"New HMS code detected: {codeStr} (filament_runout={entry.is_filament_runout})")
+        if entry.is_filament_runout:
+            self.NotificationsHandler.OnFilamentChange()
+            return
+        message = self._FetchHmsDescription(codeStr, entry.description)
+        self.NotificationsHandler.OnHmsNotification(message)
+
+
+    def _FetchHmsDescription(self, code:str, knownDescription:Optional[str]=None) -> str:
+        try:
+            indexPage = self._GetHmsIndexPage()
+            if indexPage:
+                urlCode = code.replace("-", "_").lower()
+                for block in indexPage.split("<blockquote>"):
+                    if urlCode in block.lower() or code.lower() in block.lower():
+                        match = re.search(r'<strong>HMS[^:]+:\s*(.*?)</strong>', block, re.IGNORECASE)
+                        if match:
+                            return f"Bambu HMS: {match.group(1).strip()}"
+        except Exception as e:
+            Sentry.ExceptionNoSend(f"Failed to fetch HMS description for {code}", e)
+        return f"Bambu HMS: {knownDescription or code}"
+
+
+    def _GetHmsIndexPage(self) -> str:
+        if self._hmsIndexPageCache is not None:
+            return self._hmsIndexPageCache
+        try:
+            r = requests.get("https://wiki.bambulab.com/en/hms/home", timeout=10)
+            if r.status_code == 200:
+                self._hmsIndexPageCache = r.text
+                return self._hmsIndexPageCache
+        except Exception as e:
+            Sentry.ExceptionNoSend("Failed to fetch HMS index page", e)
+        return ""
+
 
     # TODO - Handlers
     #     # Fired when OctoPrint or the printer hits an error.

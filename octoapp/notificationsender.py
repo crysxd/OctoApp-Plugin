@@ -33,6 +33,7 @@ class NotificationSender:
     EVENT_FIRST_LAYER_DONE="first_layer_done"
 
     STATE_CUSTOM_EVENT_MESSAGE = "message"
+    STATE_CUSTOM_EVENT_DETAIL = "detail"
     STATE_TIME_REMAINING_SEC = "time_remaining_sec"
     STATE_PROGRESS_PERCENT = "progress_percent"
     STATE_DURATION_SEC = "duration_sec"
@@ -239,7 +240,7 @@ class NotificationSender:
         if event == self.EVENT_BEEP:
             data = { "type": "beep" }
         elif event == self.EVENT_CUSTOM:
-            data = { "type": "custom", "message": state.get(self.STATE_CUSTOM_EVENT_MESSAGE, "Gcode notification") }
+            data = { "type": "custom", "message": state.get(self.STATE_CUSTOM_EVENT_MESSAGE, "Gcode notification"), "detail": state.get(self.STATE_CUSTOM_EVENT_DETAIL, None) }
         else:
             eventType = None
             if event == self.EVENT_PROGRESS or event == self.EVENT_STARTED or event == self.EVENT_TIME_PROGRESS or event == self.EVENT_RESUME:
@@ -304,14 +305,22 @@ class NotificationSender:
         defaultBody = f"Time to check {self.PrinterName}!"
 
         if event == self.EVENT_CUSTOM:
+            customDetail = state.get(self.STATE_CUSTOM_EVENT_DETAIL, None)
+            skipBody = customDetail == "_skip"
+            alert: Dict[str, Any] = {
+                "title": state.get(self.STATE_CUSTOM_EVENT_MESSAGE, "Gcode notification"),
+            }
+            if not skipBody:
+                if customDetail:
+                    alert["body"] = customDetail
+                else:
+                    alert["body"] = f"Triggered on {self.PrinterName} by a Gcode command"
+                    alert["loc-key"] = "print_notification___custom_message"
+                    alert["loc-args"] = [self.PrinterName]
             return {
-                "alert": {
-                    "title": state.get(self.STATE_CUSTOM_EVENT_MESSAGE, "Gcode notification"),
-                    "body": f"Triggered on {self.PrinterName} by a Gcode command",
-                    "loc-key": "print_notification___custom_message",
-                    "loc-args": [self.PrinterName]
-                },
+                "alert": alert,
                 "sound": "default",
+                "collapseId": "$instanceId-custom",
             }
 
         elif event == self.EVENT_BEEP:

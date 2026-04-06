@@ -214,9 +214,16 @@ class BambuFtpDatabase:
 
                     # Parse JSON content
                     content = data.getvalue().decode('utf-8')
-                    results.append(json.loads(content))
+                    parsed = json.loads(content)
+                    parsed["_databaseId"] = filename
+                    results.append(parsed)
                 except Exception as e:
                     Sentry.ExceptionNoSend(f"Failed to read {filename}", e)
+                    try:
+                        ftp.delete(self._GetDbPath(filename))
+                        self.Logger.warning(f"Deleted corrupt database file: {filename}")
+                    except Exception as deleteEx:
+                        self.Logger.error(f"Failed to delete corrupt database file {filename}: {deleteEx}")
 
             self.Logger.debug(f"Read: {results}")
             return results

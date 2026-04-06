@@ -141,9 +141,10 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
             self.NotificationHandler.OnThirdLayerDone()
             return False
 
-        message = NotificationUtils.Get().GetMessageIfNotifyCommand(cmd)
-        if message is not None and self.NotificationHandler:
-            self.NotificationHandler.OnCustomNotification(message)
+        notifyParams = NotificationUtils.Get().GetMessageIfNotifyCommand(cmd)
+        if notifyParams is not None and self.NotificationHandler:
+            message, detail = notifyParams
+            self.NotificationHandler.OnCustomNotification(message, detail)
             return False
 
         if LayerUtils.IsOctoAppCommand(cmd):
