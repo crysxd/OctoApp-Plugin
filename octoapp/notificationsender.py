@@ -4,6 +4,7 @@ import hashlib
 import json
 import threading
 import time
+import uuid
 from typing import Any, Dict, List, Optional, Tuple, cast
 
 import requests
@@ -320,7 +321,7 @@ class NotificationSender:
             return {
                 "alert": alert,
                 "sound": "default",
-                "collapseId": "$instanceId-custom",
+                "collapseId": f"$instanceId-custom-{uuid.uuid4()}",
             }
 
         elif event == self.EVENT_BEEP:
