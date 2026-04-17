@@ -1,5 +1,7 @@
 import queue
+import ssl
 import threading
+import logging
 from typing import Any, Dict, List, Callable, Optional
 
 import certifi
@@ -13,6 +15,18 @@ from .sentry import Sentry
 
 # This class gives a bit of an abstraction over the normal ws
 class Client(IWebSocketClient):
+
+    # Allows us to still enable the websocket debug logs if we want.
+    @staticmethod
+    def SetWebsocketDebuggingLevel(debug:bool) -> None:
+        # The websocket lib logs quite a lot of stuff, even to info. It will also always logs errors,
+        # even after our handler had handled them. So we will disable it by default.
+        wsLibLogger = logging.getLogger("websocket")
+        if debug is False:
+            wsLibLogger.disabled = True
+            return
+        wsLibLogger.disabled = False
+        wsLibLogger.setLevel(logging.DEBUG)
 
     def __init__(
                 self,
@@ -44,9 +58,7 @@ class Client(IWebSocketClient):
         # This is because the downstream work of the WS can be made faster if it's done in parallel
         self.SendQueue:queue.Queue[SendQueueContext] = queue.Queue()
         self.SendThread:threading.Thread = None #pyright: ignore[reportAttributeAccessIssue]
-
-        # Used to log more details about what's going on with the websocket.
-        # websocket.enableTrace(True)
+        self.disableCertCheck = False
 
         # Used to indicate if the client has started to close this WS. If so, we won't fire
         # any errors.
@@ -96,6 +108,12 @@ class Client(IWebSocketClient):
         )
 
 
+    # This has it's own function so the caller very explicitly has to call it, rather than it being an init overload.
+    # If set to true, this websocket connection will not validate the cert it's connecting to. This should only be done locally!
+    def SetDisableCertCheck(self, disable:bool):
+        self.disableCertCheck = disable
+
+
     # Runs the websocket blocking until it closes.
     def RunUntilClosed(self, pingIntervalSec:Optional[int]=None, pingTimeoutSec:Optional[int]=None, pingPayload:str="") -> None:
         #
@@ -115,8 +133,9 @@ class Client(IWebSocketClient):
         if pingTimeoutSec is None or pingTimeoutSec <= 0 or pingTimeoutSec > 60:
             pingTimeoutSec = 20
         # Ensure that the ping timeout is set, otherwise the websocket will hang forever if the connection is lost.
+        # This is also important to ensure that NAT routers and load balancers keep the connection alive.
         if pingIntervalSec is None or pingIntervalSec <= 0:
-            pingIntervalSec = 600
+            pingIntervalSec = 30
 
         try:
             # Start the send queue thread if it hasn't been started.
@@ -137,7 +156,12 @@ class Client(IWebSocketClient):
                 if self.isClosed:
                     return
 
-            self.Ws.run_forever(skip_utf8_validation=True, ping_interval=pingIntervalSec, ping_timeout=pingTimeoutSec, sslopt={"ca_certs":certifi.where()},ping_payload=pingPayload)  #pyright: ignore[reportUnknownMemberType]
+            # Only if the client explicated called the function to disable this will we turn off cert verification.
+            sslopt={"ca_certs":certifi.where()}
+            if self.disableCertCheck:
+                sslopt = {"cert_reqs":  ssl.CERT_NONE, "check_hostname": False}
+
+            self.Ws.run_forever(skip_utf8_validation=True, ping_interval=pingIntervalSec, ping_timeout=pingTimeoutSec, sslopt=sslopt, ping_payload=pingPayload)  #pyright: ignore[reportUnknownMemberType]
         except Exception as e:
             # There's a compat issue where  run_forever will try to access "isAlive" when the socket is closing
             # "isAlive" apparently doesn't exist in some PY versions of thread, so this throws. We will ignore that error,
@@ -286,7 +310,7 @@ class Client(IWebSocketClient):
             self.handleWsError(e)
         finally:
             # When the send queue closes, make sure the websocket is closed.
-            # This is a safety, incase for some reason the websocket was open and we were told to close.
+            # This is a safety, in case for some reason the websocket was open and we were told to close.
             self._Close()
 
 

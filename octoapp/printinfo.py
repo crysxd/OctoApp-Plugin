@@ -3,7 +3,6 @@ import json
 import time
 from pathlib import Path
 from typing import Any, Dict, Optional
-
 from .logging import LoggerLike
 
 
@@ -27,7 +26,7 @@ class PrintInfo:
     # Given a file path, this loads a print info if possible.
     # Returns None on failure.
     @staticmethod
-    def LoadFromFile(logger:LoggerLike, filePath:str) -> Optional["PrintInfo"]:
+    def LoadFromFile(logger: LoggerLike, filePath:str) -> Optional["PrintInfo"]:
         try:
             with open(filePath, "r", encoding="utf-8") as f:
                 data = json.load(f)
@@ -43,7 +42,7 @@ class PrintInfo:
     # Given a file path and required args, creates a new print context.
     # This will always return a PrintInfo! Even if it fails to write to disk.
     @staticmethod
-    def CreateNew(logger:LoggerLike, filePath:str, printCookie:str, printId:str) -> "PrintInfo":
+    def CreateNew(logger: LoggerLike, filePath:str, printCookie:str, printId:str) -> "PrintInfo":
         data = {
             PrintInfo.c_PrintCookieKey : printCookie,
             PrintInfo.c_PrintIdKey : printId,
@@ -55,7 +54,7 @@ class PrintInfo:
         return pi
 
 
-    def __init__(self, logger:LoggerLike, filePath:str, data:Dict[str,Any]) -> None:
+    def __init__(self, logger: LoggerLike, filePath:str, data:Dict[str,Any]) -> None:
         self.Logger = logger
         self.FilePath = filePath
         self.Data = data
@@ -158,7 +157,7 @@ class PrintInfoManager:
     _Instance:"PrintInfoManager" = None #pyright: ignore[reportAssignmentType]
 
     @staticmethod
-    def Init(logger:LoggerLike, localStorageFolderPath:str):
+    def Init(logger: LoggerLike, localStorageFolderPath:str):
         PrintInfoManager._Instance = PrintInfoManager(logger, localStorageFolderPath)
 
 
@@ -167,7 +166,7 @@ class PrintInfoManager:
         return PrintInfoManager._Instance
 
 
-    def __init__(self, logger:LoggerLike, localStorageFolderPath:str) -> None:
+    def __init__(self, logger: LoggerLike, localStorageFolderPath:str) -> None:
         self.Logger = logger
         self.ContextFolderPath = os.path.join(localStorageFolderPath, PrintInfoManager.c_ContextsFolder)
         Path(self.ContextFolderPath).mkdir(parents=True, exist_ok=True)
@@ -182,6 +181,7 @@ class PrintInfoManager:
         try:
             # If there's no cookie, return None.
             if printCookie is None:
+                self.Logger.debug("GetPrintInfo called with no cookie.")
                 return None
 
             # First, see if the current context matches.
@@ -200,6 +200,7 @@ class PrintInfoManager:
                     if name == printCookieFileName:
                         context = PrintInfo.LoadFromFile(self.Logger, fullPath)
                         if context is None:
+                            self.Logger.debug(f"Failed to load print context from {fullPath}.")
                             self._DeleteFile(fullPath)
                     else:
                         self._DeleteFile(fullPath)
@@ -216,8 +217,6 @@ class PrintInfoManager:
     # Clears all print infos. Note this should only be used when we absolutely know this is a new print start,
     # like on a new print start or something.
     def ClearAllPrintInfos(self) -> None:
-        self.Logger.info("Removing all print infos")
-        self.CurrentContext = None
         try:
             dirAndFiles = os.listdir(self.ContextFolderPath)
             for name in dirAndFiles:

@@ -1,7 +1,6 @@
 import platform
 from typing import Dict, Optional
-
-from octoapp.logging import LoggerLike
+from .logging import LoggerLike
 
 from .mdns import MDns
 from .buffer import BufferOrNone
@@ -10,6 +9,7 @@ from .localip import LocalIpHelper
 from .httpresult import HttpResult
 from .httpsessions import HttpSessions
 from .octostreammsgbuilder import OctoStreamMsgBuilder
+
 from .Proto.PathTypes import PathTypes
 from .Proto.HttpInitialContext import HttpInitialContext
 
@@ -20,6 +20,7 @@ class OctoHttpRequest:
     LocalOctoPrintPort = 5000
     LocalHostAddress = "127.0.0.1"
     DisableHttpRelay = False
+    LocalHostUseHttps = False
 
     @staticmethod
     def SetLocalHttpProxyPort(port:int) -> None:
@@ -50,6 +51,13 @@ class OctoHttpRequest:
         return OctoHttpRequest.LocalHostAddress
 
     @staticmethod
+    def SetLocalHostUseHttps(address:bool):
+        OctoHttpRequest.LocalHostUseHttps = address
+    @staticmethod
+    def GetLocalHostUseHttps() -> bool:
+        return OctoHttpRequest.LocalHostUseHttps
+
+    @staticmethod
     def SetDisableHttpRelay(disableHttpRelay:bool) -> None:
         OctoHttpRequest.DisableHttpRelay = disableHttpRelay
     @staticmethod
@@ -73,7 +81,7 @@ class OctoHttpRequest:
     # The main point of this function is to abstract away the logic around relative paths, absolute URLs, and the fallback logic
     # we use for different ports. See the comments in the function for details.
     @staticmethod
-    def MakeHttpCallOctoStreamHelper(logger:LoggerLike, httpInitialContext:HttpInitialContext, method:str, headers:Dict[str, str], data:BufferOrNone=None) -> Optional[HttpResult]:
+    def MakeHttpCallOctoStreamHelper(logger: LoggerLike, httpInitialContext:HttpInitialContext, method:str, headers:Dict[str, str], data:BufferOrNone=None) -> Optional[HttpResult]:
         # Get the vars we need from the octostream initial context.
         path = OctoStreamMsgBuilder.BytesToString(httpInitialContext.Path())
         if path is None:
@@ -89,13 +97,13 @@ class OctoHttpRequest:
     # The X-Forwarded-Host header will tell the OctoPrint server the correct place to set the location redirect header.
     # However, for calls that aren't proxy calls, things like local snapshot requests and such, we want to allow redirects to be more robust.
     @staticmethod
-    def MakeHttpCall(logger:LoggerLike, pathOrUrl:str, pathOrUrlType:int, method:str, headers:Optional[Dict[str, str]]=None, data:BufferOrNone=None, allowRedirects=False) -> Optional[HttpResult]:
+    def MakeHttpCall(logger: LoggerLike, pathOrUrl:str, pathOrUrlType:int, method:str, headers:Optional[Dict[str, str]]=None, data:BufferOrNone=None, allowRedirects=False) -> Optional[HttpResult]:
         # First of all, we need to figure out what the URL is. There are two options
         #
         # 1) Absolute URLs
         # These are the easiest, because we just want to make a request to exactly what the absolute URL is. These are used
         # when the OctoPrint portal is trying to make an local LAN http request to the same device or even a different device.
-        # For these to work properly on a remote browser, the OctoApp service will detect and convert the URLs in to encoded relative
+        # For these to work properly on a remote browser, the OctoEverywhere service will detect and convert the URLs in to encoded relative
         # URLs for the portal. This ensures when the remote browser tries to access the HTTP endpoint, it will hit OctoApp. The OctoApp
         # server detects the special relative URL, decodes the absolute URL, and sends that in the OctoMessage as "AbsUrl". For these URLs we just try
         # to hit them and we take whatever we get, we don't care if fails or not.
@@ -118,16 +126,19 @@ class OctoHttpRequest:
         # get a 404 back try the haproxy. This adds a little bit of unneeded overhead, but it works really well to cover all of the cases.
 
         # Setup the protocol we need to use for the http proxy. We need to use the same protocol that was detected.
+        localServiceProtocol = "http://"
+        if OctoHttpRequest.LocalHostUseHttps:
+            localServiceProtocol = "https://"
         httpProxyProtocol = "http://"
         if OctoHttpRequest.LocalHttpProxyIsHttps:
             httpProxyProtocol = "https://"
 
         # Figure out the main and fallback url.
         url = ""
-        fallbackUrl = None
-        fallbackWebcamUrl = None
-        fallbackLocalIpOctoPrintPortSuffix = None
-        fallbackLocalIpHttpProxySuffix = None
+        fallbackUrl:Optional[str] = None
+        fallbackWebcamUrl:Optional[str] = None
+        fallbackLocalIpDirectServicePortSuffix:Optional[str] = None
+        fallbackLocalIpHttpProxySuffix:Optional[str] = None
         if pathOrUrlType == PathTypes.Relative:
 
             # Note!
@@ -142,7 +153,7 @@ class OctoHttpRequest:
 
             # The main URL is directly to this OctoPrint instance
             # This URL will only every be http, it can't be https.
-            url = "http://" + OctoHttpRequest.LocalHostAddress + ":" + str(OctoHttpRequest.LocalOctoPrintPort) + pathOrUrl
+            url = localServiceProtocol + OctoHttpRequest.LocalHostAddress + ":" + str(OctoHttpRequest.LocalOctoPrintPort) + pathOrUrl
 
             # The fallback URL is to where we think the http proxy port is.
             # For this address, we need set the protocol correctly depending if the client detected https
@@ -164,7 +175,7 @@ class OctoHttpRequest:
             # Note we only build the suffix part of the string here, because we don't want to do the local IP detection if we don't have to.
             # Also note this will only work for OctoPrint pages.
             # This case only seems to apply to OctoPrint instances running on Windows.
-            fallbackLocalIpOctoPrintPortSuffix = ":" + str(OctoHttpRequest.LocalOctoPrintPort) + pathOrUrl
+            fallbackLocalIpDirectServicePortSuffix = ":" + str(OctoHttpRequest.LocalOctoPrintPort) + pathOrUrl
             fallbackLocalIpHttpProxySuffix =  ":" + str(OctoHttpRequest.LocalHttpProxyPort) + pathOrUrl
 
             # If all else fails, and because this logic isn't perfect, yet, we will also try to fallback to the assumed webcam port.
@@ -248,19 +259,19 @@ class OctoHttpRequest:
         # With the local IP, first try to use the http proxy URL, since it's the most likely to be bound to the public IP and not firewalled.
         # It's important we use the right http proxy protocol with the http proxy port.
         localIpFallbackUrl = httpProxyProtocol + localIp + fallbackLocalIpHttpProxySuffix
-        ret = OctoHttpRequest.MakeHttpCallAttempt(logger, "Local IP Http Proxy Fallback", method, localIpFallbackUrl, headers, data, mainResult, True, fallbackLocalIpOctoPrintPortSuffix, allowRedirects)
+        ret = OctoHttpRequest.MakeHttpCallAttempt(logger, "Local IP Http Proxy Fallback", method, localIpFallbackUrl, headers, data, mainResult, True, fallbackLocalIpDirectServicePortSuffix, allowRedirects)
         # If the function reports the chain is done, the next fallback URL is invalid and we should always return
         # whatever is in the Response, even if it's None.
         if ret.IsChainDone:
             return ret.Result
 
         # We should have a fallbackLocalIpHttpProxySuffix if we are here.
-        if fallbackLocalIpOctoPrintPortSuffix is None:
+        if fallbackLocalIpDirectServicePortSuffix is None:
             logger.error("Main request failed and no fallbackLocalIpOctoPrintPortSuffix was provided. This is a critical error and should be reported to the OctoApp team.")
             return ret.Result
 
         # Now try the OcotoPrint direct port with the local IP.
-        localIpFallbackUrl = "http://" + localIp + fallbackLocalIpOctoPrintPortSuffix
+        localIpFallbackUrl = "http://" + localIp + fallbackLocalIpDirectServicePortSuffix
         ret = OctoHttpRequest.MakeHttpCallAttempt(logger, "Local IP fallback", method, localIpFallbackUrl, headers, data, mainResult, True, fallbackWebcamUrl, allowRedirects)
         # If the function reports the chain is done, the next fallback URL is invalid and we should always return
         # whatever is in the Response, even if it's None.
@@ -300,7 +311,7 @@ class OctoHttpRequest:
 
     # This function should always return a AttemptResult object.
     @staticmethod
-    def MakeHttpCallAttempt(logger:LoggerLike, attemptName:str, method:str, url:str, headers:Optional[Dict[str,str]], data:BufferOrNone, mainResult:Optional[HttpResult], isFallback:bool, nextFallbackUrl:Optional[str], allowRedirects:bool=False) -> AttemptResult:
+    def MakeHttpCallAttempt(logger: LoggerLike, attemptName:str, method:str, url:str, headers:Optional[Dict[str,str]], data:BufferOrNone, mainResult:Optional[HttpResult], isFallback:bool, nextFallbackUrl:Optional[str], allowRedirects:bool=False) -> AttemptResult:
         # The requests lib can accept any "byte like" object. We use this to force the type to be bytes, so pyright is happy.
         dataBuffer:Optional[bytes] = None if data is None else data.GetBytesLike() #pyright: ignore[reportAssignmentType]
 

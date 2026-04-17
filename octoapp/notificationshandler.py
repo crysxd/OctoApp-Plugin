@@ -1,8 +1,9 @@
 import math
 import threading
 import time
+import secrets
+import string
 from typing import Any, Dict, List, Optional, Tuple
-from uuid import uuid4
 
 from .bedcooldownwatcher import BedCooldownWatcher
 from .buffer import ByteLikeOrMemoryView
@@ -129,7 +130,7 @@ class NotificationsHandler(INotificationHandler):
 
         # Each time a print starts, we generate a fixed length random id to identify it.
         # This id is used to globally identify the print for the user, so it needs to have high entropy.
-        printId = uuid4().hex
+        printId = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(32))
 
         # Always make a new print info for this new print.
         # This is where we will store all of the vars for this print, and it's also written to disk if we need to recover the info.
@@ -693,7 +694,7 @@ class NotificationsHandler(INotificationHandler):
             Sentry.OnExceptionNoSend("_getCurrentProgressFloat failed to compute progress.", e)
 
         # On failure, default to what OctoPrint has reported.
-        return float(self.FallbackProgressInt) if isinstance(self.FallbackProgressInt, int) else 0.0
+        return float(self.FallbackProgressInt)
 
 
     # Sends the event

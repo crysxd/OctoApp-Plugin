@@ -1,6 +1,7 @@
 import time
-import logging
 from enum import Enum
+from typing import Any
+from .logging import LoggerLike
 
 
 # A list of possible features that can be profiled.
@@ -80,7 +81,7 @@ class DebugProfiler:
     }
 
 
-    def __init__(self, logger:logging.Logger, feature:DebugProfilerFeatures, disableAutoStart=False) -> None:
+    def __init__(self, logger: LoggerLike, feature:DebugProfilerFeatures, disableAutoStart=False) -> None:
         self.Logger = logger
         self.Feature = feature
         self.Profiler = None
@@ -95,9 +96,9 @@ class DebugProfiler:
         self.StartProfile()
         return self
 
-    # Support using for easy integration.
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    # Support using for easy integration.
+    def __exit__(self, exc_type:Any, exc_value:Any, traceback:Any) -> None:
         self.StopProfile()
 
 
@@ -178,7 +179,7 @@ class MemoryProfiler():
     _EnableProfiling = False
 
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger: LoggerLike) -> None:
         self.Logger = logger
         self.Tracker = None
         self._TakeMemoryProfileSnapshot()

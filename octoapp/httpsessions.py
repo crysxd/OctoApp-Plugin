@@ -1,10 +1,9 @@
 import threading
 from typing import Dict
+from .logging import LoggerLike
 
 import requests
 from requests import Session
-
-from octoapp.logging import LoggerLike
 
 # A common class to cache http sessions per host.
 # This makes the connections more efficient as we can reuse the connections and the session isn't created every time.
@@ -13,7 +12,7 @@ class HttpSessions:
     _Instance:"HttpSessions" = None #pyright: ignore[reportAssignmentType]
 
     @staticmethod
-    def Init(logger:LoggerLike):
+    def Init(logger: LoggerLike):
         HttpSessions._Instance = HttpSessions(logger)
 
 
@@ -22,7 +21,7 @@ class HttpSessions:
         return HttpSessions._Instance
 
 
-    def __init__(self, logger:LoggerLike):
+    def __init__(self, logger: LoggerLike):
         self.Logger = logger
         self.Sessions:Dict[str, Session] = {}
         self.SessionsLock = threading.Lock()

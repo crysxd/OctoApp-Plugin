@@ -1,13 +1,13 @@
 import threading
-import logging
 import time
 import sys
 import traceback
+from .logging import LoggerLike
 
 
 class ThreadDebug:
 
-    def Start(self, logger:logging.Logger, delaySec:float):
+    def Start(self, logger: LoggerLike, delaySec:float):
         try:
             th = threading.Thread(target=self.threadWorker, args=(logger, delaySec))
             th.start()
@@ -15,7 +15,7 @@ class ThreadDebug:
             logger.error("Failed to start Thread Debug Thread: "+str(e))
 
 
-    def threadWorker(self, logger:logging.Logger, delaySec:float):
+    def threadWorker(self, logger: LoggerLike, delaySec:float):
         while True:
             try:
                 logger.info("ThreadDump - Starting Thread Dump")
@@ -26,7 +26,7 @@ class ThreadDebug:
 
 
     @staticmethod
-    def DoThreadDumpLogout(logger:logging.Logger):
+    def DoThreadDumpLogout(logger: LoggerLike):
         try:
             logger.info("ThreadDump - Starting Thread Dump")
             # pylint: disable=protected-access

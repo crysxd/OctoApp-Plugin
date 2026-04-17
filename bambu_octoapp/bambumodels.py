@@ -26,6 +26,7 @@ _FILAMENT_RUNOUT_ERROR_CODES = {0x8015}
 class BambuPrintErrors(Enum):
     Unknown = 1             # This will be most errors, since most of them aren't mapped
     FilamentRunOut = 2
+    PrintFailureDetected = 3 # The Bambu AI detected a failure.
 
 
 # Since MQTT syncs a full state and then sends partial updates, we keep track of the full state
