@@ -3,10 +3,10 @@ import time
 import json
 import threading
 from typing import Any, Dict, List, Optional
-from .logging import LoggerLike
 
 import dns.resolver
 
+from .logging import LoggerLike
 from .localip import LocalIpHelper
 
 # A helper class to resolve mdns domain names to IP addresses, since the request lib doesn't support

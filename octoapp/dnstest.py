@@ -1,7 +1,8 @@
 import time
-from .logging import LoggerLike
 
 import dns.resolver
+
+from .logging import LoggerLike
 
 # Created to the DNS resolution of our URLS when the websocket claims it can't connect due to DNS issues.
 class DnsTest:
