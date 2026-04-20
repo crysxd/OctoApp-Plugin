@@ -321,7 +321,7 @@ class NotificationSender:
             return {
                 "alert": alert,
                 "sound": "default",
-                "collapseId": f"$instanceId-custom-{uuid.uuid4()}",
+                "collapseId": f"{uuid.uuid4()}",
             }
 
         elif event == self.EVENT_BEEP:
