@@ -1,37 +1,29 @@
-from typing import List
+from octoapp.firebaseappstorage import FirebaseIdentityProvider
+from octoapp.firebaseappstorage import PrinterIdUnavailableException
+from octoapp.firebaseappstorage import sha256_urlsafe_base64, pbkdf2_key
 
-from octoapp.appsstorage import AppInstance
-from octoapp.appsstorage import AppStoragePlatformHelper
-from .bambudatabase import BambuFtpDatabase
-
-
-class BambuAppStorage(AppStoragePlatformHelper):
-
-    def __init__(self, database: BambuFtpDatabase):
-        self.First = False
-        self.Database = database
+from linux_host.config import Config
 
 
-    # !! Platform Command Handler Interface Function !!
-    #
-    # This must return a list of AppInstance
-    #
-    def GetAllApps(self) -> List[AppInstance]:
-        apps = self.Database.GetAppsEntry()
-        return [AppInstance.FromDict(app, databaseId=app.get("_databaseId")) for app in apps]
+# Derives the Firebase identity from the Bambu serial number and local access code.
+# The serial is the PBKDF2 password, the access code the salt. Both are known to the
+# mobile app after LAN pairing, so it can compute the same id and key.
+class BambuFirebaseIdentity(FirebaseIdentityProvider):
 
+    def __init__(self, config: Config):
+        self.Config = config
 
-    # !! Platform Command Handler Interface Function !!
-    #
-    # This must receive a lsit of AppInstnace
-    #
-    def RemoveApps(self, apps:List[AppInstance]):
-        filenames = [app.DatabaseId for app in apps if app.DatabaseId is not None]
-        self.Database.RemoveAppEntries(filenames)
+    def GetPrinterId(self) -> str:
+        serial, _ = self._GetIdBaseValues()
+        return sha256_urlsafe_base64(f"printer:{serial}".encode())
 
-    # !! Platform Command Handler Interface Function !!
-    #
-    # This must receive a lsit of AppInstnace
-    #
-    def GetOrCreateEncryptionKey(self):
-        return self.Database.GetOrCreateEncryptionKey()
+    def GetEncryptionKey(self) -> str:
+        serial, accessCode = self._GetIdBaseValues()
+        return pbkdf2_key(password=serial, salt=accessCode)
+
+    def _GetIdBaseValues(self):
+        serial = self.Config.GetStr(Config.SectionBambu, Config.BambuPrinterSn, None)
+        accessCode = self.Config.GetStr(Config.SectionBambu, Config.BambuAccessToken, None)
+        if serial is None or accessCode is None:
+            raise PrinterIdUnavailableException("Bambu serial number or access code not available.")
+        return (serial, accessCode)
