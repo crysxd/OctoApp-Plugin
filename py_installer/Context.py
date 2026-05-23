@@ -15,6 +15,11 @@ class OsTypes(IntEnum):
     K2 = 4
 
 
+class ElegooPrinterProtocols(IntEnum):
+    Cc1 = 1
+    Cc2 = 2
+
+
 # This class holds the context of the installer, meaning all of the target vars and paths
 # that this instance is using.
 # There is a generation system, where generation defines what data is required by when.
@@ -73,7 +78,11 @@ class Context:
         self.IsBambuSetup:bool = False
 
         # Parsed from the command line args, if set, this plugin should be installed as an elegoo connect (similar to the companion).
+        # Note that this indicates we are using Elegoo Connect, but we won't know which printer protocol until we do the discovery process.
         self.IsElegooSetup:bool = False
+
+        # Set during Elegoo Connect configuration after the installer discovers the printer protocol.
+        self.ElegooPrinterProtocol:ElegooPrinterProtocols = None #pyright: ignore[reportAttributeAccessIssue] we allow these to not be optional, so logic doesn't have to check. The validation function will check before they are used.
 
         # Parsed from the command line args, if set, the plugin install should be in update mode.
         self.IsUpdateMode:bool = False
@@ -194,6 +203,12 @@ class Context:
                 self.CompanionInstanceId = self.CompanionInstanceId.strip()
                 if self.OsType != OsTypes.Debian:
                     raise Exception("The OctoApp companion can only be installed on Debian based operating systems.")
+                if self.IsElegooSetup:
+                    Logger.Debug("Elegoo Connect setup detected during validation, ensuring printer protocol is set correctly.")
+                    if self.ElegooPrinterProtocol is None:
+                        raise Exception("Elegoo printer protocol was not set during validation for Elegoo Connect setup.")
+                    if self.ElegooPrinterProtocol != ElegooPrinterProtocols.Cc1 and self.ElegooPrinterProtocol != ElegooPrinterProtocols.Cc2:
+                        raise Exception("Elegoo printer protocol was set to an invalid value during validation for Elegoo Connect setup.")
             else:
                 self._ValidatePathAndExists(self.MoonrakerConfigFilePath, "Required config var Moonraker Config File Path was not found")
                 self._ValidateString(self.MoonrakerServiceFileName, "Required config var Moonraker Service File Name was not found")
@@ -258,6 +273,7 @@ class Context:
                     self.IsBambuSetup = True
                 elif rawArgLower == "elegoo":
                     Logger.Debug("Setup running in Elegoo Connect setup mode.")
+                    # Note this is used for both the CC1 and CC2, we will determine which one during the discovery phase.
                     self.IsElegooSetup = True
                 elif rawArgLower == "update" or rawArgLower == "upgrade":
                     Logger.Debug("Setup running in update mode.")

@@ -17,6 +17,13 @@ class HostCommon:
     c_OctoAppPrivateKeyMinLength = 80
     c_OctoAppPrivateKeyMaxLength = 128
 
+    # We need use the v2 version for better perf, see the server comments for more details.
+    c_OctoEverywhereOctoClientEndpointBase = "octoclientwsv2"
+
+    # The main URL octoclients use to connect.
+    # MUST be wss!
+    c_OctoEverywhereOctoClientWsUri = f"wss://starport-v1.octoeverywhere.com/{c_OctoEverywhereOctoClientEndpointBase}"
+
     # Returns a new printer Id. This needs to be crypo-random to make sure it's not predictable.
     @staticmethod
     def GeneratePrinterId() -> str:

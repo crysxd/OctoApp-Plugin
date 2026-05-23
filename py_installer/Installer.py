@@ -7,7 +7,7 @@ from octoapp.httpsessions import HttpSessions
 # from .Linker import Linker
 from .Logging import Logger
 from .Service import Service
-from .Context import Context, OsTypes
+from .Context import Context, ElegooPrinterProtocols, OsTypes
 from .Discovery import Discovery
 from .DiscoveryCompanionBambuAndElegoo import DiscoveryCompanionBambuAndElegoo
 from .Configure import Configure
@@ -227,7 +227,7 @@ class Installer:
         elif context.IsBambuSetup:
             installTarget = "Bambu"
         elif context.IsElegooSetup:
-            installTarget = "Elegoo"
+            installTarget = "ElegooCc2" if context.ElegooPrinterProtocol == ElegooPrinterProtocols.Cc2 else "ElegooCc1"
         elif context.OsType == OsTypes.SonicPad:
             installTarget = "SonicPad"
         elif context.OsType == OsTypes.K1:
@@ -264,6 +264,7 @@ class Installer:
         Logger.Info("  -companion       - Makes the setup target a OctoApp Companion plugin setup.")
         Logger.Info("  -bambu           - Makes the setup target a OctoApp Bambu Connect plugin setup.")
         Logger.Info("  -elegoo          - Makes the setup target a OctoApp Elegoo Connect plugin setup.")
+        Logger.Info("   - OctoEverywhere Elegoo Connect - Where this plugin will connect to an Elegoo Centauri Carbon 1 or Centauri Carbon 2 printer on the same LAN.")
         Logger.Info("  -noatuoselect    - Disables auto selecting a moonraker instance, allowing the user to always choose.")
         Logger.Info("  -debug           - Enable debug logging to the console.")
         Logger.Info("  -skipsudoactions - Skips sudo required actions. This is useful for debugging, but will make the install not fully work.")

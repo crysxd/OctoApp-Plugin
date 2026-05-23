@@ -6,6 +6,7 @@ from requests.structures import CaseInsensitiveDict
 from octoapp.logging import LoggerLike
 
 from .buffer import Buffer
+from .streamreadhelper import StreamReadHelper
 from .Proto.DataCompression import DataCompression
 
 # Easy to use types.
@@ -70,6 +71,16 @@ class HttpResult():
         headers = CaseInsensitiveDict()
         headers["Content-Length"] = "0"
         return HttpResult(statusCode, headers, url, didFallback, fullBodyBuffer=Buffer(bytearray()))
+
+
+    # Allows for a quick way to create a Result object that is a redirect.
+    @staticmethod
+    def Redirect(url:str, didFallback:bool=False) -> "HttpResult":
+        headers = CaseInsensitiveDict()
+        headers["Location"] = url
+        # We must use a content length of 0 and set an empty body for the request to be handled correctly.
+        headers["Content-Length"] = "0"
+        return HttpResult(302, headers, url, didFallback, fullBodyBuffer=Buffer(bytearray()))
 
 
     # Builds a Result object from a requests.Response object.
@@ -167,20 +178,38 @@ class HttpResult():
         # For more comments, read doBodyRead, but using read is way more efficient.
         # The only other thing to note is that read will allocate the full buffer size passed, even if only some of it is filled.
         try:
+            # If we have a content length, we can use that to read more efficiently
+            # And if the underlying stream supports readinto, we can use that to avoid some allocations and copies.
+            useReadInto = StreamReadHelper.CanTryReadInto(self._requestLibResponseObj.raw)
+            contentLengthStr = self._requestLibResponseObj.headers.get("Content-Length", None)
+            if contentLengthStr is not None:
+                contentLength = int(contentLengthStr)
+                if contentLength > 0:
+                    contentBuffer = bytearray(contentLength)
+                    # Read the full content length.
+                    contentBytesRead, useReadInto = StreamReadHelper.ReadIntoByteArrayFull(self._requestLibResponseObj.raw, contentBuffer, 0, contentLength, useReadInto)
+                    if contentBytesRead > 0:
+                        # If we got less than the content length, trim the buffer to what we got.
+                        if contentBytesRead < contentLength:
+                            del contentBuffer[contentBytesRead:]
+                        buffers.append(contentBuffer)
+                    # If we got the full content length, we can set the buffer and return early.
+                    if contentBytesRead >= contentLength:
+                        self.SetFullBodyBuffer(Buffer(contentBuffer))
+                        return
+                    logger.warning(f"ReadAllContentFromStreamResponse: We expected to read {contentLength} bytes based on the Content-Length header, but only read {contentBytesRead} bytes.")
+
             # Ideally we use the content size, but if we can't we use our default.
             # The default size is tuned to fit about one 1080 jpeg image.
             # Since this function is mostly used for snapshots, that's a good default.
             perReadSizeBytes = 490 * 1024
-            contentLengthStr = self._requestLibResponseObj.headers.get("Content-Length", None)
-            if contentLengthStr is not None:
-                perReadSizeBytes = int(contentLengthStr)
 
             while True:
                 # Read data
-                data = self._requestLibResponseObj.raw.read(perReadSizeBytes)
+                buffer, useReadInto = StreamReadHelper.ReadBuffer(self._requestLibResponseObj.raw, perReadSizeBytes, useReadInto)
 
                 # Check if we are done.
-                if data is None or len(data) == 0:
+                if buffer is None or len(buffer) == 0:
                     # This is weird, but there can be lingering data in response.content, so add that if there is any.
                     # See doBodyRead for more details.
                     if len(self._requestLibResponseObj.content) > 0:
@@ -189,7 +218,7 @@ class HttpResult():
                     break
 
                 # If we aren't done, append the buffer.
-                buffers.append(data)
+                buffers.append(buffer.GetBytesLike())
         except Exception as e:
             bufferLength = sum(len(p) for p in buffers)
             lengthStr = "[buffer is None]" if bufferLength == 0 else str(bufferLength)
