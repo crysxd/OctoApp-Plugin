@@ -4,7 +4,7 @@ from typing import List
 from linux_host.config import Config
 
 from .Logging import Logger
-from .Context import Context
+from .Context import Context, ElegooPrinterProtocols
 from .Util import Util
 from .ConfigHelper import ConfigHelper
 
@@ -111,6 +111,14 @@ class DiscoveryCompanionBambuAndElegoo:
             if responseInt != -1:
                 # Use this instance
                 self._SetupContextFromVars(context, existingCompanionFolders[responseInt])
+                # For Elegoo, load the printer protocol from the existing config into the context,
+                # so Validate(2) doesn't fail before Configure gets a chance to re-read it.
+                if context.IsElegooSetup:
+                    protocol = ConfigHelper.TryToGetElegooPrinterProtocol(configFolderPath=context.CompanionDataRoot)
+                    if protocol == Config.ElegooPrinterProtocolCc2:
+                        context.ElegooPrinterProtocol = ElegooPrinterProtocols.Cc2
+                    elif protocol == Config.ElegooPrinterProtocolCc1:
+                        context.ElegooPrinterProtocol = ElegooPrinterProtocols.Cc1
                 Logger.Info(f"Existing {pluginTypeStr} plugin selected. Path: {context.CompanionDataRoot}, Id: {context.CompanionInstanceId}")
                 return
 

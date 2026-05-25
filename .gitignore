@@ -12,3 +12,6 @@ py3venv/*
 venv
 octoprint-data
 data/*
+.agents/*
+.claude/skills/cave*
+skills-lock.json
