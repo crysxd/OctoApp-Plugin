@@ -79,7 +79,7 @@ class FirebaseAppStorage(AppStoragePlatformHelper):
                 "lastSeen": int(time.time()),
                 "version": self.PluginVersion,
             }
-            resp = requests.put(url, json=data)
+            resp = requests.put(url, json=data, timeout=10)
             if resp.status_code > 299:
                 self.Logger.error(f"Failed to send last will: {resp.status_code} {resp.text}")
             else:
@@ -114,7 +114,7 @@ class FirebaseAppStorage(AppStoragePlatformHelper):
             "lastSeen": int(time.time()),
             "version": self.PluginVersion,
         }
-        resp = requests.put(url, json=data)
+        resp = requests.put(url, json=data, timeout=10)
 
         if resp.status_code > 299:
             self.Logger.error(f"Failed to announce presence: {resp.status_code} {resp.text}")
@@ -124,7 +124,7 @@ class FirebaseAppStorage(AppStoragePlatformHelper):
     def GetAllApps(self) -> List[AppInstance]:
         printerId = self.IdentityProvider.GetPrinterId()
         url = f"{self.AppsDatabaseUrl}/{printerId}.json"
-        resp = requests.get(url)
+        resp = requests.get(url, timeout=10)
         if resp.status_code != 200:
             self.Logger.error(f"Failed to fetch apps: {resp.status_code} {resp.text}")
             return []
@@ -149,7 +149,7 @@ class FirebaseAppStorage(AppStoragePlatformHelper):
             instanceId = app.InstanceId
             appId = app.DatabaseId or sha256_urlsafe_base64(instanceId.encode())
             url = f"{self.AppsDatabaseUrl}/{printerId}/{appId}.json?print=silent"
-            resp = requests.delete(url)
+            resp = requests.delete(url, timeout=10)
             if resp.status_code != 200:
                 self.Logger.error(f"Failed to remove app {instanceId}: {resp.status_code} {resp.text}")
 
