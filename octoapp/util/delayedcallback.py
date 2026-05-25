@@ -1,7 +1,7 @@
 import threading
-import logging
 from typing import Any, Callable
 
+from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
 
 
@@ -9,13 +9,13 @@ from octoapp.sentry import Sentry
 class DelayedCallback(threading.Thread):
 
     @staticmethod
-    def Create(logger:logging.Logger, name:str, delaySec:float, func:Callable[[], None]) -> "DelayedCallback":
+    def Create(logger:LoggerLike, name:str, delaySec:float, func:Callable[[], None]) -> "DelayedCallback":
         cb = DelayedCallback(logger, name, delaySec, func)
         cb.start()
         return cb
 
 
-    def __init__(self, logger:logging.Logger, name:str, delaySec:float, func:Callable[[], None]):
+    def __init__(self, logger:LoggerLike, name:str, delaySec:float, func:Callable[[], None]):
         threading.Thread.__init__(self, name=name)
         self.stopEvent = threading.Event()
         self.logger = logger

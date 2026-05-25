@@ -1,7 +1,7 @@
-import logging
 import threading
 from typing import Any, Dict, List, Optional
 
+from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
 
 from .elegoocc2client import ElegooCc2Client
@@ -14,7 +14,7 @@ class ElegooCc2FileManager(IFileManager):
     _Instance: "ElegooCc2FileManager" = None #pyright: ignore[reportAssignmentType]
 
     @staticmethod
-    def Init(logger:logging.Logger) -> None:
+    def Init(logger:LoggerLike) -> None:
         ElegooCc2FileManager._Instance = ElegooCc2FileManager(logger)
 
 
@@ -23,7 +23,7 @@ class ElegooCc2FileManager(IFileManager):
         return ElegooCc2FileManager._Instance
 
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
         self.Files:List[FileInfo] = []
         self.Lock = threading.Lock()

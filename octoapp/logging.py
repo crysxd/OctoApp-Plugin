@@ -22,6 +22,9 @@ class LoggerLike(Protocol):
     def exception(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         pass
 
+    def isEnabledFor(self, level: int) -> bool:
+        ...
+
 class TaggedLoggingAdapter(LoggerAdapter):
     def __init__(self, logger: Union[Logger, LoggerLike], tag:str):
         self.originalLogger: Logger

@@ -1,7 +1,7 @@
-import logging
 import threading
 from typing import Optional, Tuple
 
+from octoapp.logging import LoggerLike
 from octoapp.interfaces import IPrinterStateReporter
 from octoapp.notificationshandler import NotificationsHandler
 from octoapp.util.delayedcallback import DelayedCallback
@@ -16,7 +16,7 @@ class ElegooCc2StateTranslator(IPrinterStateReporter, IStateTranslator):
 
     c_ConnectionLostNotificationDelaySec = 10.0
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
         self.NotificationsHandler:NotificationsHandler = None #pyright: ignore[reportAttributeAccessIssue]
         self.LastStatus:Optional[str] = None
@@ -148,6 +148,16 @@ class ElegooCc2StateTranslator(IPrinterStateReporter, IStateTranslator):
         if timeRemainingSec is None:
             return -1
         return timeRemainingSec
+
+
+    def GetCurrentProgress(self) -> int:
+        state = ElegooCc2Client.Get().GetState()
+        if state is None:
+            return 0
+        if state.IsPrepareOrSlicing():
+            # The printer doesn't clear these values when a new print is starting and it's in a prepare or slicing state.
+            return 0
+        return int(state.Progress) if state.Progress is not None else 0
 
 
     def GetCurrentZOffsetMm(self) -> int:

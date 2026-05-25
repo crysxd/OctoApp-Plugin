@@ -29,6 +29,8 @@ class Config:
     GeneralSection = "general"
     GeneralBedCooldownThresholdTempC = "bed_cooldown_threshold_temp_celsius"
     GeneralBedCooldownThresholdTempCDefault = 40.0
+    GeneralLocalWebApiPort = "local_web_api_port"
+    GeneralLocalWebApiBindIp = "local_web_api_bind_ip"
 
 
     #

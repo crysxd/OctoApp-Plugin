@@ -8,32 +8,25 @@ from linux_host.logger import LoggerInit
 from linux_host.secrets import Secrets
 from linux_host.version import Version
 
-from octoapp.Webcam.webcamhelper import WebcamHelper
-from octoapp.commandhandler import CommandHandler
+from octoapp.appsstorage import AppStorageHelper
 from octoapp.compat import Compat
-from octoapp.compression import Compression
 from octoapp.deviceid import DeviceId
+from octoapp.firebaseappstorage import FirebaseAppStorage
 from octoapp.hostcommon import HostCommon
 from octoapp.httpsessions import HttpSessions
 from octoapp.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
 from octoapp.linkhelper import LinkHelper
 from octoapp.localip import LocalIpHelper
+from octoapp.logging import TaggedLoggingAdapter
 from octoapp.mdns import MDns
 from octoapp.notificationshandler import NotificationsHandler
-from octoapp.octoeverywhereimpl import OctoEverywhere
-from octoapp.octohttprequest import OctoHttpRequest
-from octoapp.pingpong import PingPong
 from octoapp.printinfo import PrintInfoManager
-from octoapp.Proto.ServerHost import ServerHost
 from octoapp.sentry import Sentry
-from octoapp.telemetry import Telemetry
 
+from .elegoocc2appstorage import ElegooCc2FirebaseIdentity
 from .elegoocc2client import ElegooCc2Client
-from .elegoocc2commandhandler import ElegooCc2CommandHandler
 from .elegoocc2filemanager import ElegooCc2FileManager
-from .elegoocc2mqttwebsocketproxy import MqttWebsocketProxyProviderBuilder
 from .elegoocc2statetranslater import ElegooCc2StateTranslator
-from .elegoocc2webcamhelper import ElegooCc2WebcamHelper
 
 class ElegooCc2Host(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
 
@@ -47,30 +40,31 @@ class ElegooCc2Host(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
             self.Config = Config(configDir)
 
             logLevelOverride = self.GetDevConfigStr(devConfig, "LogLevel")
-            self.Logger = LoggerInit.GetLogger(self.Config, logDir, logLevelOverride)
+            self.RawLogger = LoggerInit.GetLogger(self.Config, logDir, logLevelOverride)
+            self.Logger = TaggedLoggingAdapter(self.RawLogger, "MAIN")
             self.Config.SetLogger(self.Logger)
 
-            Sentry.SetLogger(self.Logger)
+            Sentry.SetLogger(self.RawLogger)
         except Exception as e:
             tb = traceback.format_exc()
             print("Failed to init Elegoo CC2 Host! "+str(e) + "; "+str(tb))
             raise
 
 
-    def RunBlocking(self, configPath:str, localStorageDir:str, repoRoot:str, isDockerContainer:bool, devConfig:Optional[Dict[str, Any]]) -> None:
+    def RunBlocking(self, configPath:str, localStorageDir:str, repoRoot:str, devConfig:Optional[Dict[str, Any]]) -> None:
         try:
             self.Logger.info("######################################################")
-            self.Logger.info("#### OctoEverywhere Elegoo CC2 Connect Starting #####")
+            self.Logger.info("###### OctoApp Elegoo CC2 Connect Starting ##########")
             self.Logger.info("######################################################")
 
             pluginVersionStr = Version.GetPluginVersion(repoRoot)
             self.Logger.info("Plugin Version: %s", pluginVersionStr)
 
-            HttpSessions.Init(self.Logger)
+            HttpSessions.Init(TaggedLoggingAdapter(self.RawLogger, "HTTPSESSION"))
 
-            Sentry.Setup(pluginVersionStr, "elegoo_cc2", devConfig is not None, canEnableProfiling=True, filterExceptionsByPackage=False, restartOnCantCreateThreadBug=True)
+            Sentry.Setup(pluginVersionStr, "elegoo_cc2", devConfig is not None, enableProfiling=True, filterExceptionsByPackage=False, restartOnCantCreateThreadBug=True)
 
-            self.Secrets = Secrets(self.Logger, localStorageDir)
+            self.Secrets = Secrets(TaggedLoggingAdapter(self.RawLogger, "SECRETS"), localStorageDir)
             self.DoFirstTimeSetupIfNeeded()
 
             printerId = self.GetPrinterId()
@@ -84,64 +78,34 @@ class ElegooCc2Host(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
             if DevLocalServerAddress_CanBeNone is not None:
                 self.Logger.warning("~~~ Using Local Dev Server Address: %s ~~~", DevLocalServerAddress_CanBeNone)
 
-            Telemetry.Init(self.Logger)
-            if DevLocalServerAddress_CanBeNone is not None:
-                Telemetry.SetServerProtocolAndDomain("http://"+DevLocalServerAddress_CanBeNone)
-
-            Compression.Init(self.Logger, localStorageDir)
-            MDns.Init(self.Logger, localStorageDir)
-            LocalWebApi.Init(self.Logger, printerId, self.Config)
-            DeviceId.Init(self.Logger)
-            PrintInfoManager.Init(self.Logger, localStorageDir)
+            MDns.Init(TaggedLoggingAdapter(self.RawLogger, "MDNS"), localStorageDir)
+            LocalWebApi.Init(TaggedLoggingAdapter(self.RawLogger, "LOCALWEBAPI"), printerId, self.Config)
+            DeviceId.Init(TaggedLoggingAdapter(self.RawLogger, "DEVICEID"))
+            PrintInfoManager.Init(TaggedLoggingAdapter(self.RawLogger, "PRINTINFO"), localStorageDir)
 
             configIpOrHostname = self.Config.GetStr(Config.SectionCompanion, Config.CompanionKeyIpOrHostname, None)
             if configIpOrHostname is not None:
-                LocalIpHelper.SetConnectionTargetIpOverride(configIpOrHostname)
+                LocalIpHelper.SetLocalIpOverride(configIpOrHostname)
 
-            PingPong.Init(self.Logger, localStorageDir, printerId)
-            if DevLocalServerAddress_CanBeNone is not None:
-                PingPong.Get().DisablePrimaryOverride()
-
-            webcamHelper = ElegooCc2WebcamHelper(self.Logger, self.Config)
-            WebcamHelper.Init(self.Logger, webcamHelper, localStorageDir)
-
-            stateTranslator = ElegooCc2StateTranslator(self.Logger)
+            stateTranslator = ElegooCc2StateTranslator(TaggedLoggingAdapter(self.RawLogger, "ELEGOOTRANSLATOR"))
             self.NotificationHandler = NotificationsHandler(self.Logger, stateTranslator)
-            self.NotificationHandler.SetPrinterId(printerId)
             self.NotificationHandler.SetBedCooldownThresholdTemp(self.Config.GetFloatRequired(Config.GeneralSection, Config.GeneralBedCooldownThresholdTempC, Config.GeneralBedCooldownThresholdTempCDefault))
             stateTranslator.SetNotificationHandler(self.NotificationHandler)
 
-            CommandHandler.Init(self.Logger, self.NotificationHandler, ElegooCc2CommandHandler(self.Logger), self)
+            ElegooCc2FileManager.Init(TaggedLoggingAdapter(self.RawLogger, "FILEMANAGER"))
+            ElegooCc2Client.Init(TaggedLoggingAdapter(self.RawLogger, "CLIENT"), self.Config, printerId, pluginVersionStr, stateTranslator, ElegooCc2FileManager.Get())
 
-            ElegooCc2FileManager.Init(self.Logger)
-            ElegooCc2Client.Init(self.Logger, self.Config, printerId, pluginVersionStr, stateTranslator, ElegooCc2FileManager.Get())
+            # Init app storage so the NotificationSender can fetch push tokens from Firebase.
+            AppStorageHelper.Init(TaggedLoggingAdapter(self.RawLogger, "APPS"), FirebaseAppStorage(TaggedLoggingAdapter(self.RawLogger, "DATABASE"), pluginVersionStr, ElegooCc2FirebaseIdentity(TaggedLoggingAdapter(self.RawLogger, "IDENTITY"))))
 
-            Compat.SetMqttWebsocketProxyProviderBuilder(MqttWebsocketProxyProviderBuilder(self.Logger))
-
-            # The Elegoo CC2 runs a HTTP server on 9001 for the websocket and web server on 8080 for the webcam stream.
-            # The frontend isn't served, they ship the frontend HTML with the slicer.
-            OctoHttpRequest.SetLocalOctoPrintPort(9001)
-            OctoHttpRequest.SetLocalHttpProxyPort(8080)
-            OctoHttpRequest.SetLocalHttpProxyIsHttps(False)
-
-            # For the CC2, we need to send the serial number and access code because they need to be added into the JS in the frontend.
-            # These can't change in the plugin unless the user changes them and restarts, so it safe to send them in the handshake.
-            conProperties:Dict[str, Any] = {
-                "access_code": self.Config.GetStrRequired(Config.SectionElegoo, Config.ElegooCc2AccessCode, ""),
-                "sn": self.Config.GetStrRequired(Config.SectionElegoo, Config.ElegooCc2PrinterSn, ""),
-            }
-
-            OctoEverywhereWsUri = HostCommon.c_OctoEverywhereOctoClientWsUri
-            if DevLocalServerAddress_CanBeNone is not None:
-                OctoEverywhereWsUri = "ws://"+DevLocalServerAddress_CanBeNone+"/"+HostCommon.c_OctoEverywhereOctoClientEndpointBase
-            oe = OctoEverywhere(OctoEverywhereWsUri, printerId, privateKey, self.Logger, self, self, pluginVersionStr, ServerHost.Elegoo2, True, isDockerContainer, conProperties)
-            oe.RunBlocking()
+            # Now start the main runner! This blocks while the client maintains the printer connection.
+            ElegooCc2Client.Get().RunBlocking()
         except Exception as e:
             Sentry.OnException("!! Exception thrown out of main Elegoo CC2 host run function.", e)
 
         try:
             self.Logger.info("##################################")
-            self.Logger.info("#### OctoEverywhere Exiting ######")
+            self.Logger.info("######## OctoApp Exiting ##########")
             self.Logger.info("##################################")
             logging.shutdown()
         except Exception as e:
@@ -203,8 +167,6 @@ class ElegooCc2Host(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
     def OnPrimaryConnectionEstablished(self, octoKey:str, connectedAccounts:List[str]) -> None:
         self.Logger.info("Primary Connection To OctoEverywhere Established - We Are Ready To Go!")
         LocalWebApi.Get().OnPrimaryConnectionEstablished(len(connectedAccounts) > 0)
-
-        self.NotificationHandler.SetOctoKey(octoKey)
 
         if len(connectedAccounts) == 0:
             printerId = self.GetPrinterId()

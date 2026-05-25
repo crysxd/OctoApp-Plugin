@@ -1,9 +1,9 @@
 import json
-import logging
 import socket
 import time
 from typing import Any, Dict, List, Optional
 
+from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
 
 
@@ -22,7 +22,7 @@ class ElegooCc2Discovery:
     c_DiscoveryPort = 52700
 
     @staticmethod
-    def Discover(logger:logging.Logger, ipOrHostname:Optional[str]=None, timeoutSec:float=3.0) -> List[ElegooCc2DiscoveryResult]:
+    def Discover(logger:LoggerLike, ipOrHostname:Optional[str]=None, timeoutSec:float=3.0) -> List[ElegooCc2DiscoveryResult]:
         results:List[ElegooCc2DiscoveryResult] = []
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -62,7 +62,7 @@ class ElegooCc2Discovery:
 
 
     @staticmethod
-    def _ParseDiscoveryResponse(logger:logging.Logger, data:bytes, ip:str) -> Optional[ElegooCc2DiscoveryResult]:
+    def _ParseDiscoveryResponse(logger:LoggerLike, data:bytes, ip:str) -> Optional[ElegooCc2DiscoveryResult]:
         try:
             msg:Dict[str, Any] = json.loads(data.decode("utf-8"))
             result = msg.get("result", None)

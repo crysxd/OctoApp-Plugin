@@ -12,6 +12,7 @@ from linux_host.config import Config
 from linux_host.localwebapi import LocalWebApi
 
 from octoapp.localip import LocalIpHelper
+from octoapp.logging import LoggerLike
 from octoapp.mqttwebsocketproxy import MqttConnectionContext
 from octoapp.octohttprequest import OctoHttpRequest
 from octoapp.repeattimer import RepeatTimer
@@ -116,7 +117,7 @@ class ElegooCc2Client:
     MqttMessageDebugging = False
 
     @staticmethod
-    def Init(logger:logging.Logger, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, fileManager:IFileManager) -> None:
+    def Init(logger:LoggerLike, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, fileManager:IFileManager) -> None:
         ElegooCc2Client._Instance = ElegooCc2Client(logger, config, pluginId, pluginVersion, stateTranslator, fileManager)
 
 
@@ -125,7 +126,7 @@ class ElegooCc2Client:
         return ElegooCc2Client._Instance
 
 
-    def __init__(self, logger:logging.Logger, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, fileManager:IFileManager) -> None:
+    def __init__(self, logger:LoggerLike, config:Config, pluginId:str, pluginVersion:str, stateTranslator:IStateTranslator, fileManager:IFileManager) -> None:
         self.Logger = logger
         self.Config = config
         self.PluginId = pluginId
@@ -179,8 +180,10 @@ class ElegooCc2Client:
         OctoHttpRequest.SetLocalHttpProxyIsHttps(False)
         OctoHttpRequest.SetLocalHttpProxyPort(80)
 
-        t = threading.Thread(target=self._ClientWorker, name="ElegooCc2Client")
-        t.start()
+
+    # Runs the printer connection loop on the calling thread, blocking forever.
+    def RunBlocking(self) -> None:
+        self._ClientWorker()
 
 
     def GetState(self) -> Optional[PrinterState]:
@@ -315,7 +318,7 @@ class ElegooCc2Client:
                 self.WebsocketConnectionIp = ipOrHostname
                 self.CurrentConnectionContext = connectionContext
 
-                LocalIpHelper.SetConnectionTargetIpOverride(ipOrHostname)
+                LocalIpHelper.SetLocalIpOverride(ipOrHostname)
                 OctoHttpRequest.SetLocalHostAddress(ipOrHostname)
 
                 self.CurrentClientId = self._GenerateClientId()
@@ -343,10 +346,7 @@ class ElegooCc2Client:
                 elif isinstance(e, socket.timeout) and "timed out" in str(e):
                     self.Logger.warning(f"Failed to connect to the Elegoo CC2 printer {ipOrHostname}:{self.PortStr} due to a timeout, we will retry in a bit. {e}")
                 else:
-                    if Sentry.IsCommonConnectionException(e):
-                        self.Logger.warning("Elegoo CC2 printer connection error: %s", str(e))
-                    else:
-                        Sentry.OnException(f"Failed to connect to the Elegoo CC2 printer {ipOrHostname}:{self.PortStr}. We will retry in a bit.", e)
+                    Sentry.OnException(f"Failed to connect to the Elegoo CC2 printer {ipOrHostname}:{self.PortStr}. We will retry in a bit.", e)
 
             LocalWebApi.Get().SetPrinterConnectionState(False)
             sleepDelay = self.ConsecutivelyFailedConnectionAttempts

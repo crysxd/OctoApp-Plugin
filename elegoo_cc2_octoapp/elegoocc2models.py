@@ -1,13 +1,13 @@
-import logging
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+from octoapp.logging import LoggerLike
 from octoapp.sentry import Sentry
 
 
 class FileInfo:
 
-    def __init__(self, logger:logging.Logger, fileInfo:Dict[str, Any]) -> None:
+    def __init__(self, logger:LoggerLike, fileInfo:Dict[str, Any]) -> None:
         self.FileNameWithPath:str = str(fileInfo.get("name", fileInfo.get("filename", "Unknown")))
         folderIndex = self.FileNameWithPath.rfind("/")
         self.FileName = self.FileNameWithPath[folderIndex + 1:] if folderIndex != -1 else self.FileNameWithPath
@@ -122,7 +122,7 @@ class PrinterState:
     }
 
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
         self.MostRecentPrintInfo = MostRecentPrintInfo()
 
@@ -346,7 +346,7 @@ class PrinterState:
 
 class PrinterAttributes:
 
-    def __init__(self, logger:logging.Logger) -> None:
+    def __init__(self, logger:LoggerLike) -> None:
         self.Logger = logger
         self.Hostname:Optional[str] = None
         self.MachineModel:Optional[str] = None
