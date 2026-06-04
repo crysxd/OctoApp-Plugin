@@ -226,11 +226,12 @@ class NotificationSender:
 
             # Delete invalid tokens
             apps = AppStorageHelper.Get().GetAllApps()
-            invalid_tokens = r.json()["invalidTokens"]
-            for fcmToken in invalid_tokens:
-                self.Logger.info(f"Removing {fcmToken}, no longer valid")
-                apps = [app for app in apps if app.FcmToken == fcmToken or app.FcmFallbackToken == fcmToken]
-                AppStorageHelper.Get().RemoveApps(apps)
+            invalid_tokens = set(r.json()["invalidTokens"])
+            stale = [app for app in apps if app.FcmToken in invalid_tokens or app.FcmFallbackToken in invalid_tokens]
+            if stale:
+                for app in stale:
+                    self.Logger.info(f"Removing {app.FcmToken}, no longer valid")
+                AppStorageHelper.Get().RemoveApps(stale)
 
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to send notification %s", e)
@@ -720,6 +721,7 @@ class NotificationSender:
             cache_config_max_age = time.time() - 86400
             if self.CachedConfigAt > cache_config_max_age:
                 self.Logger.info("Config still valid")
+                continue
 
             # Request config, fall back to default
             try:

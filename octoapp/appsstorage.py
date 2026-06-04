@@ -134,7 +134,9 @@ class AppStorageHelper:
         return list(filter(lambda app: not app.FcmToken.startswith("activity:") and not app.FcmToken.startswith("ios:"), apps))
 
     def GetExpiredApps(self, apps:List[AppInstance]) -> List[AppInstance]:
-        return list(filter(lambda app: app.ExpireAt is not None and time.time() > app.ExpireAt, apps))
+        # Treat a falsy ExpireAt (None or 0, e.g. legacy records) as "never expires"
+        # so we don't instantly purge apps that are missing an expiry date.
+        return list(filter(lambda app: app.ExpireAt and time.time() > app.ExpireAt, apps))
 
     def GetIosApps(self, apps:List[AppInstance]) -> List[AppInstance]:
         return list(filter(lambda app: app.FcmToken.startswith("ios:"), apps))
