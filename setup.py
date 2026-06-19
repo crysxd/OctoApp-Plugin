@@ -22,7 +22,7 @@ plugin_name = "OctoApp"
 
 # The plugin's version. Can be overwritten within OctoPrint's internal data via __plugin_version__ in the plugin module
 # Note that this is also parsed by the moonraker module to pull the version, so the string and format must remain the same!
-plugin_version = "3.1.1"
+plugin_version = "3.1.2"
 
 # The plugin's description. Can be overwritten within OctoPrint's internal data via __plugin_description__ in the plugin
 # module
@@ -65,7 +65,7 @@ plugin_license = "AGPLv3"
 #
 # Note! These also need to stay in sync with requirements.txt, for the most part they should be the exact same!
 plugin_requires = [
-    "octowebsocket_client==1.8.3",
+    "octowebsocket_client>=1.8.3",
     "requests>=2.31.0",
     "octoflatbuffers==24.3.27",
     "pillow",
