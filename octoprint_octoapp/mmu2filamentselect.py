@@ -14,7 +14,7 @@ class OctoAppMmu2FilamentSelectSubPlugin(OctoAppSubPlugin):
 
 
     def OnEmitWebsocketMessage(self, user:str, message:str, messageType:str, data:Dict[str,Any]):
-        if type == "plugin" and data.get("plugin") in ["mmu2filamentselect", "prusammu"] and isinstance(data.get("data"), dict):
+        if messageType == "plugin" and data.get("plugin") in ["mmu2filamentselect", "prusammu"] and isinstance(data.get("data"), dict):
             action = data.get("data", {}).get("action", None)
 
             self.logger.info(f"Received event: {action}")
