@@ -5,7 +5,8 @@ import requests
 from requests.structures import CaseInsensitiveDict
 from octoapp.logging import LoggerLike
 
-from .buffer import Buffer, ByteLike
+from .buffer import Buffer
+from .streamreadhelper import StreamReadHelper
 from .Proto.DataCompression import DataCompression
 
 # Easy to use types.
@@ -33,7 +34,7 @@ class HttpResult():
                     didFallback:bool,
                     fullBodyBuffer:Optional[Buffer]=None,
                     requestLibResponseObj:Optional[requests.Response]=None,
-                    customBodyStreamCallback:Optional[Callable[[], Buffer]]=None,
+                    customBodyStreamCallback:Optional[Callable[[], Optional[Buffer]]]=None,
                     customBodyStreamClosedCallback:Optional[Callable[[],None]]=None
                     ):
         # Status code isn't a property because some things need to set it externally to the class. (Result.StatusCode = 302)
@@ -70,6 +71,16 @@ class HttpResult():
         headers = CaseInsensitiveDict()
         headers["Content-Length"] = "0"
         return HttpResult(statusCode, headers, url, didFallback, fullBodyBuffer=Buffer(bytearray()))
+
+
+    # Allows for a quick way to create a Result object that is a redirect.
+    @staticmethod
+    def Redirect(url:str, didFallback:bool=False) -> "HttpResult":
+        headers = CaseInsensitiveDict()
+        headers["Location"] = url
+        # We must use a content length of 0 and set an empty body for the request to be handled correctly.
+        headers["Content-Length"] = "0"
+        return HttpResult(302, headers, url, didFallback, fullBodyBuffer=Buffer(bytearray()))
 
 
     # Builds a Result object from a requests.Response object.
@@ -121,7 +132,8 @@ class HttpResult():
 
 
     @property
-    def GetCustomBodyStreamCallback(self) -> Optional[Callable[[], Buffer]]:
+    def GetCustomBodyStreamCallback(self) -> Optional[Callable[[], Optional[Buffer]]]:
+        # This callback can return None, which indicates the stream is done or there was an error.
         return self._customBodyStreamCallback
 
 
@@ -157,7 +169,8 @@ class HttpResult():
         # Ensure we have a stream to read.
         if self._requestLibResponseObj is None:
             raise Exception("ReadAllContentFromStreamResponse was called on a result with no request lib Response object.")
-        buffer:Optional[ByteLike] = None
+        # It's more efficient to gather the data in a single buffer, and append together at the end.
+        buffers:list[bytes | bytearray] = []
 
         # In the past, we used iter_content, but it has a lot of overhead and also doesn't read all available data, it will only read a chunk if the transfer encoding is chunked.
         # This isn't great because it's slow and also we don't need to reach each chunk, process it, just to dump it in a buffer and read another.
@@ -165,45 +178,53 @@ class HttpResult():
         # For more comments, read doBodyRead, but using read is way more efficient.
         # The only other thing to note is that read will allocate the full buffer size passed, even if only some of it is filled.
         try:
+            # If we have a content length, we can use that to read more efficiently
+            # And if the underlying stream supports readinto, we can use that to avoid some allocations and copies.
+            useReadInto = StreamReadHelper.CanTryReadInto(self._requestLibResponseObj.raw)
+            contentLengthStr = self._requestLibResponseObj.headers.get("Content-Length", None)
+            if contentLengthStr is not None:
+                contentLength = int(contentLengthStr)
+                if contentLength > 0:
+                    contentBuffer = bytearray(contentLength)
+                    # Read the full content length.
+                    contentBytesRead, useReadInto = StreamReadHelper.ReadIntoByteArrayFull(self._requestLibResponseObj.raw, contentBuffer, 0, contentLength, useReadInto)
+                    if contentBytesRead > 0:
+                        # If we got less than the content length, trim the buffer to what we got.
+                        if contentBytesRead < contentLength:
+                            del contentBuffer[contentBytesRead:]
+                        buffers.append(contentBuffer)
+                    # If we got the full content length, we can set the buffer and return early.
+                    if contentBytesRead >= contentLength:
+                        self.SetFullBodyBuffer(Buffer(contentBuffer))
+                        return
+                    logger.warning(f"ReadAllContentFromStreamResponse: We expected to read {contentLength} bytes based on the Content-Length header, but only read {contentBytesRead} bytes.")
+
             # Ideally we use the content size, but if we can't we use our default.
             # The default size is tuned to fit about one 1080 jpeg image.
             # Since this function is mostly used for snapshots, that's a good default.
             perReadSizeBytes = 490 * 1024
-            contentLengthStr = self._requestLibResponseObj.headers.get("Content-Length", None)
-            if contentLengthStr is not None:
-                perReadSizeBytes = int(contentLengthStr)
 
             while True:
                 # Read data
-                data = self._requestLibResponseObj.raw.read(perReadSizeBytes)
+                buffer, useReadInto = StreamReadHelper.ReadBuffer(self._requestLibResponseObj.raw, perReadSizeBytes, useReadInto)
 
                 # Check if we are done.
-                if data is None or len(data) == 0:
+                if buffer is None or len(buffer) == 0:
                     # This is weird, but there can be lingering data in response.content, so add that if there is any.
                     # See doBodyRead for more details.
                     if len(self._requestLibResponseObj.content) > 0:
-                        if buffer is None:
-                            buffer = self._requestLibResponseObj.content
-                        else:
-                            buffer += self._requestLibResponseObj.content
+                        buffers.append(self._requestLibResponseObj.content)
                     # Break out when we are done.
                     break
 
                 # If we aren't done, append the buffer.
-                if buffer is None:
-                    buffer = data
-                else:
-                    buffer += data
+                buffers.append(buffer.GetBytesLike())
         except Exception as e:
-            lengthStr =  "[buffer is None]" if buffer is None else str(len(buffer))
+            bufferLength = sum(len(p) for p in buffers)
+            lengthStr = "[buffer is None]" if bufferLength == 0 else str(bufferLength)
             logger.warning(f"ReadAllContentFromStreamResponse got an exception. We will return the current buffer length of {lengthStr}, exception: {e}")
 
-        # Ensure we got something, as after this callers will expect an object to be there.
-        if buffer is None:
-            # If the buffer is None, we need to set it to a bytearray, since that's what we expect.
-            # This will be a empty buffer.
-            buffer = bytearray()
-        self.SetFullBodyBuffer(Buffer(buffer))
+        self.SetFullBodyBuffer(Buffer(b''.join(buffers)))
 
 
     # We need to support the with keyword incase we have an actual Response object.

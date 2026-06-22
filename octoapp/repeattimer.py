@@ -1,12 +1,12 @@
 import threading
 from typing import Any, Callable
-
 from .logging import LoggerLike
+
 from .sentry import Sentry
 
 class RepeatTimer(threading.Thread):
 
-    def __init__(self, logger:LoggerLike, name:str, intervalSec:float, func:Callable[[], None]):
+    def __init__(self, logger: LoggerLike, name:str, intervalSec:float, func:Callable[[], None]):
         threading.Thread.__init__(self, name=name)
         self.stopEvent = threading.Event()
         self.logger = logger
@@ -26,7 +26,7 @@ class RepeatTimer(threading.Thread):
                 self.callback()
             except Exception as e:
                 Sentry.OnException("Exception in RepeatTimer thread.", e)
-        self.logger.info("RepeatTimer thread exit")
+        self.logger.debug("RepeatTimer thread exit")
 
 
     # Used to update the repeat interval. This can be called while the timer is running

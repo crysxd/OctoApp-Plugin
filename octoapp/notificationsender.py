@@ -226,11 +226,12 @@ class NotificationSender:
 
             # Delete invalid tokens
             apps = AppStorageHelper.Get().GetAllApps()
-            invalid_tokens = r.json()["invalidTokens"]
-            for fcmToken in invalid_tokens:
-                self.Logger.info(f"Removing {fcmToken}, no longer valid")
-                apps = [app for app in apps if app.FcmToken == fcmToken or app.FcmFallbackToken == fcmToken]
-                AppStorageHelper.Get().RemoveApps(apps)
+            invalid_tokens = set(r.json()["invalidTokens"])
+            stale = [app for app in apps if app.FcmToken in invalid_tokens or app.FcmFallbackToken in invalid_tokens]
+            if stale:
+                for app in stale:
+                    self.Logger.info(f"Removing {app.FcmToken}, no longer valid")
+                AppStorageHelper.Get().RemoveApps(stale)
 
         except Exception as e:
             Sentry.ExceptionNoSend("Failed to send notification %s", e)
@@ -512,6 +513,27 @@ class NotificationSender:
         return data
 
 
+    def _createActivityRenewData(self, state:Dict[str,Any]) -> Dict[str,Any]:
+        # Silent push-to-start used to replace an activity that is about to expire.
+        # Same payload as start, but without an alert so the user sees no notification.
+        data = self._createActivityContentState(
+            isEnd=False,
+            state=state,
+            liveActivityState="printing"
+        )
+        data.update(
+            {
+                "event": "start",
+                "attributes-type": "PrintActivityAttributes",
+                "attributes": {
+                    "filePath": state.get(NotificationSender.STATE_FILE_PATH, None),
+                    "startedAt": time.time()
+                }
+            }
+        )
+        return data
+
+
     def _createActivityContentState(self, isEnd:bool, state:Dict[str,Any], liveActivityState:str) -> Dict[str,Any]:
         return {
             "event": "end" if isEnd else "update",
@@ -585,13 +607,27 @@ class NotificationSender:
         t.start()
 
 
+    # How often the expiry/renew loop runs.
+    ACTIVITY_CHECK_INTERVAL_SEC = 60
+    # How long before ExpireAt we try to seamlessly replace an activity with a fresh one.
+    ACTIVITY_RENEW_MARGIN_SEC = 1800
+
     def _doContinuouslyCheckActivitiesExpired(self):
-        self.Logger.debug("Checking for expired apps every 60s")
+        self.Logger.debug(f"Checking for expired apps every {self.ACTIVITY_CHECK_INTERVAL_SEC}s")
         while True:
-            time.sleep(21600)
+            time.sleep(self.ACTIVITY_CHECK_INTERVAL_SEC)
 
             try:
                 helper = AppStorageHelper.Get()
+                all_apps = helper.GetAllApps()
+
+                # On iOS 17.2+ devices we hold a push-to-start token. Before an activity
+                # expires we start a fresh activity on the same instance, so the user never
+                # sees the "expired" state. The new activity registers its own update token
+                # and ExpireAt via the app, so we stop tracking the old record here.
+                self._renewExpiringActivities(helper, all_apps)
+
+                # Reload, the renew step may have removed activity records.
                 expired = helper.GetExpiredApps(helper.GetAllApps())
                 if len(expired):
                     self.Logger.debug(f"Found {len(expired)} expired apps")
@@ -625,6 +661,49 @@ class NotificationSender:
                 Sentry.ExceptionNoSend("Failed to retire expired", e)
 
 
+    def _renewExpiringActivities(self, helper:AppStorageHelper, all_apps:List[AppInstance]):
+        now = time.time()
+
+        # Map instanceId -> push-to-start token, newest first wins.
+        auto_start_by_instance:Dict[str,str] = {}
+        for app in helper.GetActivityAutoStarts(all_apps):
+            if app.ActivityAutoStartToken is not None:
+                auto_start_by_instance.setdefault(app.InstanceId, app.ActivityAutoStartToken)
+
+        # Find activities entering the renew window that we can still replace.
+        renewable:List[AppInstance] = []
+        for activity in helper.GetActivities(all_apps):
+            if activity.ExpireAt is None:
+                continue
+            if now < activity.ExpireAt - self.ACTIVITY_RENEW_MARGIN_SEC:
+                continue  # not close enough to expiry yet
+            if now > activity.ExpireAt:
+                continue  # already expired, handled by the expired path
+            if activity.InstanceId not in auto_start_by_instance:
+                continue  # no push-to-start token, can't renew (older iOS)
+            renewable.append(activity)
+
+        if not renewable:
+            return
+
+        self.Logger.info(f"Renewing {len(renewable)} live activities before expiry")
+        apnsData = self._createActivityRenewData(self.LastPrintState)
+
+        for activity in renewable:
+            token = auto_start_by_instance[activity.InstanceId]
+            # Start a fresh activity via push-to-start on the same instance.
+            self._doSendNotification(
+                targets=[activity.WithToken(token)],
+                highProiroty=True,
+                apnsData=apnsData,
+                androidData="none"
+            )
+
+        # Stop tracking the old records. Progress updates now target the new activity
+        # once the app reports its update token; the old activity dies at Apple's limit.
+        helper.RemoveApps(renewable)
+
+
     #
     # CONFIG
     #
@@ -642,6 +721,7 @@ class NotificationSender:
             cache_config_max_age = time.time() - 86400
             if self.CachedConfigAt > cache_config_max_age:
                 self.Logger.info("Config still valid")
+                continue
 
             # Request config, fall back to default
             try:

@@ -156,8 +156,11 @@ class BambuStateTranslator(IPrinterStateReporter, IBambuStateTranslator):
             self.NotificationsHandler.OnFilamentChange()
             return
 
-        # Send a generic error.
-        self.NotificationsHandler.OnUserInteractionNeeded()
+        # Send the error string from the bambu API map.
+        errorStr = bambuState.GetFileNameWithNoExtension()
+        if errorStr is None:
+            errorStr = "General Error"
+        self.NotificationsHandler.OnError(errorStr)
 
 
     def BambuOnResume(self, bambuState:BambuState) -> None:

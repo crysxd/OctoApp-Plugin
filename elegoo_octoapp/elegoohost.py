@@ -12,6 +12,7 @@ from octoapp.notificationshandler import NotificationsHandler
 from octoapp.Proto.ServerHost import ServerHost
 from octoapp.compat import Compat
 from octoapp.appsstorage import AppStorageHelper
+from octoapp.firebaseappstorage import FirebaseAppStorage
 from octoapp.logging import TaggedLoggingAdapter
 from octoapp.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
 
@@ -20,7 +21,7 @@ from linux_host.secrets import Secrets
 from linux_host.version import Version
 from linux_host.logger import LoggerInit
 
-from .elegooappstorage import ElegooAppStorage
+from .elegooappstorage import ElegooFirebaseIdentity
 from .elegoowebsocketmux import ElegooWebsocketMux
 from .elegooclient import ElegooClient
 from .elegoofilemanager import ElegooFileManager
@@ -111,7 +112,7 @@ class ElegooHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
             ElegooClient.Init(TaggedLoggingAdapter(self.RawLogger, "CLIENT"), self.Config, pluginVersionStr, stateTranslator, websocketMux, ElegooFileManager.Get())
 
             # Init app storage"
-            AppStorageHelper.Init(TaggedLoggingAdapter(self.RawLogger, "APPS"), ElegooAppStorage(TaggedLoggingAdapter(self.RawLogger, "DATABASE"), pluginVersionStr))
+            AppStorageHelper.Init(TaggedLoggingAdapter(self.RawLogger, "APPS"), FirebaseAppStorage(TaggedLoggingAdapter(self.RawLogger, "DATABASE"), pluginVersionStr, ElegooFirebaseIdentity(TaggedLoggingAdapter(self.RawLogger, "IDENTITY"))))
 
             # Now start the main runner!
             ElegooClient.Get().RunBlocking()

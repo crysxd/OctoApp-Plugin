@@ -4,7 +4,7 @@ import base64
 
 from .Util import Util
 from .Logging import Logger
-from .Context import Context
+from .Context import Context, ElegooPrinterProtocols
 from .Context import OsTypes
 
 
@@ -49,7 +49,10 @@ class Service:
         if context.IsBambuSetup:
             moduleNameToRun = "bambu_octoapp"
         elif context.IsElegooSetup:
-            moduleNameToRun = "elegoo_octoapp"
+            if context.ElegooPrinterProtocol == ElegooPrinterProtocols.Cc2:
+                moduleNameToRun = "elegoo_cc2_octoapp"
+            else:
+                moduleNameToRun = "elegoo_octoapp"
 
         # Base on the OS type, install the service differently
         if context.OsType == OsTypes.Debian:

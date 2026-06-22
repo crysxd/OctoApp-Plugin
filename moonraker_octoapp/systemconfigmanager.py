@@ -113,20 +113,33 @@ subscriptions:
                 logger.info("Failed to find moonraker allowed services file.")
                 return
 
+            allowedServiceNames = [serviceName, f"{serviceName}_service"]
+            # K1/K1 Max installs use an init.d file name like S66octoapp_service,
+            # but the update-manager config intentionally maps the managed service name
+            # to "octoapp". Add both so older Moonraker builds can restart the
+            # service after updates.
+            if serviceName.startswith("S66"):
+                allowedServiceNames.append("octoapp")
+
             # Check if we are already in the file.
             with open(allowedServiceFile, "r", encoding="utf-8") as file:
                 lines = file.readlines()
+                existingEntries = set()
                 for line in lines:
-                    # Use in, because the lines will have new lines and such.
-                    # Match case, because the entry in the file must match the service name case.
-                    if serviceName in line:
-                        logger.info("We found our name existing in the moonraker allowed service file, so there's nothing to do.")
-                        return
+                    entry = line.strip()
+                    if len(entry) != 0:
+                        existingEntries.add(entry)
+
+                missingEntries = [name for name in allowedServiceNames if name not in existingEntries]
+                if len(missingEntries) == 0:
+                    logger.info("We found our name existing in the moonraker allowed service file, so there's nothing to do.")
+                    return
 
         # Add our name.
             with open(allowedServiceFile,'a', encoding="utf-8") as f:
-                # The current format this doc is not have a trailing \n, so we need to add one.
-                f.write("\n"+serviceName+"\n")
+                for name in missingEntries:
+                    f.write("\n"+name)
+                f.write("\n")
         except PermissionError as e:
             logger.warning("We tried to write the moonraker allowed services file but don't have permissions "+str(e))
             return

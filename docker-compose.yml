@@ -4,9 +4,10 @@ services:
     image: ghcr.io/crysxd/octoapp-plugin:latest
     environment:
         # Required: The mode of OctoApp Companion Plugin you want use.
-        #   - bambu:   Bambu Companion Plugin - for Bambu Lab 3D printers such as the Bambu Lab A1, P1, and X1 series.
-        #   - elegoo:  Elegoo Companion Plugin - for Elegoo OS 3D printers such as the Elegoo Centauri & Elegoo Centauri Carbon.
-        #   - klipper: Use this for Klipper / Moonraker based printers.
+        #   - bambu:      Bambu Companion Plugin - for Bambu Lab 3D printers such as the Bambu Lab A1, P1, and X1 series.
+        #   - elegoo:     Elegoo Companion Plugin - for Elegoo OS 3D printers such as the Elegoo Centauri & Elegoo Centauri Carbon.
+        #   - elegoo_cc2: Elegoo CC2 Companion Plugin - for Elegoo Centauri Carbon 2 printers (skips CC1 network scan).
+        #   - klipper:    Use this for Klipper / Moonraker based printers.
         #
         # Set this to the mode you want to use, and then uncomment the required settings for the mode bellow.
         - COMPANION_MODE=bambu
@@ -67,9 +68,10 @@ services:
   #   image: ghcr.io/crysxd/octoapp-plugin:latest
   #   environment:
   #       # Required: The mode of OctoApp Companion Plugin you want use.
-  #       #   - bambu:   Bambu Companion Plugin - for Bambu Lab 3D printers such as the Bambu Lab A1, P1, and X1 series.
-  #       #   - elegoo:  Elegoo Companion Plugin - for Elegoo OS 3D printers such as the Elegoo Centauri & Elegoo Centauri Carbon.
-  #       #   - klipper: Use this for Klipper / Moonraker based printers.
+  #       #   - bambu:      Bambu Companion Plugin - for Bambu Lab 3D printers such as the Bambu Lab A1, P1, and X1 series.
+  #       #   - elegoo:     Elegoo Companion Plugin - for Elegoo OS 3D printers such as the Elegoo Centauri & Elegoo Centauri Carbon.
+  #       #   - elegoo_cc2: Elegoo CC2 Companion Plugin - for Elegoo Centauri Carbon 2 printers (skips CC1 network scan).
+  #       #   - klipper:    Use this for Klipper / Moonraker based printers.
   #       #
   #       # Set this to the mode you want to use, and then uncomment the required settings for the mode bellow.
   #       - COMPANION_MODE=bambu

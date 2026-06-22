@@ -1,8 +1,10 @@
 import os
 from typing import List
 
+from linux_host.config import Config
+
 from .Logging import Logger
-from .Context import Context
+from .Context import Context, ElegooPrinterProtocols
 from .Util import Util
 from .ConfigHelper import ConfigHelper
 
@@ -65,12 +67,18 @@ class DiscoveryCompanionBambuAndElegoo:
             Logger.Info("Options:")
             for folder in existingCompanionFolders:
                 instanceId = self._GetCompanionBambuOrElegooIdFromFolderName(folder)
+                typeSuffix = ""
+                configFolderPath = os.path.join(context.UserHomePath, folder)
+                if context.IsElegooSetup:
+                    protocol = ConfigHelper.TryToGetElegooPrinterProtocol(configFolderPath=configFolderPath)
+                    if protocol is not None:
+                        typeSuffix = " - Centauri Carbon 2" if protocol == Config.ElegooPrinterProtocolCc2 else " - Centauri Carbon 1"
                 # Try to parse the config, if there is one and it's valid.
-                ip, port = ConfigHelper.TryToGetCompanionDetails(configFolderPath=os.path.join(context.UserHomePath, folder))
+                ip, port = ConfigHelper.TryToGetCompanionDetails(configFolderPath=configFolderPath)
                 if ip is None and port is None:
-                    Logger.Info(f"  {count}) Plugin ID {instanceId} - Path: {folder}")
+                    Logger.Info(f"  {count}) Plugin ID {instanceId}{typeSuffix} - Path: {folder}")
                 else:
-                    Logger.Info(f"  {count}) Plugin ID {instanceId} - {ip}:{port}")
+                    Logger.Info(f"  {count}) Plugin ID {instanceId}{typeSuffix} - {ip}:{port}")
                 count += 1
             Logger.Info(f"  n) Setup a new {pluginTypeStr} plugin instance")
             Logger.Blank()
@@ -103,6 +111,14 @@ class DiscoveryCompanionBambuAndElegoo:
             if responseInt != -1:
                 # Use this instance
                 self._SetupContextFromVars(context, existingCompanionFolders[responseInt])
+                # For Elegoo, load the printer protocol from the existing config into the context,
+                # so Validate(2) doesn't fail before Configure gets a chance to re-read it.
+                if context.IsElegooSetup:
+                    protocol = ConfigHelper.TryToGetElegooPrinterProtocol(configFolderPath=context.CompanionDataRoot)
+                    if protocol == Config.ElegooPrinterProtocolCc2:
+                        context.ElegooPrinterProtocol = ElegooPrinterProtocols.Cc2
+                    elif protocol == Config.ElegooPrinterProtocolCc1:
+                        context.ElegooPrinterProtocol = ElegooPrinterProtocols.Cc1
                 Logger.Info(f"Existing {pluginTypeStr} plugin selected. Path: {context.CompanionDataRoot}, Id: {context.CompanionInstanceId}")
                 return
 

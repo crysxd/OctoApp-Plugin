@@ -388,8 +388,12 @@ class MoonrakerClient(IMoonrakerClient):
                         jobObj = jobContainerObj["job"]
                         filename = jobObj.get("filename", None)
                         if filename is not None:
-                            self.MoonrakerCompat.OnPrintStart(filename)
-                            self.DownloadFileForProcessing(filename)
+                            # Note sometimes the filename can just be ""
+                            if len(filename) == 0:
+                                self.Logger.info("Moonraker client detected print start with no file name, so we aren't firing the print started event.")
+                            else:
+                                self.MoonrakerCompat.OnPrintStart(filename)
+                                self.DownloadFileForProcessing(filename)
                             return
                 elif action == "finished":
                     # This can be a finish canceled or failed.
@@ -560,6 +564,7 @@ class MoonrakerClient(IMoonrakerClient):
                                     onWsClose=self._onWsClose,
                                     onWsError=self._onWsError
                                     )
+                    self.WebSocket.SetDisableCertCheck(True)
 
                 # Run until the socket closes
                 # When it returns, ensure it's closed.

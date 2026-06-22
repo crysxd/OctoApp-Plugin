@@ -17,7 +17,7 @@
         //         "eyJLbGlwcGVyQ29uZmlnRm9sZGVyIjogIi9ob21lL3BpL3ByaW50ZXJfZGF0YS9jb25maWciLCAiTW9vbnJha2VyQ29uZmlnRmlsZSI6ICIvaG9tZS9waS9wcmludGVyX2RhdGEvY29uZmlnL21vb25yYWtlci5jb25mIiwgIktsaXBwZXJMb2dGb2xkZXIiOiAiL2hvbWUvcGkvcHJpbnRlcl9kYXRhL2xvZ3MiLCAiTG9jYWxGaWxlU3RvcmFnZVBhdGgiOiAiL2hvbWUvcGkvcHJpbnRlcl9kYXRhL29jdG9ldmVyeXdoZXJlLXN0b3JlIiwgIlNlcnZpY2VOYW1lIjogIm9jdG9ldmVyeXdoZXJlIiwgIlZpcnR1YWxFbnZQYXRoIjogIi9ob21lL3BpL29jdG9ldmVyeXdoZXJlLWVudiIsICJSZXBvUm9vdEZvbGRlciI6ICIvaG9tZS9waS9vY3RvZXZlcnl3aGVyZSJ9",
         //         //
         //         // We can optionally pass a dev config json object, which has dev specific overwrites we can make.
-        //         "{\"LocalServerAddress\":\"\", \"LogLevel\":\"DEBUG\"}"
+        //         "{\"LogLevel\":\"DEBUG\"}"
         //     ]
         // },
         {
@@ -33,41 +33,26 @@
                 // {"KlipperConfigFolder": "/home/pi/printer_data/config", "MoonrakerConfigFile": "/home/pi/printer_data/config/moonraker.conf", "KlipperLogFolder": "/home/pi/printer_data/logs", "LocalFileStoragePath": "/home/pi/printer_data/octoapp-store", "ServiceName": "octoapp", "VirtualEnvPath": "/home/pi/octoapp-env", "RepoRootFolder": "/home/pi/octoapp"}
                 "eyJLbGlwcGVyQ29uZmlnRm9sZGVyIjogIi9ob21lL3BpL3ByaW50ZXJfZGF0YS9jb25maWciLCAiTW9vbnJha2VyQ29uZmlnRmlsZSI6ICIvaG9tZS9waS9wcmludGVyX2RhdGEvY29uZmlnL21vb25yYWtlci5jb25mIiwgIktsaXBwZXJMb2dGb2xkZXIiOiAiL2hvbWUvcGkvcHJpbnRlcl9kYXRhL2xvZ3MiLCAiTG9jYWxGaWxlU3RvcmFnZVBhdGgiOiAiL2hvbWUvcGkvcHJpbnRlcl9kYXRhL29jdG9hcHAtc3RvcmUiLCAiU2VydmljZU5hbWUiOiAib2N0b2FwcCIsICJWaXJ0dWFsRW52UGF0aCI6ICIvaG9tZS9waS9vY3RvYXBwLWVudiIsICJSZXBvUm9vdEZvbGRlciI6ICIvaG9tZS9waS9vY3RvYXBwIn0=",
                 // We can optionally pass a dev config json object, which has dev specific overwrites we can make.
-                "{\"LocalServerAddress\":\"\", \"LogLevel\":\"DEBUG\"}"
+                "{\"LogLevel\":\"DEBUG\"}"
             ]
         },
         {
-            "name": "Elegoo Connect - Primary",
+            "name": "Elegoo Connect - As Installed",
             "type": "debugpy",
             "request": "launch",
-            "module": "elegoo_octoapp",
+            "module": "elegoo_cc2_octoapp",
             "justMyCode": false,
             "args": [
-                // These args reflect the correct setup for a pi installed with the Bambu Connect version of the plugin. These args target the first instance.
+                // These args reflect the correct setup for a pi installed with the Elegoo CC2 Connect version of the plugin. These args target the first instance.
                 //
-                // { "ServiceName": "octoapp-elegoo", "VirtualEnvPath":"/home/pi/octoapp-env", "RepoRootFolder":"/home/pi/octoapp/", "LogFolder":"/home/pi/.octoapp-elegoo/logs", "LocalFileStoragePath":"/home/pi/.octoapp-elegoo/octoapp-store", "ConfigFolder":"/home/pi/.octoapp-elegoo/", "CompanionInstanceIdStr":"1" }
-                "eyAiU2VydmljZU5hbWUiOiAib2N0b2FwcC1lbGVnb28iLCAiVmlydHVhbEVudlBhdGgiOiIvaG9tZS9waS9vY3RvYXBwLWVudiIsICJSZXBvUm9vdEZvbGRlciI6Ii9ob21lL3BpL29jdG9hcHAvIiwgIkxvZ0ZvbGRlciI6Ii9ob21lL3BpLy5vY3RvYXBwLWVsZWdvby9sb2dzIiwgIkxvY2FsRmlsZVN0b3JhZ2VQYXRoIjoiL2hvbWUvcGkvLm9jdG9hcHAtZWxlZ29vL29jdG9hcHAtc3RvcmUiLCAiQ29uZmlnRm9sZGVyIjoiL2hvbWUvcGkvLm9jdG9hcHAtZWxlZ29vLyIsICJDb21wYW5pb25JbnN0YW5jZUlkU3RyIjoiMSIgfQ==",
+                // { "ServiceName": "octoapp-elegoo", "VirtualEnvPath":"/home/clouddev/octoapp-env", "RepoRootFolder":"/home/clouddev/octoapp/", "LogFolder":"/home/clouddev/.octoapp-elegoo/logs", "LocalFileStoragePath":"/home/clouddev/.octoapp-elegoo/octoapp-store", "ConfigFolder":"/home/clouddev/.octoapp-elegoo/", "CompanionInstanceIdStr":"1" }
+                "eyAiU2VydmljZU5hbWUiOiAib2N0b2FwcC1lbGVnb28iLCAiVmlydHVhbEVudlBhdGgiOiIvaG9tZS9jbG91ZGRldi9vY3RvYXBwLWVudiIsICJSZXBvUm9vdEZvbGRlciI6Ii9ob21lL2Nsb3VkZGV2L29jdG9hcHAvIiwgIkxvZ0ZvbGRlciI6Ii9ob21lL2Nsb3VkZGV2Ly5vY3RvYXBwLWVsZWdvby9sb2dzIiwgIkxvY2FsRmlsZVN0b3JhZ2VQYXRoIjoiL2hvbWUvY2xvdWRkZXYvLm9jdG9hcHAtZWxlZ29vL29jdG9hcHAtc3RvcmUiLCAiQ29uZmlnRm9sZGVyIjoiL2hvbWUvY2xvdWRkZXYvLm9jdG9hcHAtZWxlZ29vLyIsICJDb21wYW5pb25JbnN0YW5jZUlkU3RyIjoiMSIgfQ==",
                 // We can optionally pass a dev config json object, which has dev specific overwrites we can make.
-                "{\"LocalServerAddress\":\"\", \"LogLevel\":\"DEBUG\"}"
+                "{\"LogLevel\":\"DEBUG\"}"
             ]
         },
         {
-            "name": "Bambu Connect - X1C",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "bambu_octoapp",
-            "justMyCode": false,
-            "args": [
-                // These args reflect the correct setup for a pi installed with the Bambu Connect version of the plugin. These args target the first instance.
-                //
-                // { "ServiceName": "octoapp-bambu", "VirtualEnvPath":"/home/pi/octoapp-env", "RepoRootFolder":"/home/pi/octoapp/", "LogFolder":"/home/pi/.octoapp-bambu/logs", "LocalFileStoragePath":"/home/pi/.octoapp-bambu/octoapp-store", "ConfigFolder":"/home/pi/.octoapp-bambu/", "CompanionInstanceIdStr":"1" }
-                "eyAiU2VydmljZU5hbWUiOiAib2N0b2FwcC1iYW1idSIsICJWaXJ0dWFsRW52UGF0aCI6Ii9ob21lL3BpL29jdG9hcHAtZW52IiwgIlJlcG9Sb290Rm9sZGVyIjoiL2hvbWUvcGkvb2N0b2FwcC8iLCAiTG9nRm9sZGVyIjoiL2hvbWUvcGkvLm9jdG9hcHAtYmFtYnUvbG9ncyIsICJMb2NhbEZpbGVTdG9yYWdlUGF0aCI6Ii9ob21lL3BpLy5vY3RvYXBwLWJhbWJ1L29jdG9hcHAtc3RvcmUiLCAiQ29uZmlnRm9sZGVyIjoiL2hvbWUvcGkvLm9jdG9hcHAtYmFtYnUvIiwgIkNvbXBhbmlvbkluc3RhbmNlSWRTdHIiOiIxIiB9",
-                // We can optionally pass a dev config json object, which has dev specific overwrites we can make.
-                "{\"LocalServerAddress\":\"\", \"LogLevel\":\"DEBUG\"}"
-            ]
-        },
-        {
-            "name": "Bambu Connect - P1S",
+            "name": "Bambu Connect - As Installed",
             "type": "debugpy",
             "request": "launch",
             "module": "bambu_octoapp",
@@ -75,14 +60,14 @@
             "args": [
                 // These args reflect the correct setup for a pi installed with the Bambu Connect version of the plugin. These args target the first instance.
                 //
-                // { "ServiceName": "octoapp-bambu-2", "VirtualEnvPath":"/home/pi/octoapp-env", "RepoRootFolder":"/home/pi/octoapp/", "LogFolder":"/home/pi/.octoapp-bambu-2/logs", "LocalFileStoragePath":"/home/pi/.octoapp-bambu-2/octoapp-store", "ConfigFolder":"/home/pi/.octoapp-bambu-2/", "CompanionInstanceIdStr":"1" }
-                "eyAiU2VydmljZU5hbWUiOiAib2N0b2FwcC1iYW1idS0yIiwgIlZpcnR1YWxFbnZQYXRoIjoiL2hvbWUvcGkvb2N0b2FwcC1lbnYiLCAiUmVwb1Jvb3RGb2xkZXIiOiIvaG9tZS9waS9vY3RvYXBwLyIsICJMb2dGb2xkZXIiOiIvaG9tZS9waS8ub2N0b2FwcC1iYW1idS0yL2xvZ3MiLCAiTG9jYWxGaWxlU3RvcmFnZVBhdGgiOiIvaG9tZS9waS8ub2N0b2FwcC1iYW1idS0yL29jdG9hcHAtc3RvcmUiLCAiQ29uZmlnRm9sZGVyIjoiL2hvbWUvcGkvLm9jdG9hcHAtYmFtYnUtMi8iLCAiQ29tcGFuaW9uSW5zdGFuY2VJZFN0ciI6IjEiIH0=",
+                // { "ServiceName": "octoapp-bambu", "VirtualEnvPath":"/home/clouddev/octoapp-env", "RepoRootFolder":"/home/clouddev/octoapp/", "LogFolder":"/home/clouddev/.octoapp-bambu/logs", "LocalFileStoragePath":"/home/clouddev/.octoapp-bambu/octoapp-store", "ConfigFolder":"/home/clouddev/.octoapp-bambu/", "CompanionInstanceIdStr":"1" }
+                "eyAiU2VydmljZU5hbWUiOiAib2N0b2FwcC1iYW1idSIsICJWaXJ0dWFsRW52UGF0aCI6Ii9ob21lL2Nsb3VkZGV2L29jdG9hcHAtZW52IiwgIlJlcG9Sb290Rm9sZGVyIjoiL2hvbWUvY2xvdWRkZXYvb2N0b2FwcC8iLCAiTG9nRm9sZGVyIjoiL2hvbWUvY2xvdWRkZXYvLm9jdG9hcHAtYmFtYnUvbG9ncyIsICJMb2NhbEZpbGVTdG9yYWdlUGF0aCI6Ii9ob21lL2Nsb3VkZGV2Ly5vY3RvYXBwLWJhbWJ1L29jdG9hcHAtc3RvcmUiLCAiQ29uZmlnRm9sZGVyIjoiL2hvbWUvY2xvdWRkZXYvLm9jdG9hcHAtYmFtYnUvIiwgIkNvbXBhbmlvbkluc3RhbmNlSWRTdHIiOiIxIiB9",
                 // We can optionally pass a dev config json object, which has dev specific overwrites we can make.
-                "{\"LocalServerAddress\":\"\", \"LogLevel\":\"DEBUG\"}"
+                "{\"LogLevel\":\"DEBUG\"}"
             ]
         },
         {
-            "name": "Companion 1 - Klipper",
+            "name": "Companion 1 - As Installed",
             "type": "debugpy",
             "request": "launch",
             "module": "moonraker_octoapp",
@@ -92,10 +77,10 @@
                 //
                 // This is the single instance setup
                 // {"ConfigFolder": "/home/pi/.octoapp-companion", "LogFolder": "/home/pi/.octoapp-companion/logs", "LocalFileStoragePath": "/home/pi/.octoapp-companion/octoapp-store", "ServiceName": "octoapp-companion", "VirtualEnvPath": "/home/pi/octoapp-env", "RepoRootFolder": "/home/pi/octoapp", "IsCompanion": true, "CompanionInstanceIdStr": "1"}
-                "eyJDb25maWdGb2xkZXIiOiAiL2hvbWUvcGkvLm9jdG9hcHAtY29tcGFuaW9uIiwgIkxvZ0ZvbGRlciI6ICIvaG9tZS9waS8ub2N0b2FwcC1jb21wYW5pb24vbG9ncyIsICJMb2NhbEZpbGVTdG9yYWdlUGF0aCI6ICIvaG9tZS9waS8ub2N0b2FwcC1jb21wYW5pb24vb2N0b2FwcC1zdG9yZSIsICJTZXJ2aWNlTmFtZSI6ICJvY3RvYXBwLWNvbXBhbmlvbiIsICJWaXJ0dWFsRW52UGF0aCI6ICIvaG9tZS9waS9vY3RvYXBwLWVudiIsICJSZXBvUm9vdEZvbGRlciI6ICIvaG9tZS9waS9vY3RvYXBwIiwgIklzQ29tcGFuaW9uIjogdHJ1ZSwgIkNvbXBhbmlvbkluc3RhbmNlSWRTdHIiOiAiMSJ9",
+                "eyJDb25maWdGb2xkZXIiOiAiL2hvbWUvY2xvdWRkZXYvLm9jdG9hcHAtY29tcGFuaW9uIiwgIkxvZ0ZvbGRlciI6ICIvaG9tZS9jbG91ZGRldi8ub2N0b2FwcC1jb21wYW5pb24vbG9ncyIsICJMb2NhbEZpbGVTdG9yYWdlUGF0aCI6ICIvaG9tZS9jbG91ZGRldi8ub2N0b2FwcC1jb21wYW5pb24vb2N0b2FwcC1zdG9yZSIsICJTZXJ2aWNlTmFtZSI6ICJvY3RvYXBwLWNvbXBhbmlvbiIsICJWaXJ0dWFsRW52UGF0aCI6ICIvaG9tZS9jbG91ZGRldi9vY3RvYXBwLWVudiIsICJSZXBvUm9vdEZvbGRlciI6ICIvaG9tZS9jbG91ZGRldi9vY3RvYXBwIiwgIklzQ29tcGFuaW9uIjogdHJ1ZSwgIkNvbXBhbmlvbkluc3RhbmNlSWRTdHIiOiAiMSJ9",
                 //
                 // We can optionally pass a dev config json object, which has dev specific overwrites we can make.
-                "{\"LocalServerAddress\":\"\", \"LogLevel\":\"DEBUG\"}"
+                "{\"LogLevel\":\"DEBUG\"}"
             ]
         },
         {

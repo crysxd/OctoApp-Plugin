@@ -15,6 +15,7 @@ from octoapp.compat import Compat
 from octoapp.interfaces import IHostCommandHandler, IPopUpInvoker, IStateChangeHandler
 from octoapp.logging import TaggedLoggingAdapter
 from octoapp.appsstorage import AppStorageHelper
+from octoapp.firebaseappstorage import FirebaseAppStorage
 
 from linux_host.config import Config
 from linux_host.secrets import Secrets
@@ -24,8 +25,7 @@ from linux_host.logger import LoggerInit
 from .bambucloud import BambuCloud
 from .bambuclient import BambuClient
 from .bambustatetranslater import BambuStateTranslator
-from .bambuappstorage import BambuAppStorage
-from .bambudatabase import BambuFtpDatabase
+from .bambuappstorage import BambuFirebaseIdentity
 
 # This file is the main host for the bambu service.
 class BambuHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
@@ -93,9 +93,8 @@ class BambuHost(IHostCommandHandler, IPopUpInvoker, IStateChangeHandler):
             # Set the printer ID into sentry.
             Sentry.SetPrinterId(printerId)
 
-            # Init "database"
-            database = BambuFtpDatabase(TaggedLoggingAdapter(self.RawLogger, "FTP"), printerId, pluginVersionStr, self.Config)
-            AppStorageHelper.Init(TaggedLoggingAdapter(self.RawLogger, "APPS"), BambuAppStorage(database))
+            # Init app storage
+            AppStorageHelper.Init(TaggedLoggingAdapter(self.RawLogger, "APPS"), FirebaseAppStorage(TaggedLoggingAdapter(self.RawLogger, "DATABASE"), pluginVersionStr, BambuFirebaseIdentity(self.Config)))
 
             # Unpack any dev vars that might exist
             DevLocalServerAddress_CanBeNone = self.GetDevConfigStr(devConfig, "LocalServerAddress")

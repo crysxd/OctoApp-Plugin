@@ -5,7 +5,8 @@ import threading
 from typing import Any, Dict, List, Optional
 
 import dns.resolver
-from octoapp.logging import LoggerLike
+
+from .logging import LoggerLike
 from .localip import LocalIpHelper
 
 # A helper class to resolve mdns domain names to IP addresses, since the request lib doesn't support
@@ -28,7 +29,7 @@ class MDns:
 
 
     @staticmethod
-    def Init(logger:LoggerLike, pluginDataFolderPath:str) -> None:
+    def Init(logger: LoggerLike, pluginDataFolderPath:str) -> None:
         MDns._Instance = MDns(logger, pluginDataFolderPath)
 
 
@@ -37,7 +38,7 @@ class MDns:
         return MDns._Instance
 
 
-    def __init__(self, logger:LoggerLike, pluginDataFolderPath:str) -> None:
+    def __init__(self, logger: LoggerLike, pluginDataFolderPath:str) -> None:
         self.Logger = logger
 
         # Init our DNS name cache.
@@ -99,7 +100,7 @@ class MDns:
 
         # If we don't get something back, we failed to resolve.
         if resolveResult is None:
-            self.LogDebug("mDNS found a .local domain to resolve, but it failed to resolve. hostname: "+str(hostname) + ", url: "+str(url))
+            self.Logger.info("mDNS found a .local domain to resolve, but it failed to resolve. hostname: "+str(hostname) + ", url: "+str(url))
             return None
 
         # Inject the IP resolved into the url.
@@ -163,7 +164,7 @@ class MDns:
             # Only allow 3 attempts to successfully resolve.
             attempt += 1
             if attempt > 3:
-                self.LogDebug("Failed to resolve mdns for domain "+str(domain))
+                self.Logger.info("Failed to resolve mdns for domain "+str(domain))
                 # Return none to indicate a failure.
                 return None
 
@@ -297,7 +298,7 @@ class MDns:
         c = 0
         for ip in ipList:
             if matches[c] is True:
-                self.LogDebug("MDNS got to end of of the IP string with multiple matches, so we will just return this: "+str(ip))
+                self.Logger.info("MDNS got to end of of the IP string with multiple matches, so we will just return this: "+str(ip))
                 return ip
             c += 1
 
