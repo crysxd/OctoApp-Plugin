@@ -203,12 +203,6 @@ class Context:
                 self.CompanionInstanceId = self.CompanionInstanceId.strip()
                 if self.OsType != OsTypes.Debian:
                     raise Exception("The OctoApp companion can only be installed on Debian based operating systems.")
-                if self.IsElegooSetup:
-                    Logger.Debug("Elegoo Connect setup detected during validation, ensuring printer protocol is set correctly.")
-                    if self.ElegooPrinterProtocol is None:
-                        raise Exception("Elegoo printer protocol was not set during validation for Elegoo Connect setup.")
-                    if self.ElegooPrinterProtocol != ElegooPrinterProtocols.Cc1 and self.ElegooPrinterProtocol != ElegooPrinterProtocols.Cc2:
-                        raise Exception("Elegoo printer protocol was set to an invalid value during validation for Elegoo Connect setup.")
             else:
                 self._ValidatePathAndExists(self.MoonrakerConfigFilePath, "Required config var Moonraker Config File Path was not found")
                 self._ValidateString(self.MoonrakerServiceFileName, "Required config var Moonraker Service File Name was not found")
@@ -216,6 +210,12 @@ class Context:
                 self.MoonrakerServiceFileName = self.MoonrakerServiceFileName.strip()
 
         if generation >= 3:
+            if self.IsElegooSetup:
+                Logger.Debug("Elegoo Connect setup detected during validation, ensuring printer protocol is set correctly.")
+                if self.ElegooPrinterProtocol is None:
+                    raise Exception("Elegoo printer protocol was not set during validation for Elegoo Connect setup.")
+                if self.ElegooPrinterProtocol != ElegooPrinterProtocols.Cc1 and self.ElegooPrinterProtocol != ElegooPrinterProtocols.Cc2:
+                    raise Exception("Elegoo printer protocol was set to an invalid value during validation for Elegoo Connect setup.")
             self._ValidatePathAndExists(self.RootFolder, "Required config var Root Folder was not found")
             self._ValidatePathAndExists(self.ConfigFolder, "Required config var Config Folder was not found")
             self._ValidatePathAndExists(self.LogsFolder, "Required config var Logs Folder was not found")
