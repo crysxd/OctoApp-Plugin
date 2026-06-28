@@ -159,6 +159,7 @@ class ElegooCc2Client:
         self.LastStatusId:Optional[int] = None
         self.MissedStatusCounter = 0
         self.LastPongTimeSec = 0.0
+        self.LastConnectionFailedDueToAuthError = False
 
         self.State:Optional[PrinterState] = None
         self.Attributes:Optional[PrinterAttributes] = None
@@ -205,6 +206,10 @@ class ElegooCc2Client:
 
     def IsDisconnectDueToTooManyClients(self) -> bool:
         return self.LastConnectionFailedDueToTooManyClients
+
+
+    def IsDisconnectDueToAuthError(self) -> bool:
+        return self.LastConnectionFailedDueToAuthError
 
 
     def GetMqttProxyConnectionContext(self, args:Optional[Dict[str, Any]], isClosed:Callable[[], bool]) -> Optional[MqttConnectionContext]:
@@ -349,11 +354,15 @@ class ElegooCc2Client:
                     Sentry.OnException(f"Failed to connect to the Elegoo CC2 printer {ipOrHostname}:{self.PortStr}. We will retry in a bit.", e)
 
             LocalWebApi.Get().SetPrinterConnectionState(False)
-            sleepDelay = self.ConsecutivelyFailedConnectionAttempts
-            sleepDelay = min(sleepDelay, 6)
-            sleepDelaySec = 5.0 * sleepDelay
-            self.Logger.info(f"Sleeping for {sleepDelaySec} seconds before trying to reconnect to the Elegoo CC2 printer.")
-            isConnectAttemptFromEventBump = self.SleepEvent.wait(sleepDelaySec)
+            if self.LastConnectionFailedDueToAuthError:
+                self.Logger.error("Elegoo CC2 MQTT auth failed. Update cc2_access_code in octoapp.conf under [elegoo] or re-run the installer. Retrying in 60 seconds.")
+                isConnectAttemptFromEventBump = self.SleepEvent.wait(60.0)
+            else:
+                sleepDelay = self.ConsecutivelyFailedConnectionAttempts
+                sleepDelay = min(sleepDelay, 6)
+                sleepDelaySec = 5.0 * sleepDelay
+                self.Logger.info(f"Sleeping for {sleepDelaySec} seconds before trying to reconnect to the Elegoo CC2 printer.")
+                isConnectAttemptFromEventBump = self.SleepEvent.wait(sleepDelaySec)
             self.SleepEvent.clear()
 
 
@@ -392,13 +401,18 @@ class ElegooCc2Client:
 
     def _OnConnect(self, client:mqtt.Client, userdata:Any, flags:Any, reason_code:Any, properties:Any) -> None:
         if reason_code.is_failure:
-            self.Logger.warning("Elegoo CC2 MQTT connection failed: %s", reason_code)
+            if reason_code == 5:
+                self.LastConnectionFailedDueToAuthError = True
+                self.Logger.error("Elegoo CC2 MQTT authentication failed (wrong access code). Update cc2_access_code in octoapp.conf under [elegoo] or re-run the installer.")
+            else:
+                self.Logger.warning("Elegoo CC2 MQTT connection failed: %s", reason_code)
             client.disconnect()
             return
 
         self.Logger.info("Connection to the Elegoo CC2 printer established. Registering client.")
         self.MqttConnected = True
         self.LastConnectionFailedDueToTooManyClients = False
+        self.LastConnectionFailedDueToAuthError = False
         if self.CurrentClientId is None:
             self.CurrentClientId = self._GenerateClientId()
         self.RegisterRequestId = f"{self.CurrentClientId}_req"

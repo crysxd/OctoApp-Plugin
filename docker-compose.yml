@@ -26,10 +26,17 @@ services:
 
 
         #
-        # Required for Elegoo Connect
+        # Required for Elegoo Connect (Centauri / Centauri 2)
         #
         #  Find using the printer's display or use https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-on-Elegoo-Centauri#finding-your-elegoos-ip-address
         #- PRINTER_IP=XXX.XXX.XXX.XXX
+        #
+        #  Required for Centauri 2 only - the LAN-only access code shown on the printer's touch screen under Settings > LAN Only.
+        #  If the access code is disabled on your printer, use the default value of '123456'.
+        #- ACCESS_CODE=123456
+        #
+        #  Optional for Centauri 2 only - the printer's serial number. Auto-detected on first run if not set.
+        #- SERIAL_NUMBER=XXXXXXXXXXXXXXX
 
 
         #
@@ -89,11 +96,18 @@ services:
   #       #- PRINTER_IP=10.0.0.23
 
 
-  #       #
-  #       # Required for Elegoo Connect
-  #       #
-  #       #  Find using the printer's display or use https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-on-Elegoo-Centauri#finding-your-elegoos-ip-address
-  #       #- PRINTER_IP=XXX.XXX.XXX.XXX
+        #
+        # Required for Elegoo Connect (Centauri / Centauri 2)
+        #
+        #  Find using the printer's display or use https://github.com/crysxd/OctoApp-Plugin/wiki/Installation-on-Elegoo-Centauri#finding-your-elegoos-ip-address
+        #- PRINTER_IP=XXX.XXX.XXX.XXX
+        #
+        #  Required for Centauri 2 only - the LAN-only access code shown on the printer's touch screen under Settings > LAN Only.
+        #  If the access code is disabled on your printer, use the default value of '123456'.
+        #- ACCESS_CODE=123456
+        #
+        #  Optional for Centauri 2 only - the printer's serial number. Auto-detected on first run if not set.
+        #- SERIAL_NUMBER=XXXXXXXXXXXXXXX
 
 
   #       #
