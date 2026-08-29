@@ -335,7 +335,7 @@ class NotificationsHandler(INotificationHandler):
             self._sendEvent(NotificationSender.EVENT_CUSTOM, { NotificationSender.STATE_CUSTOM_EVENT_MESSAGE: f"You reached the limit of {self.CustomNotificationLimit} Gcode notifications for this print"})
 
 
-    # Fired when a print fails
+    # Fired when a print fails or is cancelled
     def OnFailed(self, fileName:Optional[str], durationSecStr:Optional[str]=None, reason:Optional[str]=None):
         if self._shouldIgnoreEvent(fileName):
             return
@@ -346,7 +346,11 @@ class NotificationsHandler(INotificationHandler):
         args = {}
         if reason is not None:
             args["Reason"] = reason
-        self._sendEvent(NotificationSender.EVENT_ERROR, args)
+        # A cancel is a user action, not a fault. Send it as its own event so the apps can show the
+        # correct text and so the "error" filter only covers actual faults. Anything without an
+        # explicit cancel reason is treated as an error.
+        event = NotificationSender.EVENT_CANCELLED if reason == "cancelled" else NotificationSender.EVENT_ERROR
+        self._sendEvent(event, args)
 
 
     # Fired when a print done

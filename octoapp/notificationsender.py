@@ -181,6 +181,8 @@ class NotificationSender:
             filterName = "filament_required"
         elif event == self.EVENT_ERROR:
             filterName = "error"
+        elif event == self.EVENT_CANCELLED:
+            filterName = "cancelled"
         elif event == self.EVENT_USER_INTERACTION_NEEDED:
             filterName = "interaction"
         elif event == self.EVENT_BEEP:
@@ -271,6 +273,13 @@ class NotificationSender:
             else: 
                 self.Logger.error(f"Unhandled event: {event}")
 
+            # For errors we forward the error text so the app can show it. All other events carry
+            # the custom Gcode message, if there is one.
+            if event == self.EVENT_ERROR:
+                message = state.get(NotificationSender.STATE_ERROR, None)
+            else:
+                message = state.get(NotificationSender.STATE_CUSTOM_EVENT_MESSAGE, None)
+
             data = {
                 "serverTime": int(time.time()),
                 "serverTimePrecise": time.time(),
@@ -279,7 +288,7 @@ class NotificationSender:
                 "progress": state.get(NotificationSender.STATE_PROGRESS_PERCENT, None),
                 "timeLeft": state.get(NotificationSender.STATE_TIME_REMAINING_SEC, None),
                 "type": eventType,
-                "message": state.get(NotificationSender.STATE_CUSTOM_EVENT_MESSAGE, None)
+                "message": message
             }
 
         try:
