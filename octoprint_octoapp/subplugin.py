@@ -20,6 +20,19 @@ class IOctoAppSubPluginParent(
     octoprint.printer.PrinterCallback
 ):
 
+    # Mixin method
+    # Until OctoPrint 2.1.0 SimpleApiPlugin endpoints default to allowing unauthenticated access.
+    # We always require authentication, the individual commands check their permissions on top of that.
+    def is_api_protected(self) -> bool:
+        return True
+
+
+    # Mixin method
+    # Until OctoPrint 2.1.0 plugin templates are not autoescaped by default.
+    def is_template_autoescaped(self) -> bool:
+        return True
+
+
     @property
     @abstractmethod
     def PluginState(self) -> Dict[str, Any]:
