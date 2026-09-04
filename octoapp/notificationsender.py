@@ -273,10 +273,12 @@ class NotificationSender:
             else: 
                 self.Logger.error(f"Unhandled event: {event}")
 
-            # For errors we forward the error text so the app can show it. All other events carry
-            # the custom Gcode message, if there is one.
+            # For errors we forward the error text so the app can show it. This is always set to a
+            # non empty value: older plugin versions sent cancels as an error event without any
+            # message, so the app uses a missing message to detect them and stay quiet.
+            # All other events carry the custom Gcode message, if there is one.
             if event == self.EVENT_ERROR:
-                message = state.get(NotificationSender.STATE_ERROR, None)
+                message = state.get(NotificationSender.STATE_ERROR, None) or state.get("Reason", None) or "Print failed"
             else:
                 message = state.get(NotificationSender.STATE_CUSTOM_EVENT_MESSAGE, None)
 
