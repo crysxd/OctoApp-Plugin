@@ -93,7 +93,9 @@ class OctoAppNotificationsSubPlugin(OctoAppSubPlugin):
         elif event == "PrintFailed" or event == "PrintCancelled":
             fileName = self.GetDictStringOrEmpty(payload, "name")
             durationSec = self.GetDictStringOrEmpty(payload, "time")
-            reason = self.GetDictStringOrEmpty(payload, "reason")
+            # PrintCancelled carries no reason, but it is always a cancel. PrintFailed reports
+            # either "cancelled" or "error". OctoPrint fires both events for a single cancel.
+            reason = "cancelled" if event == "PrintCancelled" else self.GetDictStringOrEmpty(payload, "reason")
             self.NotificationHandler.OnFailed(fileName, durationSec, reason)
             self.LayerMagicDisabledAt = datetime.fromtimestamp(0)
         elif event == "PrintDone":

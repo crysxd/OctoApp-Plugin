@@ -77,7 +77,7 @@ class Updater:
         try:
             pluginVersionStr = Version.GetPluginVersion(context.RepoRootFolder)
         except Exception as e:
-            Logger.Warn("Failed to parse setup.py for plugin version. "+str(e))
+            Logger.Warn("Failed to parse pyproject.toml for plugin version. "+str(e))
 
         # Try to update the crontab job if needed
         self.EnsureCronUpdateJob(context.RepoRootFolder)
